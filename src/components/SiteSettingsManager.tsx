@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Save, Upload, X } from 'lucide-react';
+import { Save, Upload, X, Lock, Eye, EyeOff } from 'lucide-react';
 import { useSiteSettings } from '../hooks/useSiteSettings';
 import { useImageUpload } from '../hooks/useImageUpload';
+import { supabase } from '../lib/supabase';
 
 const SiteSettingsManager: React.FC = () => {
   const { siteSettings, loading, updateSiteSettings } = useSiteSettings();
@@ -15,6 +16,22 @@ const SiteSettingsManager: React.FC = () => {
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>('');
+  
+  // Password change state
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   React.useEffect(() => {
     if (siteSettings) {
@@ -86,6 +103,103 @@ const SiteSettingsManager: React.FC = () => {
     }
     setIsEditing(false);
     setLogoFile(null);
+  };
+
+  // Password change handlers
+  const handlePasswordInputChange = (field: keyof typeof passwordData, value: string) => {
+    setPasswordData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    setPasswordError('');
+    setPasswordSuccess('');
+  };
+
+  const handleChangePassword = async () => {
+    setPasswordError('');
+    setPasswordSuccess('');
+    setIsChangingPassword(true);
+
+    try {
+      // Validation
+      if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+        setPasswordError('All fields are required');
+        setIsChangingPassword(false);
+        return;
+      }
+
+      if (passwordData.newPassword.length < 6) {
+        setPasswordError('New password must be at least 6 characters long');
+        setIsChangingPassword(false);
+        return;
+      }
+
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        setPasswordError('New passwords do not match');
+        setIsChangingPassword(false);
+        return;
+      }
+
+      // Fetch current password from database
+      const { data: currentPasswordData, error: fetchError } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('id', 'admin_password')
+        .single();
+
+      if (fetchError) {
+        throw new Error('Failed to fetch current password');
+      }
+
+      const currentPassword = currentPasswordData?.value || 'AmberKin@Admin!2025';
+
+      // Verify current password
+      if (passwordData.currentPassword !== currentPassword) {
+        setPasswordError('Current password is incorrect');
+        setIsChangingPassword(false);
+        return;
+      }
+
+      // Update password in database
+      const { error: updateError } = await supabase
+        .from('site_settings')
+        .update({ value: passwordData.newPassword })
+        .eq('id', 'admin_password');
+
+      if (updateError) {
+        throw new Error('Failed to update password');
+      }
+
+      // Success
+      setPasswordSuccess('Password changed successfully!');
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      setShowPasswordSection(false);
+
+      // Reset success message after 3 seconds
+      setTimeout(() => {
+        setPasswordSuccess('');
+      }, 3000);
+    } catch (err) {
+      console.error('Error changing password:', err);
+      setPasswordError(err instanceof Error ? err.message : 'Failed to change password. Please try again.');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  const handleCancelPasswordChange = () => {
+    setPasswordData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setPasswordError('');
+    setPasswordSuccess('');
+    setShowPasswordSection(false);
   };
 
   if (loading) {
@@ -249,6 +363,123 @@ const SiteSettingsManager: React.FC = () => {
               <p className="text-lg font-medium text-black">{siteSettings?.currency_code}</p>
             )}
           </div>
+        </div>
+
+        {/* Password Change Section */}
+        <div className="border-t border-gray-200 pt-6 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <Lock className="h-5 w-5 text-gray-600" />
+              <h3 className="text-lg font-semibold text-black">Admin Password</h3>
+            </div>
+            {!showPasswordSection && (
+              <button
+                onClick={() => setShowPasswordSection(true)}
+                className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center space-x-2"
+              >
+                <Lock className="h-4 w-4" />
+                <span>Change Password</span>
+              </button>
+            )}
+          </div>
+
+          {showPasswordSection && (
+            <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+              {passwordSuccess && (
+                <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
+                  {passwordSuccess}
+                </div>
+              )}
+
+              {passwordError && (
+                <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+                  {passwordError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Current Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPasswords.current ? 'text' : 'password'}
+                    value={passwordData.currentPassword}
+                    onChange={(e) => handlePasswordInputChange('currentPassword', e.target.value)}
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    placeholder="Enter current password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showPasswords.current ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPasswords.new ? 'text' : 'password'}
+                    value={passwordData.newPassword}
+                    onChange={(e) => handlePasswordInputChange('newPassword', e.target.value)}
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    placeholder="Enter new password (min. 6 characters)"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showPasswords.new ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPasswords.confirm ? 'text' : 'password'}
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => handlePasswordInputChange('confirmPassword', e.target.value)}
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    placeholder="Confirm new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showPasswords.confirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex space-x-2 pt-2">
+                <button
+                  onClick={handleCancelPasswordChange}
+                  className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleChangePassword}
+                  disabled={isChangingPassword}
+                  className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isChangingPassword ? 'Changing...' : 'Change Password'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

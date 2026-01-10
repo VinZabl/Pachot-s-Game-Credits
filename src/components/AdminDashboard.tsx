@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Save, X, ArrowLeft, TrendingUp, Package, Users, Lock, FolderOpen, CreditCard, Settings } from 'lucide-react';
 import { MenuItem, Variation, CustomField } from '../types';
 import { useMenu } from '../hooks/useMenu';
@@ -7,6 +7,7 @@ import ImageUpload from './ImageUpload';
 import CategoryManager from './CategoryManager';
 import PaymentMethodManager from './PaymentMethodManager';
 import SiteSettingsManager from './SiteSettingsManager';
+import { supabase } from '../lib/supabase';
 
 const AdminDashboard: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -14,9 +15,32 @@ const AdminDashboard: React.FC = () => {
   });
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [adminPassword, setAdminPassword] = useState<string>('AmberKin@Admin!2025'); // Default fallback
   const { menuItems, loading, addMenuItem, updateMenuItem, deleteMenuItem } = useMenu();
   const { categories } = useCategories();
   const [currentView, setCurrentView] = useState<'dashboard' | 'items' | 'add' | 'edit' | 'categories' | 'payments' | 'settings'>('dashboard');
+
+  // Fetch admin password from database on mount
+  useEffect(() => {
+    const fetchAdminPassword = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('site_settings')
+          .select('value')
+          .eq('id', 'admin_password')
+          .single();
+
+        if (!error && data?.value) {
+          setAdminPassword(data.value);
+        }
+      } catch (err) {
+        console.error('Error fetching admin password:', err);
+        // Keep default password on error
+      }
+    };
+
+    fetchAdminPassword();
+  }, []);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -261,14 +285,39 @@ const AdminDashboard: React.FC = () => {
     count: menuItems.filter(item => item.category === cat.id).length
   }));
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'AmberKin@Admin!2025') {
-      setIsAuthenticated(true);
-      localStorage.setItem('beracah_admin_auth', 'true');
-      setLoginError('');
-    } else {
-      setLoginError('Invalid password');
+    // Fetch latest password from database before checking
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('id', 'admin_password')
+        .single();
+
+      const currentPassword = error ? adminPassword : (data?.value || adminPassword);
+
+      if (password === currentPassword) {
+        setIsAuthenticated(true);
+        localStorage.setItem('beracah_admin_auth', 'true');
+        setLoginError('');
+        setPassword('');
+        if (data?.value) {
+          setAdminPassword(data.value);
+        }
+      } else {
+        setLoginError('Invalid password');
+      }
+    } catch (err) {
+      // Fallback to stored password on error
+      if (password === adminPassword) {
+        setIsAuthenticated(true);
+        localStorage.setItem('beracah_admin_auth', 'true');
+        setLoginError('');
+        setPassword('');
+      } else {
+        setLoginError('Invalid password');
+      }
     }
   };
 
