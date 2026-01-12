@@ -597,7 +597,7 @@ Please confirm this order to proceed. Thank you for choosing AmberKin! 🎮
                 <div className="flex-1">
                   <p className="text-sm text-cafe-textMuted mb-1">{selectedPaymentMethod.name}</p>
                   <div className="flex items-center gap-2 mb-1">
-                    <p className="font-mono text-cafe-text font-medium">{selectedPaymentMethod.account_number}</p>
+                    <p className="font-mono text-cafe-text font-medium text-xl md:text-2xl">{selectedPaymentMethod.account_number}</p>
                     <button
                       onClick={() => handleCopyAccountNumber(selectedPaymentMethod.account_number)}
                       className="px-3 py-1.5 glass-strong rounded-lg hover:bg-cafe-primary/20 transition-colors duration-200 flex-shrink-0 text-sm font-medium"
