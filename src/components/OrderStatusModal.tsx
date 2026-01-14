@@ -83,28 +83,35 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="glass-card rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-semibold text-cafe-text">Order Status</h2>
-            {order && (
-              <p className="text-sm text-cafe-textMuted mt-1">
-                Order #{order.id.slice(0, 8)}
-              </p>
-            )}
+        <div className="mb-6">
+          {order && (order.status === 'pending' || order.status === 'processing') && (
+            <p className="text-xs text-yellow-200 mb-4 font-light">
+              Please do not exit this website while your order is being processed
+            </p>
+          )}
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h2 className="text-2xl font-semibold text-cafe-text">Order Status</h2>
+              {order && (
+                <p className="text-sm text-cafe-textMuted mt-1">
+                  Order #{order.id.slice(0, 8)}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => {
+                // If order is succeeded and onSucceededClose is provided, call it
+                if (order?.status === 'approved' && onSucceededClose) {
+                  onSucceededClose();
+                } else {
+                  onClose();
+                }
+              }}
+              className="p-2 glass-strong rounded-lg hover:bg-cafe-primary/20 transition-colors duration-200"
+            >
+              <X className="h-5 w-5 text-cafe-text" />
+            </button>
           </div>
-          <button
-            onClick={() => {
-              // If order is succeeded and onSucceededClose is provided, call it
-              if (order?.status === 'approved' && onSucceededClose) {
-                onSucceededClose();
-              } else {
-                onClose();
-              }
-            }}
-            className="p-2 glass-strong rounded-lg hover:bg-cafe-primary/20 transition-colors duration-200"
-          >
-            <X className="h-5 w-5 text-cafe-text" />
-          </button>
         </div>
 
         {loading ? (
