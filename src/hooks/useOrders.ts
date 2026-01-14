@@ -8,9 +8,11 @@ export const useOrders = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Fetch all orders
-  const fetchOrders = async () => {
+  const fetchOrders = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
       const { data, error: fetchError } = await supabase
         .from('orders')
         .select('*')
@@ -24,7 +26,9 @@ export const useOrders = () => {
       setError(err instanceof Error ? err.message : 'Failed to fetch orders');
       console.error('Error fetching orders:', err);
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -98,10 +102,18 @@ export const useOrders = () => {
     }
   };
 
-  // Subscribe to order updates (real-time)
+  // Fetch orders on mount and subscribe to order updates (real-time + polling fallback)
   useEffect(() => {
+    // Fetch orders initially
+    fetchOrders();
+
+    // Subscribe to real-time updates
     const channel = supabase
-      .channel('orders-changes')
+      .channel('orders-changes', {
+        config: {
+          broadcast: { self: true },
+        },
+      })
       .on(
         'postgres_changes',
         {
@@ -109,14 +121,29 @@ export const useOrders = () => {
           schema: 'public',
           table: 'orders',
         },
-        () => {
-          fetchOrders();
+        (payload) => {
+          console.log('Order change detected:', payload);
+          // Fetch fresh orders when any change occurs (without showing loading state)
+          fetchOrders(false);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Subscribed to order changes');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('Error subscribing to order changes');
+        }
+      });
+
+    // Polling fallback: Check for new orders every 5 seconds
+    // This ensures updates even if real-time subscription fails
+    const pollInterval = setInterval(() => {
+      fetchOrders(false);
+    }, 5000); // Poll every 5 seconds
 
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(pollInterval);
     };
   }, []);
 

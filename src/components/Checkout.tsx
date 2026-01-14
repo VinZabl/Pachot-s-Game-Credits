@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useRef } from 'react';
-import { ArrowLeft, Upload, X, Copy, Check, MousePointerClick, Download } from 'lucide-react';
-import { CartItem, PaymentMethod, CustomField } from '../types';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { ArrowLeft, Upload, X, Copy, Check, MousePointerClick, Download, Eye } from 'lucide-react';
+import { CartItem, PaymentMethod, CustomField, OrderStatus } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { useOrders } from '../hooks/useOrders';
@@ -17,7 +17,7 @@ interface CheckoutProps {
 const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNavigateToMenu }) => {
   const { paymentMethods } = usePaymentMethods();
   const { uploadImage, uploading: uploadingReceipt } = useImageUpload();
-  const { createOrder } = useOrders();
+  const { createOrder, fetchOrderById } = useOrders();
   const { siteSettings } = useSiteSettings();
   const orderOption = siteSettings?.order_option || 'order_via_messenger';
   const [step, setStep] = useState<'details' | 'payment' | 'summary'>('details');
@@ -39,6 +39,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
   const [orderId, setOrderId] = useState<string | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [existingOrderStatus, setExistingOrderStatus] = useState<OrderStatus | null>(null);
+  const [existingOrderId, setExistingOrderId] = useState<string | null>(null);
+  const [isCheckingExistingOrder, setIsCheckingExistingOrder] = useState(true);
 
   // Extract original menu item ID from cart item ID (format: "menuItemId:::CART:::timestamp-random")
   // This allows us to group all packages from the same game together
@@ -65,6 +68,70 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
   }, [cartItems]);
 
   const hasAnyCustomFields = itemsWithCustomFields.length > 0;
+
+  // Check for existing order on mount (after itemsWithCustomFields and hasAnyCustomFields are defined)
+  useEffect(() => {
+    const checkExistingOrder = async () => {
+      const storedOrderId = localStorage.getItem('current_order_id');
+      if (storedOrderId) {
+        const order = await fetchOrderById(storedOrderId);
+        if (order) {
+          setExistingOrderId(order.id);
+          setExistingOrderStatus(order.status);
+          setOrderId(order.id);
+          
+          // Load customer information from rejected order into form fields
+          if (order.status === 'rejected' && order.customer_info) {
+            const loadedValues: Record<string, string> = {};
+            Object.entries(order.customer_info).forEach(([key, value]) => {
+              // Skip payment method as it's not editable
+              if (key !== 'Payment Method') {
+                // Try to match with custom fields
+                if (hasAnyCustomFields) {
+                  itemsWithCustomFields.forEach((item) => {
+                    const originalId = getOriginalMenuItemId(item.id);
+                    item.customFields?.forEach(field => {
+                      if (field.label === key) {
+                        const valueKey = `${originalId}_${field.key}`;
+                        loadedValues[valueKey] = value as string;
+                      }
+                    });
+                  });
+                } else {
+                  // Default IGN field
+                  if (key === 'IGN') {
+                    loadedValues['default_ign'] = value as string;
+                  }
+                }
+              }
+            });
+            // Only update if we have values to load
+            if (Object.keys(loadedValues).length > 0) {
+              setCustomFieldValues(prev => ({ ...prev, ...loadedValues }));
+            }
+          }
+          
+          // Clear localStorage if order is approved or rejected
+          if (order.status === 'approved' || order.status === 'rejected') {
+            localStorage.removeItem('current_order_id');
+            // For rejected orders, keep the IDs so user can see the order and place a new one
+            // Only clear them if order is approved (succeeded)
+            if (order.status === 'approved') {
+              setExistingOrderStatus(null);
+              setExistingOrderId(null);
+              setOrderId(null);
+            }
+          }
+        } else {
+          // Order not found, clear localStorage
+          localStorage.removeItem('current_order_id');
+        }
+      }
+      setIsCheckingExistingOrder(false);
+    };
+
+    checkExistingOrder();
+  }, [fetchOrderById, hasAnyCustomFields, itemsWithCustomFields]);
 
   // Get bulk input fields based on selected games - position-based
   // If selected games have N fields, show N bulk input fields
@@ -479,6 +546,10 @@ Please confirm this order to proceed. Thank you for choosing AmberKin! 🎮
 
       if (newOrder) {
         setOrderId(newOrder.id);
+        setExistingOrderId(newOrder.id);
+        setExistingOrderStatus(newOrder.status);
+        // Store order ID in localStorage
+        localStorage.setItem('current_order_id', newOrder.id);
         setIsOrderModalOpen(true);
       } else {
         setReceiptError('Failed to create order. Please try again.');
@@ -633,7 +704,10 @@ Please confirm this order to proceed. Thank you for choosing AmberKin! 🎮
                               ...customFieldValues,
                               [valueKey]: e.target.value
                             })}
-                            className="w-full px-4 py-3 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-cafe-text placeholder-cafe-textMuted"
+                            disabled={existingOrderStatus === 'pending' || existingOrderStatus === 'processing'}
+                            className={`w-full px-4 py-3 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-cafe-text placeholder-cafe-textMuted ${
+                              existingOrderStatus === 'pending' || existingOrderStatus === 'processing' ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
                             placeholder={field.placeholder || field.label}
                             required={field.required}
                           />
@@ -654,7 +728,10 @@ Please confirm this order to proceed. Thank you for choosing AmberKin! 🎮
                       ...customFieldValues,
                       ['default_ign']: e.target.value
                     })}
-                    className="w-full px-4 py-3 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-cafe-text placeholder-cafe-textMuted"
+                    disabled={existingOrderStatus === 'pending' || existingOrderStatus === 'processing'}
+                    className={`w-full px-4 py-3 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-cafe-text placeholder-cafe-textMuted ${
+                      existingOrderStatus === 'pending' || existingOrderStatus === 'processing' ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                     placeholder="In game name"
                     required
                   />
@@ -976,31 +1053,88 @@ Please confirm this order to proceed. Thank you for choosing AmberKin! 🎮
         {/* Customer Information Display */}
         <div className="mb-6">
           <h4 className="font-medium text-cafe-text mb-2">Customer Information</h4>
-          <div className="space-y-1">
+          <div className="space-y-3">
             {selectedPaymentMethod && (
-              <p className="text-sm text-cafe-textMuted">Payment Method: {selectedPaymentMethod.name}</p>
+              <div>
+                <label className="block text-sm font-medium text-cafe-text mb-1">
+                  Payment Method
+                </label>
+                <p className="text-sm text-cafe-textMuted">{selectedPaymentMethod.name}</p>
+              </div>
             )}
-            {hasAnyCustomFields ? (
-              itemsWithCustomFields.map((item) => {
-                const originalId = getOriginalMenuItemId(item.id);
-                const fields = item.customFields?.map(field => {
-                  const valueKey = `${originalId}_${field.key}`;
-                  const value = customFieldValues[valueKey];
-                  return value ? (
-                    <p key={valueKey} className="text-sm text-cafe-textMuted">
-                      {field.label}: {value}
-                    </p>
-                  ) : null;
-                }).filter(Boolean);
-                
-                return fields && fields.length > 0 ? fields : null;
-              })
+            {existingOrderStatus === 'rejected' ? (
+              // Editable fields when order is rejected
+              <>
+                {hasAnyCustomFields ? (
+                  itemsWithCustomFields.map((item) => {
+                    const originalId = getOriginalMenuItemId(item.id);
+                    return item.customFields?.map(field => {
+                      const valueKey = `${originalId}_${field.key}`;
+                      return (
+                        <div key={valueKey}>
+                          <label className="block text-sm font-medium text-cafe-text mb-2">
+                            {field.label} {field.required && <span className="text-red-500">*</span>}
+                          </label>
+                          <input
+                            type="text"
+                            value={customFieldValues[valueKey] || ''}
+                            onChange={(e) => setCustomFieldValues({
+                              ...customFieldValues,
+                              [valueKey]: e.target.value
+                            })}
+                            className="w-full px-4 py-3 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-cafe-text placeholder-cafe-textMuted"
+                            placeholder={field.placeholder || field.label}
+                            required={field.required}
+                          />
+                        </div>
+                      );
+                    });
+                  })
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-cafe-text mb-2">
+                      IGN <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={customFieldValues['default_ign'] || ''}
+                      onChange={(e) => setCustomFieldValues({
+                        ...customFieldValues,
+                        ['default_ign']: e.target.value
+                      })}
+                      className="w-full px-4 py-3 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-cafe-text placeholder-cafe-textMuted"
+                      placeholder="In game name"
+                      required
+                    />
+                  </div>
+                )}
+              </>
             ) : (
-              customFieldValues['default_ign'] && (
-                <p className="text-sm text-cafe-textMuted">
-                  IGN: {customFieldValues['default_ign']}
-                </p>
-              )
+              // Read-only display when order is not rejected
+              <div className="space-y-1">
+                {hasAnyCustomFields ? (
+                  itemsWithCustomFields.map((item) => {
+                    const originalId = getOriginalMenuItemId(item.id);
+                    const fields = item.customFields?.map(field => {
+                      const valueKey = `${originalId}_${field.key}`;
+                      const value = customFieldValues[valueKey];
+                      return value ? (
+                        <p key={valueKey} className="text-sm text-cafe-textMuted">
+                          {field.label}: {value}
+                        </p>
+                      ) : null;
+                    }).filter(Boolean);
+                    
+                    return fields && fields.length > 0 ? fields : null;
+                  })
+                ) : (
+                  customFieldValues['default_ign'] && (
+                    <p className="text-sm text-cafe-textMuted">
+                      IGN: {customFieldValues['default_ign']}
+                    </p>
+                  )
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -1144,26 +1278,47 @@ Please confirm this order to proceed. Thank you for choosing AmberKin! 🎮
             </>
           ) : (
             <>
-              {/* Place Order button - for place_order option */}
-              <button
-                onClick={handlePlaceOrderDirect}
-                disabled={!paymentMethod || !receiptImageUrl || uploadingReceipt || isPlacingOrder}
-                className={`relative w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform ${
-                  paymentMethod && receiptImageUrl && !uploadingReceipt && !isPlacingOrder
-                    ? 'text-white hover:opacity-90 hover:scale-[1.02]'
-                    : 'glass text-cafe-textMuted cursor-not-allowed'
-                }`}
-                style={paymentMethod && receiptImageUrl && !uploadingReceipt && !isPlacingOrder ? { backgroundColor: '#1E7ACB' } : {}}
-              >
-                <div className={`absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                  paymentMethod && receiptImageUrl && !uploadingReceipt && !isPlacingOrder
-                    ? 'bg-cafe-primary text-white'
-                    : 'bg-cafe-textMuted/30 text-cafe-textMuted'
-                }`}>
-                  2
-                </div>
-                {isPlacingOrder ? 'Placing Order...' : 'Place Order'}
-              </button>
+              {/* Show View Order button if order is processing/pending, Place Order if rejected or no order */}
+              {existingOrderStatus === 'pending' || existingOrderStatus === 'processing' ? (
+                <button
+                  onClick={() => {
+                    if (existingOrderId) {
+                      setOrderId(existingOrderId);
+                      setIsOrderModalOpen(true);
+                    }
+                  }}
+                  className="relative w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform text-white hover:opacity-90 hover:scale-[1.02]"
+                  style={{ backgroundColor: '#1E7ACB' }}
+                >
+                  <div className="absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-cafe-primary text-white">
+                    2
+                  </div>
+                  <div className="flex items-center justify-center gap-2">
+                    <Eye className="h-5 w-5" />
+                    View Order
+                  </div>
+                </button>
+              ) : (
+                <button
+                  onClick={handlePlaceOrderDirect}
+                  disabled={!paymentMethod || !receiptImageUrl || uploadingReceipt || isPlacingOrder}
+                  className={`relative w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform ${
+                    paymentMethod && receiptImageUrl && !uploadingReceipt && !isPlacingOrder
+                      ? 'text-white hover:opacity-90 hover:scale-[1.02]'
+                      : 'glass text-cafe-textMuted cursor-not-allowed'
+                  }`}
+                  style={paymentMethod && receiptImageUrl && !uploadingReceipt && !isPlacingOrder ? { backgroundColor: '#1E7ACB' } : {}}
+                >
+                  <div className={`absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                    paymentMethod && receiptImageUrl && !uploadingReceipt && !isPlacingOrder
+                      ? 'bg-cafe-primary text-white'
+                      : 'bg-cafe-textMuted/30 text-cafe-textMuted'
+                  }`}>
+                    2
+                  </div>
+                  {isPlacingOrder ? 'Placing Order...' : existingOrderStatus === 'rejected' ? 'Order Again' : 'Place Order'}
+                </button>
+              )}
             </>
           )}
         </div>
@@ -1173,8 +1328,38 @@ Please confirm this order to proceed. Thank you for choosing AmberKin! 🎮
       <OrderStatusModal
         orderId={orderId}
         isOpen={isOrderModalOpen}
-        onClose={() => setIsOrderModalOpen(false)}
-        onSucceededClose={onNavigateToMenu}
+        onClose={() => {
+          setIsOrderModalOpen(false);
+          // Check order status when modal closes
+          if (orderId) {
+            fetchOrderById(orderId).then(order => {
+              if (order) {
+                setExistingOrderStatus(order.status);
+                if (order.status === 'approved' || order.status === 'rejected') {
+                  localStorage.removeItem('current_order_id');
+                  // Keep orderId and existingOrderId for rejected orders so user can see the info
+                  // Only clear them if order is approved (succeeded)
+                  if (order.status === 'approved') {
+                    setExistingOrderStatus(null);
+                    setExistingOrderId(null);
+                    setOrderId(null);
+                  }
+                  // For rejected orders, keep the IDs so the button shows "Order Again"
+                  // and user can still view the order details
+                }
+              }
+            });
+          }
+        }}
+        onSucceededClose={() => {
+          localStorage.removeItem('current_order_id');
+          setExistingOrderStatus(null);
+          setExistingOrderId(null);
+          setOrderId(null);
+          if (onNavigateToMenu) {
+            onNavigateToMenu();
+          }
+        }}
       />
     </div>
   );

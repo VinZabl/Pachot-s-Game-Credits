@@ -3,6 +3,7 @@ import { Plus, Edit, Trash2, Save, X, ArrowLeft, TrendingUp, Package, Users, Loc
 import { MenuItem, Variation, CustomField } from '../types';
 import { useMenu } from '../hooks/useMenu';
 import { useCategories } from '../hooks/useCategories';
+import { useOrders } from '../hooks/useOrders';
 import ImageUpload from './ImageUpload';
 import CategoryManager from './CategoryManager';
 import PaymentMethodManager from './PaymentMethodManager';
@@ -19,7 +20,11 @@ const AdminDashboard: React.FC = () => {
   const [adminPassword, setAdminPassword] = useState<string>('AmberKin@Admin!2025'); // Default fallback
   const { menuItems, loading, addMenuItem, updateMenuItem, deleteMenuItem } = useMenu();
   const { categories } = useCategories();
+  const { orders } = useOrders();
   const [currentView, setCurrentView] = useState<'dashboard' | 'items' | 'add' | 'edit' | 'categories' | 'payments' | 'settings' | 'orders'>('dashboard');
+  
+  // Count new orders (pending or processing)
+  const newOrdersCount = orders.filter(order => order.status === 'pending' || order.status === 'processing').length;
 
   // Fetch admin password from database on mount
   useEffect(() => {
@@ -2029,10 +2034,15 @@ const AdminDashboard: React.FC = () => {
               </button>
               <button
                 onClick={() => setCurrentView('orders')}
-                className="w-full flex items-center space-x-3 p-2 md:p-3 text-left hover:bg-gray-50 rounded-lg transition-colors duration-200"
+                className="w-full flex items-center space-x-3 p-2 md:p-3 text-left hover:bg-gray-50 rounded-lg transition-colors duration-200 relative"
               >
                 <ShoppingBag className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
                 <span className="text-sm md:text-base font-medium text-gray-900">Orders</span>
+                {newOrdersCount > 0 && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
+                    {newOrdersCount > 99 ? '99+' : newOrdersCount}
+                  </span>
+                )}
               </button>
               <button
                 onClick={() => setCurrentView('settings')}

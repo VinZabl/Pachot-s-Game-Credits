@@ -15,19 +15,27 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const isInitialLoad = useRef(true);
+  const shouldContinuePolling = useRef(true);
 
   useEffect(() => {
     if (isOpen && orderId) {
       isInitialLoad.current = true;
+      shouldContinuePolling.current = true;
       loadOrder(true);
-      // Poll for order updates every 3 seconds
-      const interval = setInterval(() => loadOrder(false), 3000);
+      // Poll for order updates every 3 seconds, but stop if order is in final state
+      const interval = setInterval(() => {
+        // Only continue polling if we should (order is still pending or processing)
+        if (shouldContinuePolling.current) {
+          loadOrder(false);
+        }
+      }, 3000);
       return () => clearInterval(interval);
     } else {
       // Reset when modal closes
       setOrder(null);
       setLoading(true);
       isInitialLoad.current = true;
+      shouldContinuePolling.current = true;
     }
   }, [isOpen, orderId]);
 
@@ -41,17 +49,30 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
     const orderData = await fetchOrderById(orderId);
     
     if (orderData) {
-      // Only update if status or updated_at changed (indicating a real update)
+      // Stop polling if order reaches final state (approved or rejected)
+      if (orderData.status === 'approved' || orderData.status === 'rejected') {
+        shouldContinuePolling.current = false;
+      }
+      
+      // Always update the order data to ensure it stays visible
+      // Only skip update if it's a non-initial load and nothing has changed
       setOrder(prevOrder => {
         if (!prevOrder || isInitial) {
           return orderData;
         }
-        // Only update if status or updated_at timestamp changed
+        // Update if status or updated_at timestamp changed, OR if we don't have previous data
         if (prevOrder.status !== orderData.status || prevOrder.updated_at !== orderData.updated_at) {
           return orderData;
         }
-        return prevOrder; // Keep previous order to prevent unnecessary re-renders
+        // Keep previous order if nothing changed (to prevent unnecessary re-renders)
+        return prevOrder;
       });
+    } else {
+      // If order data is not found, only clear on initial load
+      // Otherwise keep the existing order data visible
+      if (isInitial) {
+        setOrder(null);
+      }
     }
     
     if (isInitial) {
@@ -71,7 +92,7 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
       case 'approved':
         return { text: 'Succeeded', icon: CheckCircle, color: 'text-green-400' };
       case 'rejected':
-        return { text: 'Cancelled', icon: XCircle, color: 'text-red-400' };
+        return { text: 'Rejected', icon: XCircle, color: 'text-red-400' };
       default:
         return { text: 'Processing', icon: Loader2, color: 'text-cafe-primary' };
     }
@@ -114,7 +135,7 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
           </div>
         </div>
 
-        {loading ? (
+        {loading && !order ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 text-cafe-primary animate-spin" />
           </div>
