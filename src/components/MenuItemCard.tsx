@@ -96,10 +96,10 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
           }
         }}
       >
-        {/* Close Text Overlay for unavailable items */}
+        {/* Closed Text Overlay for unavailable items */}
         {!item.available && (
           <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-xl z-10">
-            <span className="text-white font-bold text-lg sm:text-xl opacity-90">Close</span>
+            <span className="text-white font-bold text-lg sm:text-xl opacity-90 font-anton italic">Closed</span>
           </div>
         )}
         {/* Square Game Icon on Left */}
