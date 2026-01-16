@@ -114,6 +114,12 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
           <div className={`absolute inset-0 flex items-center justify-center ${item.image ? 'hidden' : ''}`}>
             <div className="text-4xl opacity-20 text-gray-400">🎮</div>
           </div>
+          {/* X Icon Overlay for unavailable items */}
+          {!item.available && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-lg">
+              <X className="w-8 h-8 sm:w-10 sm:h-10 text-white opacity-90" strokeWidth={3} />
+            </div>
+          )}
         </div>
         
         {/* Game Name and Info on Right */}

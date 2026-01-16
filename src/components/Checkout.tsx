@@ -5,7 +5,6 @@ import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { useOrders } from '../hooks/useOrders';
 import { useSiteSettings } from '../hooks/useSiteSettings';
-import { supabase } from '../lib/supabase';
 import OrderStatusModal from './OrderStatusModal';
 
 interface CheckoutProps {
@@ -37,12 +36,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
   const [copiedAccountName, setCopiedAccountName] = useState(false);
   const [bulkInputValues, setBulkInputValues] = useState<Record<string, string>>({});
   const [bulkSelectedGames, setBulkSelectedGames] = useState<string[]>([]);
-  const [useMultipleAccounts, setUseMultipleAccounts] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-  const [generatedInvoiceNumber, setGeneratedInvoiceNumber] = useState<string | null>(null);
-  const [invoiceNumberDate, setInvoiceNumberDate] = useState<string | null>(null); // Track the date when invoice was generated
 
   // Extract original menu item ID from cart item ID (format: "menuItemId:::CART:::timestamp-random")
   // This allows us to group all packages from the same game together
@@ -69,80 +65,6 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
   }, [cartItems]);
 
   const hasAnyCustomFields = itemsWithCustomFields.length > 0;
-
-  // Detect if we can use multiple accounts (same game with different packages)
-  const canUseMultipleAccounts = useMemo(() => {
-    if (!hasAnyCustomFields) return false;
-    
-    // Group cart items by original menu item ID (game)
-    const itemsByGame = new Map<string, typeof cartItems>();
-    cartItems.forEach(item => {
-      const originalId = getOriginalMenuItemId(item.id);
-      if (!itemsByGame.has(originalId)) {
-        itemsByGame.set(originalId, []);
-      }
-      itemsByGame.get(originalId)!.push(item);
-    });
-    
-    // Check if any game has multiple different packages (variations)
-    for (const [gameId, items] of itemsByGame.entries()) {
-      const variations = new Set(items.map(item => item.selectedVariation?.id || 'none'));
-      if (variations.size > 1) {
-        return true; // Found a game with multiple different packages
-      }
-    }
-    
-    return false;
-  }, [cartItems, hasAnyCustomFields]);
-
-  // Get items grouped by game and variation for multiple accounts
-  const itemsByGameAndVariation = useMemo(() => {
-    if (!canUseMultipleAccounts) return [];
-    
-    const grouped = new Map<string, Map<string, typeof cartItems[0][]>>();
-    
-    cartItems.forEach(item => {
-      const originalId = getOriginalMenuItemId(item.id);
-      const variationId = item.selectedVariation?.id || 'none';
-      
-      if (!grouped.has(originalId)) {
-        grouped.set(originalId, new Map());
-      }
-      const gameMap = grouped.get(originalId)!;
-      
-      if (!gameMap.has(variationId)) {
-        gameMap.set(variationId, []);
-      }
-      gameMap.get(variationId)!.push(item);
-    });
-    
-    // Convert to array format
-    const result: Array<{
-      gameId: string;
-      gameName: string;
-      variationId: string;
-      variationName: string;
-      items: typeof cartItems;
-    }> = [];
-    
-    grouped.forEach((variations, gameId) => {
-      const firstItem = cartItems.find(item => getOriginalMenuItemId(item.id) === gameId);
-      if (!firstItem) return;
-      
-      variations.forEach((items, variationId) => {
-        const variation = items[0].selectedVariation;
-        result.push({
-          gameId,
-          gameName: firstItem.name,
-          variationId,
-          variationName: variation?.name || 'Default',
-          items
-        });
-      });
-    });
-    
-    return result;
-  }, [cartItems, canUseMultipleAccounts]);
 
   // Get bulk input fields based on selected games - position-based
   // If selected games have N fields, show N bulk input fields
@@ -300,231 +222,97 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
     setReceiptPreview(null);
     setReceiptError(null);
     setHasCopiedMessage(false); // Reset copy state when receipt is removed
-    setGeneratedInvoiceNumber(null); // Reset invoice number when receipt is removed
-    setInvoiceNumberDate(null); // Reset invoice date when receipt is removed
-  };
-
-  // Generate invoice number in format: 1M12D1 (month, day, order number)
-  const generateInvoiceNumber = async (): Promise<string> => {
-    try {
-      const now = new Date();
-      const month = now.getMonth() + 1; // 1-12
-      const day = now.getDate(); // 1-31
-      
-      // Get start and end of today
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-      
-      // Count orders created today
-      const { count, error } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', startOfDay.toISOString())
-        .lte('created_at', endOfDay.toISOString());
-      
-      if (error) {
-        console.error('Error counting orders:', error);
-        // Fallback: use timestamp-based number
-        return `${month}M${day}D${Date.now().toString().slice(-3)}`;
-      }
-      
-      // Order number is count + 1 (this will be the next order)
-      const orderNumber = (count || 0) + 1;
-      
-      return `${month}M${day}D${orderNumber}`;
-    } catch (error) {
-      console.error('Error generating invoice number:', error);
-      // Fallback format
-      const now = new Date();
-      return `${now.getMonth() + 1}M${now.getDate()}D${Date.now().toString().slice(-3)}`;
-    }
-  };
-
-  // Generate and store invoice number (called when copy button is clicked)
-  const generateAndStoreInvoiceNumber = async (): Promise<string> => {
-    const today = new Date().toDateString(); // Get current date string
-    
-    // Check if invoice number exists and is from today
-    if (generatedInvoiceNumber && invoiceNumberDate === today) {
-      // Already generated for today, return stored value
-      return generatedInvoiceNumber;
-    }
-    
-    // Reset if it's a new day
-    if (invoiceNumberDate !== today) {
-      setGeneratedInvoiceNumber(null);
-    }
-    
-    const invoiceNumber = await generateInvoiceNumber();
-    setGeneratedInvoiceNumber(invoiceNumber);
-    setInvoiceNumberDate(today); // Store the date when invoice was generated
-    return invoiceNumber;
   };
 
   // Generate the order message text
-  const generateOrderMessage = async (orderIdForMessage?: string | null, useStoredInvoice?: boolean): Promise<string> => {
-    // Use stored invoice number if available, otherwise generate new one
-    let invoiceDisplay: string;
-    if (useStoredInvoice && generatedInvoiceNumber) {
-      invoiceDisplay = generatedInvoiceNumber;
-    } else if (useStoredInvoice) {
-      // Generate and store if not yet generated
-      invoiceDisplay = await generateAndStoreInvoiceNumber();
-    } else {
-      // Generate new invoice number (for messenger flow without copy)
-      invoiceDisplay = await generateInvoiceNumber();
-    }
-
-    // Check if using multiple accounts
-    const isMultipleAccounts = useMultipleAccounts && canUseMultipleAccounts && itemsByGameAndVariation.length > 0;
-    
-    // Check if using bulk input
-    const isBulkInput = bulkSelectedGames.length > 0 && bulkInputValues && Object.keys(bulkInputValues).length > 0;
-
-    // Get the game name (use first game if multiple, or single game name)
-    const gameName = cartItems.length > 0 ? cartItems[0].name : '';
-
-    // Build order message sections
-    let messageSections: string[] = [];
-    
-    if (isMultipleAccounts) {
-      // Multiple accounts mode: show game name once, then each item with ID & SERVER
-      const firstItem = cartItems[0];
-      const gameNameForMulti = firstItem.name;
+  const generateOrderMessage = (): string => {
+    // Build custom fields section grouped by game
+    let customFieldsSection = '';
+    if (hasAnyCustomFields) {
+      // Group games by their field values (to simplify when bulk input is used)
+      const gamesByFieldValues = new Map<string, { games: string[], fields: Array<{ label: string, value: string }> }>();
       
-      // Build sections for each order item (without repeating game name)
-      cartItems.forEach((item, index) => {
-        const gameId = getOriginalMenuItemId(item.id);
-        const variationId = item.selectedVariation?.id || 'none';
+      itemsWithCustomFields.forEach(item => {
+        // Get all field values for this game (use original menu item ID)
+        const originalId = getOriginalMenuItemId(item.id);
+        const fields = item.customFields?.map(field => {
+          const valueKey = `${originalId}_${field.key}`;
+          const value = customFieldValues[valueKey] || '';
+          return value ? { label: field.label, value } : null;
+        }).filter(Boolean) as Array<{ label: string, value: string }> || [];
         
-        // Find matching account data
-        const accountData = itemsByGameAndVariation.find(
-          acc => acc.gameId === gameId && acc.variationId === variationId
-        );
+        if (fields.length === 0) return;
         
-        // Get ID & SERVER for this package
-        let idAndServer = '';
-        if (accountData && accountData.items[0]?.customFields) {
-          const firstItem = accountData.items[0];
-          const allFieldValues: string[] = [];
-          
-          firstItem.customFields.forEach(field => {
-            const valueKey = `${gameId}_${variationId}_${field.key}`;
-            const value = customFieldValues[valueKey] || '';
-            if (value) {
-              allFieldValues.push(value);
-            }
-          });
-          
-          // Build ID & SERVER string
-          if (allFieldValues.length === 1) {
-            idAndServer = allFieldValues[0];
-          } else if (allFieldValues.length >= 2) {
-            idAndServer = allFieldValues.join(' & ');
-          }
+        // Create a key based on field values (to group games with same values)
+        const valueKey = fields.map(f => `${f.label}:${f.value}`).join('|');
+        
+        if (!gamesByFieldValues.has(valueKey)) {
+          gamesByFieldValues.set(valueKey, { games: [], fields });
         }
+        gamesByFieldValues.get(valueKey)!.games.push(item.name);
+      });
+      
+      // Build the section
+      const sections: string[] = [];
+      gamesByFieldValues.forEach(({ games, fields }) => {
+        if (games.length === 0 || fields.length === 0) return;
         
-        // Build section for this item
-        const packageName = item.selectedVariation?.name || '';
-        const orderLine = `ORDER: ${packageName} x${item.quantity} - ₱${item.totalPrice * item.quantity}`;
+        // Add game names
+        sections.push(games.join('\n'));
         
-        // First item includes game name, subsequent items don't
-        if (index === 0) {
-          const section = `GAME: ${gameNameForMulti}
-ID & SERVER: ${idAndServer || ''}
-${orderLine}`;
-          messageSections.push(section);
+        // If all values are the same, combine into one line
+        const allValuesSame = fields.every(f => f.value === fields[0].value);
+        if (allValuesSame && fields.length > 1) {
+          const labels = fields.map(f => f.label).join(', ');
+          const lastCommaIndex = labels.lastIndexOf(',');
+          const combinedLabels = lastCommaIndex > 0 
+            ? labels.substring(0, lastCommaIndex) + ' &' + labels.substring(lastCommaIndex + 1)
+            : labels;
+          sections.push(`${combinedLabels}: ${fields[0].value}`);
         } else {
-          const section = `ID & SERVER: ${idAndServer || ''}
-${orderLine}`;
-          messageSections.push(section);
+          // Different values, show each field separately
+          const fieldStrings = fields.map(f => `${f.label}: ${f.value}`).join(', ');
+          sections.push(fieldStrings);
         }
       });
-    } else {
-      // Single account or bulk input mode: one section
-      // Get ID & SERVER
-      let idAndServerSection = '';
       
-      if (isBulkInput) {
-        // Get bulk input values for IGN/ID & SERVER
-        const bulkValues: string[] = [];
-        if (bulkInputFields.length > 0) {
-          bulkInputFields.forEach(({ index }) => {
-            const value = bulkInputValues[index.toString()] || '';
-            if (value) {
-              bulkValues.push(value);
-            }
-          });
-        }
-        
-        if (bulkValues.length === 1) {
-          idAndServerSection = bulkValues[0];
-        } else if (bulkValues.length >= 2) {
-          idAndServerSection = bulkValues.join(' & ');
-        }
-      } else {
-        // Single account mode
-        if (hasAnyCustomFields) {
-          const allFieldValues: string[] = [];
-          itemsWithCustomFields.forEach(item => {
-            const originalId = getOriginalMenuItemId(item.id);
-            item.customFields?.forEach(field => {
-              const valueKey = `${originalId}_${field.key}`;
-              const value = customFieldValues[valueKey] || '';
-              if (value) {
-                allFieldValues.push(value);
-              }
-            });
-          });
-          
-          if (allFieldValues.length === 1) {
-            idAndServerSection = allFieldValues[0];
-          } else if (allFieldValues.length >= 2) {
-            idAndServerSection = allFieldValues.join(' & ');
-          }
-        } else {
-          // Default IGN field
-          const defaultIgn = customFieldValues['default_ign'] || '';
-          if (defaultIgn) {
-            idAndServerSection = defaultIgn;
-          }
-        }
+      if (sections.length > 0) {
+        customFieldsSection = sections.join('\n');
       }
-      
-      // Build order items (just package names)
-      const orderLines = cartItems.map(item => {
-        const packageName = item.selectedVariation?.name || item.name;
-        return `ORDER: ${packageName} x${item.quantity} - ₱${item.totalPrice * item.quantity}`;
-      });
-      
-      // Build single section
-      const section = `GAME: ${gameName}
-ID & SERVER: ${idAndServerSection || ''}
-${orderLines.join('\n')}`;
-      
-      messageSections.push(section);
+    } else {
+      customFieldsSection = `🎮 IGN: ${customFieldValues['default_ign'] || ''}`;
     }
 
-    // Format the message according to the new structure
-    // Join sections with single newline (no double breaks between items)
-    let orderDetails = `INVOICE # ${invoiceDisplay}
+    const orderDetails = `
+🛒 AmberKin ORDER
 
-${messageSections.join('\n')}
+${customFieldsSection}
 
-PAYMENT: ${selectedPaymentMethod?.name || 'N/A'}
-TOTAL: ₱${totalPrice}
+📋 ORDER DETAILS:
+${cartItems.map(item => {
+  let itemDetails = `• ${item.name}`;
+  if (item.selectedVariation) {
+    itemDetails += ` (${item.selectedVariation.name})`;
+  }
+  itemDetails += ` x${item.quantity} - ₱${item.totalPrice * item.quantity}`;
+  return itemDetails;
+}).join('\n')}
 
-PAYMENT RECEIPT: ${receiptImageUrl || ''}`;
+💰 TOTAL: ₱${totalPrice}
+
+💳 Payment: ${selectedPaymentMethod?.name || ''}${selectedPaymentMethod?.admin_name ? ` - ${selectedPaymentMethod.admin_name}` : ''}
+
+📸 Payment Receipt: ${receiptImageUrl || ''}
+
+Please confirm this order to proceed. Thank you for choosing AmberKin! 🎮
+    `.trim();
 
     return orderDetails;
   };
 
   const handleCopyMessage = async () => {
     try {
-      // Generate and store invoice number when copy button is clicked
-      await generateAndStoreInvoiceNumber();
-      // Use stored invoice number for the message
-      const message = await generateOrderMessage(orderId, true);
+      const message = generateOrderMessage();
       await navigator.clipboard.writeText(message);
       setCopied(true);
       setHasCopiedMessage(true); // Mark that copy button has been clicked
@@ -619,7 +407,7 @@ PAYMENT RECEIPT: ${receiptImageUrl || ''}`;
     }
   };
 
-  const handlePlaceOrder = async () => {
+  const handlePlaceOrder = () => {
     if (!paymentMethod) {
       setReceiptError('Please select a payment method');
       return;
@@ -630,8 +418,7 @@ PAYMENT RECEIPT: ${receiptImageUrl || ''}`;
       return;
     }
 
-    // Use stored invoice number if copy button was clicked, otherwise generate new one
-    const orderDetails = await generateOrderMessage(orderId, generatedInvoiceNumber !== null);
+    const orderDetails = generateOrderMessage();
     const encodedMessage = encodeURIComponent(orderDetails);
     const messengerUrl = `https://m.me/AmberKinGamerXtream?text=${encodedMessage}`;
     
@@ -655,65 +442,29 @@ PAYMENT RECEIPT: ${receiptImageUrl || ''}`;
 
     try {
       // Build customer info object
-      let customerInfo: Record<string, any> = {};
+      const customerInfo: Record<string, string> = {};
       
       // Add payment method
       if (selectedPaymentMethod) {
         customerInfo['Payment Method'] = selectedPaymentMethod.name;
       }
 
-      // Handle multiple accounts mode
-      if (useMultipleAccounts && canUseMultipleAccounts) {
-        const multipleAccountsData: Array<{
-          game: string;
-          package: string;
-          fields: Record<string, string>;
-        }> = [];
-
-        itemsByGameAndVariation.forEach(({ gameId, gameName, variationName, items }) => {
-          const firstItem = items[0];
-          if (!firstItem.customFields) return;
-
-          const fields: Record<string, string> = {};
-          firstItem.customFields.forEach(field => {
-            // Use a key that includes gameId and variationId to differentiate
-            const valueKey = `${gameId}_${items[0].selectedVariation?.id || 'none'}_${field.key}`;
+      // Add custom fields
+      if (hasAnyCustomFields) {
+        itemsWithCustomFields.forEach((item) => {
+          const originalId = getOriginalMenuItemId(item.id);
+          item.customFields?.forEach(field => {
+            const valueKey = `${originalId}_${field.key}`;
             const value = customFieldValues[valueKey];
             if (value) {
-              fields[field.label] = value;
+              customerInfo[field.label] = value;
             }
           });
-
-          if (Object.keys(fields).length > 0) {
-            multipleAccountsData.push({
-              game: gameName,
-              package: variationName,
-              fields
-            });
-          }
         });
-
-        if (multipleAccountsData.length > 0) {
-          customerInfo['Multiple Accounts'] = multipleAccountsData;
-        }
       } else {
-        // Single account mode (default)
-        if (hasAnyCustomFields) {
-          itemsWithCustomFields.forEach((item) => {
-            const originalId = getOriginalMenuItemId(item.id);
-            item.customFields?.forEach(field => {
-              const valueKey = `${originalId}_${field.key}`;
-              const value = customFieldValues[valueKey];
-              if (value) {
-                customerInfo[field.label] = value;
-              }
-            });
-          });
-        } else {
-          // Default IGN field
-          if (customFieldValues['default_ign']) {
-            customerInfo['IGN'] = customFieldValues['default_ign'];
-          }
+        // Default IGN field
+        if (customFieldValues['default_ign']) {
+          customerInfo['IGN'] = customFieldValues['default_ign'];
         }
       }
 
@@ -729,8 +480,6 @@ PAYMENT RECEIPT: ${receiptImageUrl || ''}`;
       if (newOrder) {
         setOrderId(newOrder.id);
         setIsOrderModalOpen(true);
-        setGeneratedInvoiceNumber(null); // Reset invoice number after order is created
-        setInvoiceNumberDate(null); // Reset invoice date after order is created
       } else {
         setReceiptError('Failed to create order. Please try again.');
       }
@@ -748,30 +497,17 @@ PAYMENT RECEIPT: ${receiptImageUrl || ''}`;
       return customFieldValues['default_ign']?.trim() || false;
     }
     
-    if (useMultipleAccounts && canUseMultipleAccounts) {
-      // Multiple accounts mode: check all required fields for each package
-      return itemsByGameAndVariation.every(({ gameId, variationId, items }) => {
-        const firstItem = items[0];
-        if (!firstItem.customFields) return true;
-        return firstItem.customFields.every(field => {
-          if (!field.required) return true;
-          const valueKey = `${gameId}_${variationId}_${field.key}`;
-          return customFieldValues[valueKey]?.trim() || false;
-        });
+    // Check all required fields for all items (use original menu item ID)
+    return itemsWithCustomFields.every(item => {
+      if (!item.customFields) return true;
+      const originalId = getOriginalMenuItemId(item.id);
+      return item.customFields.every(field => {
+        if (!field.required) return true;
+        const valueKey = `${originalId}_${field.key}`;
+        return customFieldValues[valueKey]?.trim() || false;
       });
-    } else {
-      // Single account mode: check all required fields for all items (use original menu item ID)
-      return itemsWithCustomFields.every(item => {
-        if (!item.customFields) return true;
-        const originalId = getOriginalMenuItemId(item.id);
-        return item.customFields.every(field => {
-          if (!field.required) return true;
-          const valueKey = `${originalId}_${field.key}`;
-          return customFieldValues[valueKey]?.trim() || false;
-        });
-      });
-    }
-  }, [hasAnyCustomFields, itemsWithCustomFields, customFieldValues, useMultipleAccounts, canUseMultipleAccounts, itemsByGameAndVariation]);
+    });
+  }, [hasAnyCustomFields, itemsWithCustomFields, customFieldValues]);
 
   if (step === 'details') {
     return (
@@ -853,142 +589,59 @@ PAYMENT RECEIPT: ${receiptImageUrl || ''}`;
                 </div>
               )}
 
-              {/* Multiple Accounts Toggle */}
-              {canUseMultipleAccounts && (
-                <div className="mb-6 p-4 glass-strong border border-cafe-primary/30 rounded-lg">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={useMultipleAccounts}
-                      onChange={(e) => setUseMultipleAccounts(e.target.checked)}
-                      className="w-5 h-5 text-cafe-primary border-cafe-primary/30 rounded focus:ring-cafe-primary"
-                    />
-                    <div>
-                      <p className="text-sm font-medium text-cafe-text">Multiple Accounts</p>
-                      <p className="text-xs text-cafe-textMuted">Enable if you need separate account information for different packages of the same game</p>
-                    </div>
-                  </label>
-                </div>
-              )}
-
               {/* Dynamic Custom Fields grouped by game */}
               {hasAnyCustomFields ? (
-                useMultipleAccounts && canUseMultipleAccounts ? (
-                  // Multiple accounts mode: show fields for each package
-                  itemsByGameAndVariation.map(({ gameId, gameName, variationId, variationName, items }) => {
-                    const firstItem = items[0];
-                    if (!firstItem.customFields) return null;
-
-                    return (
-                      <div key={`${gameId}_${variationId}`} className="space-y-4 pb-6 border-b border-cafe-primary/20 last:border-b-0 last:pb-0">
-                        <div className="mb-4 flex items-center gap-4">
-                          {/* Game Icon */}
-                          <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg">
-                            {firstItem.image ? (
-                              <img
-                                src={firstItem.image}
-                                alt={gameName}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                }}
-                              />
-                            ) : null}
-                            <div className={`w-full h-full flex items-center justify-center ${firstItem.image ? 'hidden' : ''}`}>
-                              <div className="text-2xl opacity-20 text-gray-400">🎮</div>
-                            </div>
-                          </div>
-                          
-                          {/* Game Title and Description */}
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-semibold text-cafe-text">{gameName}</h3>
-                            <p className="text-sm text-cafe-textMuted">Package: {variationName}</p>
-                            <p className="text-xs text-cafe-textMuted">Please provide the following information for this package</p>
-                          </div>
+                itemsWithCustomFields.map((item) => (
+                  <div key={item.id} className="space-y-4 pb-6 border-b border-cafe-primary/20 last:border-b-0 last:pb-0">
+                    <div className="mb-4 flex items-center gap-4">
+                      {/* Game Icon */}
+                      <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg">
+                        {item.image ? (
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                            }}
+                          />
+                        ) : null}
+                        <div className={`w-full h-full flex items-center justify-center ${item.image ? 'hidden' : ''}`}>
+                          <div className="text-2xl opacity-20 text-gray-400">🎮</div>
                         </div>
-                        {firstItem.customFields.map((field) => {
-                          const valueKey = `${gameId}_${variationId}_${field.key}`;
-                          return (
-                            <div key={valueKey}>
-                              <label className="block text-sm font-medium text-cafe-text mb-2">
-                                {field.label} {field.required && <span className="text-red-500">*</span>}
-                              </label>
-                              <input
-                                type="text"
-                                value={customFieldValues[valueKey] || ''}
-                                onChange={(e) => setCustomFieldValues({
-                                  ...customFieldValues,
-                                  [valueKey]: e.target.value
-                                })}
-                                className="w-full px-4 py-3 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-cafe-text placeholder-cafe-textMuted"
-                                placeholder={field.placeholder || field.label}
-                                required={field.required}
-                                disabled={false}
-                              />
-                            </div>
-                          );
-                        })}
                       </div>
-                    );
-                  })
-                ) : (
-                  // Single account mode (default)
-                  itemsWithCustomFields.map((item) => {
-                    const originalId = getOriginalMenuItemId(item.id);
-                    return (
-                      <div key={item.id} className="space-y-4 pb-6 border-b border-cafe-primary/20 last:border-b-0 last:pb-0">
-                        <div className="mb-4 flex items-center gap-4">
-                          {/* Game Icon */}
-                          <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg">
-                            {item.image ? (
-                              <img
-                                src={item.image}
-                                alt={item.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                }}
-                              />
-                            ) : null}
-                            <div className={`w-full h-full flex items-center justify-center ${item.image ? 'hidden' : ''}`}>
-                              <div className="text-2xl opacity-20 text-gray-400">🎮</div>
-                            </div>
-                          </div>
-                          
-                          {/* Game Title and Description */}
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-semibold text-cafe-text">{item.name}</h3>
-                            <p className="text-sm text-cafe-textMuted">Please provide the following information for this game</p>
-                          </div>
+                      
+                      {/* Game Title and Description */}
+                      <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-semibold text-cafe-text">{item.name}</h3>
+                      <p className="text-sm text-cafe-textMuted">Please provide the following information for this game</p>
+                      </div>
+                    </div>
+                    {item.customFields?.map((field) => {
+                      const originalId = getOriginalMenuItemId(item.id);
+                      const valueKey = `${originalId}_${field.key}`;
+                      return (
+                        <div key={valueKey}>
+                          <label className="block text-sm font-medium text-cafe-text mb-2">
+                            {field.label} {field.required && <span className="text-red-500">*</span>}
+                          </label>
+                          <input
+                            type="text"
+                            value={customFieldValues[valueKey] || ''}
+                            onChange={(e) => setCustomFieldValues({
+                              ...customFieldValues,
+                              [valueKey]: e.target.value
+                            })}
+                            className="w-full px-4 py-3 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-cafe-text placeholder-cafe-textMuted"
+                            placeholder={field.placeholder || field.label}
+                            required={field.required}
+                          />
                         </div>
-                        {item.customFields?.map((field) => {
-                          const valueKey = `${originalId}_${field.key}`;
-                          return (
-                            <div key={valueKey}>
-                              <label className="block text-sm font-medium text-cafe-text mb-2">
-                                {field.label} {field.required && <span className="text-red-500">*</span>}
-                              </label>
-                              <input
-                                type="text"
-                                value={customFieldValues[valueKey] || ''}
-                                onChange={(e) => setCustomFieldValues({
-                                  ...customFieldValues,
-                                  [valueKey]: e.target.value
-                                })}
-                                className="w-full px-4 py-3 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-cafe-text placeholder-cafe-textMuted"
-                                placeholder={field.placeholder || field.label}
-                                required={field.required}
-                                disabled={false}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })
-                )
+                      );
+                    })}
+                  </div>
+                ))
               ) : (
                 <div>
                   <label className="block text-sm font-medium text-cafe-text mb-2">
