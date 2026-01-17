@@ -622,64 +622,40 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
     return lines.join('\n');
   };
 
-  // iOS-compatible copy function with fallback
-  const copyToClipboard = async (text: string): Promise<boolean> => {
-    // Try modern Clipboard API first
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      try {
-        await navigator.clipboard.writeText(text);
-        return true;
-      } catch (err) {
-        // Fall through to fallback method
-        console.warn('Clipboard API failed, trying fallback:', err);
-      }
-    }
-    
-    // Fallback for iOS and older browsers
-    try {
-      // Create a temporary textarea element
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed';
-      textarea.style.left = '-999999px';
-      textarea.style.top = '-999999px';
-      document.body.appendChild(textarea);
-      
-      // Select and copy
-      textarea.focus();
-      textarea.select();
-      
-      // For iOS
-      if (navigator.userAgent.match(/ipad|iphone/i)) {
-        const range = document.createRange();
-        range.selectNodeContents(textarea);
-        const selection = window.getSelection();
-        if (selection) {
-          selection.removeAllRanges();
-          selection.addRange(range);
-        }
-        textarea.setSelectionRange(0, 999999);
-      }
-      
-      const successful = document.execCommand('copy');
-      document.body.removeChild(textarea);
-      
-      return successful;
-    } catch (err) {
-      console.error('Fallback copy failed:', err);
-      return false;
-    }
-  };
-
   const handleCopyMessage = async () => {
     try {
       // Force generate a new invoice number when Copy is clicked
       // This locks in the invoice number for this order
       const message = await generateOrderMessage(true);
-      await navigator.clipboard.writeText(message);
-      setCopied(true);
-        setHasCopiedMessage(true); // Mark that copy button has been clicked
+      
+      // Try modern clipboard API first
+      try {
+        await navigator.clipboard.writeText(message);
+        setCopied(true);
+        setHasCopiedMessage(true);
         setTimeout(() => setCopied(false), 2000);
+      } catch (clipboardError) {
+        // Fallback for iOS and older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = message;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-999999px';
+        textarea.style.top = '-999999px';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        
+        if (successful) {
+          setCopied(true);
+          setHasCopiedMessage(true);
+          setTimeout(() => setCopied(false), 2000);
+        } else {
+          console.error('Failed to copy message');
+        }
+      }
     } catch (error) {
       console.error('Failed to copy message:', error);
     }
@@ -687,9 +663,27 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
 
   const handleCopyAccountNumber = async (accountNumber: string) => {
     try {
-      await navigator.clipboard.writeText(accountNumber);
-      setCopiedAccountNumber(true);
+      try {
+        await navigator.clipboard.writeText(accountNumber);
+        setCopiedAccountNumber(true);
         setTimeout(() => setCopiedAccountNumber(false), 2000);
+      } catch (clipboardError) {
+        // Fallback for iOS
+        const textarea = document.createElement('textarea');
+        textarea.value = accountNumber;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-999999px';
+        textarea.style.top = '-999999px';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (successful) {
+          setCopiedAccountNumber(true);
+          setTimeout(() => setCopiedAccountNumber(false), 2000);
+        }
+      }
     } catch (error) {
       console.error('Failed to copy account number:', error);
     }
@@ -697,9 +691,27 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
 
   const handleCopyAccountName = async (accountName: string) => {
     try {
-      await navigator.clipboard.writeText(accountName);
-      setCopiedAccountName(true);
+      try {
+        await navigator.clipboard.writeText(accountName);
+        setCopiedAccountName(true);
         setTimeout(() => setCopiedAccountName(false), 2000);
+      } catch (clipboardError) {
+        // Fallback for iOS
+        const textarea = document.createElement('textarea');
+        textarea.value = accountName;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-999999px';
+        textarea.style.top = '-999999px';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (successful) {
+          setCopiedAccountName(true);
+          setTimeout(() => setCopiedAccountName(false), 2000);
+        }
+      }
     } catch (error) {
       console.error('Failed to copy account name:', error);
     }
