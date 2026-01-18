@@ -177,3 +177,16 @@ body {
   background-color: #0d0d0d;
   color: #ffffff;
 }
+
+/* Admin Dashboard - Ensure all inputs have black text on white backgrounds */
+.min-h-screen.bg-gray-50 input,
+.min-h-screen.bg-gray-50 textarea,
+.min-h-screen.bg-gray-50 select {
+  color: #000000 !important;
+}
+
+.bg-white input,
+.bg-white textarea,
+.bg-white select {
+  color: #000000 !important;
+}

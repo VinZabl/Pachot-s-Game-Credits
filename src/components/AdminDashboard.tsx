@@ -972,7 +972,7 @@ const AdminDashboard: React.FC = () => {
                                           setFormData({ ...formData, variations: updatedVariations });
                                         }}
                                         disabled={isReadOnly}
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm font-semibold disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm font-semibold disabled:bg-gray-100 disabled:cursor-not-allowed text-black"
                                         placeholder="Category name (e.g., Category 1)"
                                       />
                                       {!isReadOnly && (
@@ -1010,7 +1010,7 @@ const AdminDashboard: React.FC = () => {
                                         });
                                         setFormData({ ...formData, variations: updatedVariations });
                                       }}
-                                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-black"
                                       placeholder="Sort"
                                       min="0"
                                       step="1"
@@ -1030,7 +1030,7 @@ const AdminDashboard: React.FC = () => {
                                             type="text"
                                             value={variation.name || ''}
                     onChange={(e) => updateVariation(index, 'name', e.target.value)}
-                                            className="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                                            className="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-black"
                                             placeholder="Package name (e.g., 5 Diamonds)"
                   />
                                           <div className="flex items-center gap-2">
@@ -1063,7 +1063,7 @@ const AdminDashboard: React.FC = () => {
                                                   updateVariation(index, 'price', 0);
                                                 }
                                               }}
-                                              className="flex-1 sm:w-32 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                                              className="flex-1 sm:w-32 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-black"
                                               placeholder="Price (₱)"
                                               min="0"
                                               step="0.01"
@@ -1362,7 +1362,7 @@ const AdminDashboard: React.FC = () => {
                           e.target.value = ''; // Reset selection
                         }
                       }}
-                      className="flex-1 px-2 py-1.5 md:px-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs md:text-sm"
+                      className="flex-1 px-2 py-1.5 md:px-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs md:text-sm text-black"
                       disabled={isProcessing}
                     >
                       <option value="">Select Category</option>
@@ -1529,7 +1529,7 @@ const AdminDashboard: React.FC = () => {
                                       const newSortOrder = parseInt(e.target.value) || 0;
                                       await updateMenuItem(item.id, { ...item, sort_order: newSortOrder });
                                     }}
-                                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-black"
                                   />
                                 </td>
                                 <td className="px-6 py-4">
@@ -1650,7 +1650,7 @@ const AdminDashboard: React.FC = () => {
                                       const newSortOrder = parseInt(e.target.value) || 0;
                                       await updateMenuItem(item.id, { ...item, sort_order: newSortOrder });
                                     }}
-                                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-black"
                                   />
                                 </td>
                                 <td className="px-6 py-4">
@@ -1805,7 +1805,7 @@ const AdminDashboard: React.FC = () => {
                                   const newSortOrder = parseInt(e.target.value) || 0;
                                   await updateMenuItem(item.id, { ...item, sort_order: newSortOrder });
                                 }}
-                                className="w-16 md:w-20 px-2 py-1 border border-gray-300 rounded text-xs md:text-sm"
+                                className="w-16 md:w-20 px-2 py-1 border border-gray-300 rounded text-xs md:text-sm text-black"
                               />
                   </div>
                   
