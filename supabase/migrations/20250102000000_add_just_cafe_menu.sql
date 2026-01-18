@@ -159,16 +159,16 @@ END $$;
 
 -- Set up default site settings
 INSERT INTO site_settings (id, value, type, description) VALUES
-  ('site_name', 'AmberKin x GamerXtream', 'text', 'The name of the site'),
+  ('site_name', 'Pachot''s Game Credits', 'text', 'The name of the site'),
   ('site_logo', '/logo.png', 'image', 'The logo image URL for the site'),
-  ('site_description', 'Welcome to AmberKin x GamerXtream — Your perfect game credits destination', 'text', 'Short description of the site'),
+  ('site_description', 'Welcome to Pachot''s Game Credits — Your perfect game credits destination', 'text', 'Short description of the site'),
   ('currency', '₱', 'text', 'Currency symbol for prices'),
   ('currency_code', 'PHP', 'text', 'Currency code for payments')
 ON CONFLICT (id) DO UPDATE SET value = EXCLUDED.value, type = EXCLUDED.type, description = EXCLUDED.description;
 
 -- Force update site_name and site_description to new branding
-UPDATE site_settings SET value = 'AmberKin x GamerXtream' WHERE id = 'site_name';
-UPDATE site_settings SET value = 'Welcome to AmberKin x GamerXtream — Your perfect game credits destination' WHERE id = 'site_description';
+UPDATE site_settings SET value = 'Pachot''s Game Credits' WHERE id = 'site_name';
+UPDATE site_settings SET value = 'Welcome to Pachot''s Game Credits — Your perfect game credits destination' WHERE id = 'site_description';
 
 -- Create storage bucket for menu images
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)

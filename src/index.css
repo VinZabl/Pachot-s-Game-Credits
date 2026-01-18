@@ -2,30 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Kitty Galore Theme Styles */
-/* Glassmorphism utilities */
+/* PGCSHOP Theme Styles */
+/* Glassmorphism utilities - Dark theme */
 .glass {
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(13, 13, 13, 0.6);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(231, 70, 148, 0.2);
+  border: 1px solid rgba(255, 105, 180, 0.3);
 }
 
 .glass-strong {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(13, 13, 13, 0.8);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(231, 70, 148, 0.3);
+  border: 1px solid rgba(255, 105, 180, 0.4);
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(26, 26, 26, 0.8);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1.5px solid rgba(231, 70, 148, 0.35);
-  box-shadow: 0 8px 32px 0 rgba(231, 70, 148, 0.25), 
-              0 2px 8px 0 rgba(0, 0, 0, 0.1),
-              inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+  border: 1.5px solid rgba(255, 105, 180, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(255, 105, 180, 0.2), 
+              0 2px 8px 0 rgba(0, 0, 0, 0.3),
+              inset 0 1px 0 0 rgba(255, 105, 180, 0.1);
 }
 
 .glass-hover {
@@ -33,11 +33,11 @@
 }
 
 .glass-hover:hover {
-  background: rgba(255, 255, 255, 0.65);
-  border-color: rgba(231, 70, 148, 0.5);
-  box-shadow: 0 12px 40px 0 rgba(231, 70, 148, 0.35), 
-              0 4px 12px 0 rgba(0, 0, 0, 0.15),
-              inset 0 1px 0 0 rgba(255, 255, 255, 0.7);
+  background: rgba(26, 26, 26, 0.9);
+  border-color: rgba(255, 105, 180, 0.6);
+  box-shadow: 0 12px 40px 0 rgba(255, 105, 180, 0.3), 
+              0 4px 12px 0 rgba(0, 0, 0, 0.4),
+              inset 0 1px 0 0 rgba(255, 105, 180, 0.15);
   transform: translateY(-2px);
 }
 
@@ -59,29 +59,33 @@
   color: white !important;
 }
 
-/* Glow effects for Kitty Galore theme */
+/* Glow effects for PGCSHOP theme - Pink/Magenta */
 .glow-blue {
-  box-shadow: 0 0 20px rgba(231, 70, 148, 0.5);
+  box-shadow: 0 0 20px rgba(255, 105, 180, 0.6);
 }
 
 .glow-blue-strong {
-  box-shadow: 0 0 30px rgba(231, 70, 148, 0.8);
+  box-shadow: 0 0 30px rgba(255, 105, 180, 0.9);
 }
 
 /* Text glow */
 .text-glow {
-  text-shadow: 0 0 10px rgba(231, 70, 148, 0.8);
+  text-shadow: 0 0 10px rgba(255, 105, 180, 0.8);
 }
 
-/* Legacy cafe color helpers (for compatibility) */
-.bg-cafe-cream { background-color: #F5F5F5; }
-.bg-cafe-beige { background-color: #E5E5E5; }
-.bg-cafe-light { background-color: rgba(255, 255, 255, 0.6); }
-.text-cafe-accent { color: #E74694; }
-.text-cafe-dark { color: #2D1B2E; }
-.border-cafe-accent { border-color: #E74694; }
-.border-cafe-latte { border-color: rgba(231, 70, 148, 0.3); }
-.ring-cafe-accent { --tw-ring-color: #E74694; }
+/* PGCSHOP theme color helpers */
+.bg-cafe-cream { background-color: #1a1a1a; }
+.bg-cafe-beige { background-color: #262626; }
+.bg-cafe-light { background-color: rgba(26, 26, 26, 0.8); }
+.text-cafe-accent { color: #FF69B4; }
+.text-cafe-secondary { color: #FF00FF; }
+.text-cafe-text { color: #ffffff; }
+.text-cafe-textMuted { color: #b3b3b3; }
+.text-cafe-primary { color: #FF69B4; }
+.text-cafe-dark { color: #0d0d0d; }
+.border-cafe-accent { border-color: #FF69B4; }
+.border-cafe-latte { border-color: rgba(255, 105, 180, 0.4); }
+.ring-cafe-accent { --tw-ring-color: #FF69B4; }
 
 /* Hide scrollbar for mobile nav */
 .scrollbar-hide {
@@ -164,6 +168,12 @@ img {
 
 /* Search input placeholder color */
 input[type="text"]::placeholder {
-  color: #E74694;
-  opacity: 0.7;
+  color: #FF69B4;
+  opacity: 0.6;
+}
+
+/* PGCSHOP Dark Theme - Base styles */
+body {
+  background-color: #0d0d0d;
+  color: #ffffff;
 }

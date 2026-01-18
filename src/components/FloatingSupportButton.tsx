@@ -72,7 +72,7 @@ const FloatingSupportButton: React.FC = () => {
       onClick={handleClick}
       target={supportLink !== '#' ? '_blank' : undefined}
       rel={supportLink !== '#' ? 'noopener noreferrer' : undefined}
-      className="fixed right-6 w-14 h-14 rounded-full bg-gradient-to-r from-cafe-primary to-cafe-secondary text-white flex items-center justify-center shadow-lg hover:from-cafe-secondary hover:to-cafe-primary transition-all duration-200 transform hover:scale-110 z-50 glow-blue hover:glow-blue-strong"
+      className="fixed right-6 w-14 h-14 rounded-full bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white flex items-center justify-center shadow-lg hover:from-fuchsia-500 hover:to-pink-500 transition-all duration-200 transform hover:scale-110 z-50 glow-blue hover:glow-blue-strong"
       style={{ bottom: `${bottomPosition}px` }}
       aria-label="Customer Support"
     >

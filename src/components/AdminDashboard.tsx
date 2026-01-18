@@ -525,7 +525,7 @@ const AdminDashboard: React.FC = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
                 placeholder="Enter admin password"
                 required
               />
@@ -622,7 +622,7 @@ const AdminDashboard: React.FC = () => {
                   type="text"
                   value={formData.name || ''}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
                         placeholder="Enter game name (e.g., Wild Rift, Mobile Legends)"
                 />
               </div>
@@ -632,7 +632,7 @@ const AdminDashboard: React.FC = () => {
                 <select
                   value={formData.category || ''}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
                 >
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
@@ -671,7 +671,7 @@ const AdminDashboard: React.FC = () => {
                     <textarea
                       value={formData.description || ''}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent resize-none"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent resize-none text-black"
                       placeholder="Enter game description (this will be displayed below the game title in the modal)"
                       rows={4}
                     />
@@ -685,7 +685,7 @@ const AdminDashboard: React.FC = () => {
                       type="text"
                       value={formData.subtitle || ''}
                       onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
                       placeholder="Enter custom text to display below the game title (optional)"
                     />
                     <p className="text-xs text-gray-500 mt-1">This text will appear below the game title on the customer side. Leave empty to show no text.</p>
@@ -704,7 +704,7 @@ const AdminDashboard: React.FC = () => {
                           step="0.01"
                           value={formData.discountPercentage || ''}
                           onChange={(e) => setFormData({ ...formData, discountPercentage: Number(e.target.value) || undefined })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
                           placeholder="Enter discount percentage (e.g., 10 for 10%)"
                   />
                         <p className="text-xs text-gray-500 mt-1">
@@ -730,7 +730,7 @@ const AdminDashboard: React.FC = () => {
                     type="datetime-local"
                     value={formData.discountStartDate || ''}
                     onChange={(e) => setFormData({ ...formData, discountStartDate: e.target.value || undefined })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
                   />
                 </div>
 
@@ -740,7 +740,7 @@ const AdminDashboard: React.FC = () => {
                     type="datetime-local"
                     value={formData.discountEndDate || ''}
                     onChange={(e) => setFormData({ ...formData, discountEndDate: e.target.value || undefined })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
                   />
                 </div>
               </div>
@@ -1080,7 +1080,7 @@ const AdminDashboard: React.FC = () => {
                                         <textarea
                                           value={variation.description || ''}
                                           onChange={(e) => updateVariation(index, 'description', e.target.value)}
-                                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm resize-y"
+                                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm resize-y text-black"
                                           placeholder="Package description (optional)"
                                           rows={2}
                                         />
@@ -1178,7 +1178,7 @@ const AdminDashboard: React.FC = () => {
                     type="text"
                             value={customField.label || ''}
                             onChange={(e) => updateCustomField(index, 'label', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-black"
                             placeholder="e.g., ID with tag, UID, Server"
                           />
                         </div>
@@ -1188,7 +1188,7 @@ const AdminDashboard: React.FC = () => {
                             type="text"
                             value={customField.placeholder || ''}
                             onChange={(e) => updateCustomField(index, 'placeholder', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-black"
                             placeholder="e.g., ID with tag (If Riot ID)"
                           />
                         </div>

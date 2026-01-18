@@ -28,19 +28,19 @@ const Cart: React.FC<CartProps> = ({
           <div className="mb-4 flex justify-center">
             <img 
               src="/logo.png" 
-              alt="Kitty Galore Logo"
+              alt="Pachot's Game Credits Logo"
               className="h-24 sm:h-32 md:h-40 w-auto object-contain"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
               }}
             />
           </div>
-          <h2 className="text-2xl font-medium text-cafe-text mb-2">Your cart is empty</h2>
-          <p className="text-cafe-textMuted mb-6">Add some currency packages to get started!</p>
+          <h2 className="text-2xl font-medium text-white mb-2">Your cart is empty</h2>
+          <p className="text-gray-400 mb-6">Add some currency packages to get started!</p>
           <button
             onClick={onContinueShopping}
             className="text-white px-6 py-3 rounded-full hover:opacity-90 transition-all duration-200"
-            style={{ backgroundColor: '#E74694' }}
+            style={{ backgroundColor: '#FF69B4' }}
           >
             Browse Games
           </button>
@@ -55,14 +55,14 @@ const Cart: React.FC<CartProps> = ({
         <button
           onClick={onContinueShopping}
           aria-label="Back"
-          className="flex items-center text-cafe-textMuted hover:text-cafe-primary transition-colors duration-200"
+          className="flex items-center text-gray-400 hover:text-pink-500 transition-colors duration-200"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-3xl font-semibold text-cafe-text whitespace-nowrap text-center flex-1">Cart</h1>
+        <h1 className="text-3xl font-semibold text-white whitespace-nowrap text-center flex-1">Cart</h1>
         <button
           onClick={clearCart}
-          className="text-cafe-primary hover:text-cafe-secondary transition-colors duration-200 whitespace-nowrap"
+          className="text-pink-500 hover:text-fuchsia-500 transition-colors duration-200 whitespace-nowrap"
         >
           Clear All
         </button>
@@ -80,12 +80,12 @@ const Cart: React.FC<CartProps> = ({
             <div key={item.id} className={`p-6 ${index !== cartItems.length - 1 ? 'border-b border-cafe-primary/30' : ''}`}>
               <div className="flex">
                 <div className="flex-1">
-                  <h3 className="text-lg font-medium text-cafe-text mb-1">{item.name}</h3>
+                  <h3 className="text-lg font-medium text-white mb-1">{item.name}</h3>
                   {item.selectedVariation && (
-                    <p className="text-sm text-cafe-textMuted mb-1">Package: {item.selectedVariation.name}</p>
+                    <p className="text-sm text-gray-400 mb-1">Package: {item.selectedVariation.name}</p>
                   )}
                   {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                    <p className="text-sm text-cafe-textMuted mb-1">
+                    <p className="text-sm text-gray-400 mb-1">
                       Add-ons: {item.selectedAddOns.map(addOn => 
                         addOn.quantity && addOn.quantity > 1 
                           ? `${addOn.name} x${addOn.quantity}`
@@ -93,32 +93,32 @@ const Cart: React.FC<CartProps> = ({
                       ).join(', ')}
                     </p>
                   )}
-                  <p className="text-lg font-semibold text-cafe-text">₱{item.totalPrice} each</p>
+                  <p className="text-lg font-semibold text-white">₱{item.totalPrice} each</p>
                 </div>
               </div>
 
               <div className="mt-4 flex items-center justify-between flex-wrap gap-4">
-                <div className="flex items-center space-x-3 glass rounded-full p-1 border border-cafe-primary/30">
+                <div className="flex items-center space-x-3 glass rounded-full p-1 border border-pink-500/30">
                   <button
                     onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                    className="p-2 hover:bg-cafe-primary/20 rounded-full transition-colors duration-200"
+                    className="p-2 hover:bg-pink-500/20 rounded-full transition-colors duration-200"
                   >
-                    <Minus className="h-4 w-4 text-cafe-primary" />
+                    <Minus className="h-4 w-4 text-pink-500" />
                   </button>
-                  <span className="font-semibold text-cafe-text min-w-[32px] text-center">{item.quantity}</span>
+                  <span className="font-semibold text-white min-w-[32px] text-center">{item.quantity}</span>
                   <button
                     onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                    className="p-2 hover:bg-cafe-primary/20 rounded-full transition-colors duration-200"
+                    className="p-2 hover:bg-pink-500/20 rounded-full transition-colors duration-200"
                   >
-                    <Plus className="h-4 w-4 text-cafe-primary" />
+                    <Plus className="h-4 w-4 text-pink-500" />
                   </button>
                 </div>
 
                 <div className="flex items-center space-x-4 ml-auto">
-                  <p className="text-lg font-semibold text-cafe-text">₱{item.totalPrice * item.quantity}</p>
+                  <p className="text-lg font-semibold text-white">₱{item.totalPrice * item.quantity}</p>
                   <button
                     onClick={() => removeFromCart(item.id)}
-                    className="p-2 text-cafe-primary hover:text-cafe-secondary hover:bg-cafe-primary/20 rounded-full transition-all duration-200"
+                    className="p-2 text-pink-500 hover:text-fuchsia-500 hover:bg-pink-500/20 rounded-full transition-all duration-200"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -130,15 +130,15 @@ const Cart: React.FC<CartProps> = ({
       </div>
 
       <div className="glass-card rounded-xl p-6 flex-shrink-0" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
-        <div className="flex items-center justify-between text-2xl font-semibold text-cafe-text mb-6">
+        <div className="flex items-center justify-between text-2xl font-semibold text-white mb-6">
           <span>Total:</span>
-          <span className="text-cafe-text">₱{(getTotalPrice() || 0).toFixed(2)}</span>
+          <span className="text-white">₱{(getTotalPrice() || 0).toFixed(2)}</span>
         </div>
         
         <div className="flex flex-col sm:flex-row gap-4">
           <button
             onClick={onContinueShopping}
-            className="flex-1 text-cafe-text py-4 rounded-xl hover:opacity-90 transition-all duration-200 transform hover:scale-[1.02] font-medium text-lg border-2 border-cafe-primary/30"
+            className="flex-1 text-white py-4 rounded-xl hover:opacity-90 transition-all duration-200 transform hover:scale-[1.02] font-medium text-lg border-2 border-pink-500/30"
             style={{ backgroundColor: 'transparent' }}
           >
             Add More
@@ -146,7 +146,7 @@ const Cart: React.FC<CartProps> = ({
           <button
             onClick={onCheckout}
             className="flex-1 text-white py-4 rounded-xl hover:opacity-90 transition-all duration-200 transform hover:scale-[1.02] font-medium text-lg"
-            style={{ backgroundColor: '#E74694' }}
+            style={{ backgroundColor: '#FF69B4' }}
           >
             Continue to Checkout
           </button>

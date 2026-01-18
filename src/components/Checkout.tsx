@@ -299,7 +299,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
     }
 
     const orderDetails = `
-🛒 Kitty Galore Game Credits ORDER
+🛒 Pachot's Game Credits ORDER
 
 ${customFieldsSection}
 
@@ -319,7 +319,7 @@ ${cartItems.map(item => {
 
 📸 Payment Receipt: ${receiptImageUrl || ''}
 
-Please confirm this order to proceed. Thank you for choosing Kitty Galore Game Credits! 🎮
+Please confirm this order to proceed. Thank you for choosing Pachot's Game Credits! 🎮
     `.trim();
 
     return orderDetails;
@@ -461,7 +461,7 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
 
     const orderDetails = generateOrderMessage();
     const encodedMessage = encodeURIComponent(orderDetails);
-    const messengerUrl = `https://m.me/KGGameCredits?text=${encodedMessage}`;
+    const messengerUrl = `https://m.me/pachotsgamecredits?text=${encodedMessage}`;
     
     window.open(messengerUrl, '_blank');
   };
@@ -596,23 +596,23 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
         <div className="flex items-center mb-8">
           <button
             onClick={onBack}
-            className="flex items-center text-cafe-textMuted hover:text-cafe-primary transition-colors duration-200"
+            className="flex items-center text-whiteMuted hover:text-pink-500 transition-colors duration-200"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-3xl font-semibold text-cafe-text text-center flex-1">Order Details</h1>
+          <h1 className="text-3xl font-semibold text-white text-center flex-1">Order Details</h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Customer Details Form */}
           <div className="glass-card rounded-xl p-6">
-            <h2 className="text-2xl font-medium text-cafe-text mb-6">Customer Information</h2>
+            <h2 className="text-2xl font-medium text-white mb-6">Customer Information</h2>
             
             <form className="space-y-6">
               {/* Show count of items with custom fields */}
               {hasAnyCustomFields && itemsWithCustomFields.length > 0 && (
-                <div className="mb-4 p-3 glass border border-cafe-primary/30 rounded-lg">
-                  <p className="text-sm text-cafe-text">
+                <div className="mb-4 p-3 glass border border-pink-500/30 rounded-lg">
+                  <p className="text-sm text-white">
                     <span className="font-semibold">{itemsWithCustomFields.length}</span> game{itemsWithCustomFields.length > 1 ? 's' : ''} require{itemsWithCustomFields.length === 1 ? 's' : ''} additional information
                   </p>
                 </div>
@@ -620,9 +620,9 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
 
               {/* Bulk Input Section */}
               {itemsWithCustomFields.length >= 2 && (
-                <div className="mb-6 p-4 glass-strong border border-cafe-primary/30 rounded-lg">
-                  <h3 className="text-lg font-semibold text-cafe-text mb-4">Bulk Input</h3>
-                  <p className="text-sm text-cafe-textMuted mb-4">
+                <div className="mb-6 p-4 glass-strong border border-pink-500/30 rounded-lg">
+                  <h3 className="text-lg font-semibold text-white mb-4">Bulk Input</h3>
+                  <p className="text-sm text-gray-400 mb-4">
                     Select games and fill fields once for all selected games.
                   </p>
                   
@@ -640,9 +640,9 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                             type="checkbox"
                             checked={isSelected}
                             onChange={(e) => handleBulkGameSelectionChange(item.id, e.target.checked)}
-                            className="w-4 h-4 text-cafe-primary border-cafe-primary/30 rounded focus:ring-cafe-primary"
+                            className="w-4 h-4 text-pink-500 border-pink-500/30 rounded focus:ring-pink-500"
                           />
-                          <span className="text-sm text-cafe-text">{item.name}</span>
+                          <span className="text-sm text-white">{item.name}</span>
                         </label>
                       );
                     })}
@@ -650,17 +650,17 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
 
                   {/* Input Fields - Only show if games are selected */}
                   {bulkSelectedGames.length > 0 && bulkInputFields.length > 0 && (
-                    <div className="space-y-4 mt-4 pt-4 border-t border-cafe-primary/20">
+                    <div className="space-y-4 mt-4 pt-4 border-t border-pink-500/20">
                       {bulkInputFields.map(({ index, field }) => (
                         <div key={index}>
-                          <label className="block text-sm font-medium text-cafe-text mb-2">
-                            {field ? field.label : `Field ${index + 1}`} <span className="text-cafe-textMuted">(Bulk)</span> {field?.required && <span className="text-red-500">*</span>}
+                          <label className="block text-sm font-medium text-white mb-2">
+                            {field ? field.label : `Field ${index + 1}`} <span className="text-whiteMuted">(Bulk)</span> {field?.required && <span className="text-red-500">*</span>}
                           </label>
                           <input
                             type="text"
                             value={bulkInputValues[index.toString()] || ''}
                             onChange={(e) => handleBulkInputChange(index.toString(), e.target.value)}
-                            className="w-full px-4 py-3 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-cafe-text placeholder-cafe-textMuted"
+                            className="w-full px-4 py-3 glass border border-pink-500/30 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition-all duration-200 text-white placeholder-gray-400"
                             placeholder={field?.placeholder || field?.label || `Field ${index + 1}`}
                           />
                         </div>
@@ -673,10 +673,10 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
               {/* Dynamic Custom Fields grouped by game */}
               {hasAnyCustomFields ? (
                 itemsWithCustomFields.map((item, itemIndex) => (
-                  <div key={item.id} className="space-y-4 pb-6 border-b border-cafe-primary/20 last:border-b-0 last:pb-0">
+                  <div key={item.id} className="space-y-4 pb-6 border-b border-pink-500/20 last:border-b-0 last:pb-0">
                     <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-cafe-text">{item.name}</h3>
-                      <p className="text-sm text-cafe-textMuted">Please provide the following information for this game</p>
+                      <h3 className="text-lg font-semibold text-white">{item.name}</h3>
+                      <p className="text-sm text-gray-400">Please provide the following information for this game</p>
                     </div>
                     {item.customFields?.map((field, fieldIndex) => {
                       const originalId = getOriginalMenuItemId(item.id);
@@ -685,7 +685,7 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                       const inputId = `input-${originalId}-${itemIndex}-${fieldIndex}-${field.key}`;
                       return (
                         <div key={`${item.id}-${fieldIndex}-${field.key}`}>
-                          <label htmlFor={inputId} className="block text-sm font-medium text-cafe-text mb-2">
+                          <label htmlFor={inputId} className="block text-sm font-medium text-white mb-2">
                             {field.label} {field.required && <span className="text-red-500">*</span>}
                           </label>
                           <input
@@ -701,7 +701,7 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                                 [valueKey]: newValue
                               }));
                             }}
-                            className="w-full px-4 py-3 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-cafe-text placeholder-cafe-textMuted"
+                            className="w-full px-4 py-3 glass border border-pink-500/30 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition-all duration-200 text-white placeholder-gray-400"
                             placeholder={field.placeholder || field.label}
                             required={field.required}
                           />
@@ -712,7 +712,7 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                 ))
               ) : (
                 <div>
-                  <label className="block text-sm font-medium text-cafe-text mb-2">
+                  <label className="block text-sm font-medium text-white mb-2">
                     IGN <span className="text-red-500">*</span>
                   </label>
                     <input
@@ -728,7 +728,7 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                           ['default_ign']: newValue
                         }));
                       }}
-                      className="w-full px-4 py-3 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-cafe-text placeholder-cafe-textMuted"
+                      className="w-full px-4 py-3 glass border border-pink-500/30 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition-all duration-200 text-white placeholder-cafe-textMuted"
                       placeholder="In game name"
                       required
                     />
@@ -741,9 +741,9 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                 className={`w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform ${
                   isDetailsValid
                     ? 'text-white hover:opacity-90 hover:scale-[1.02]'
-                    : 'glass text-cafe-textMuted cursor-not-allowed'
+                    : 'glass text-whiteMuted cursor-not-allowed'
                 }`}
-                style={isDetailsValid ? { backgroundColor: '#E74694' } : {}}
+                style={isDetailsValid ? { backgroundColor: '#FF69B4' } : {}}
               >
                 Proceed to Payment
               </button>
@@ -752,32 +752,32 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
 
           {/* Order Summary */}
           <div className="glass-card rounded-xl p-6">
-            <h2 className="text-2xl font-medium text-cafe-text mb-6">Order Summary</h2>
+            <h2 className="text-2xl font-medium text-white mb-6">Order Summary</h2>
             
             <div className="space-y-4 mb-6">
               {cartItems.map((item) => (
-                <div key={item.id} className="flex items-center justify-between py-2 border-b border-cafe-primary/30">
+                <div key={item.id} className="flex items-center justify-between py-2 border-b border-pink-500/30">
                   <div>
-                    <h4 className="font-medium text-cafe-text">{item.name}</h4>
+                    <h4 className="font-medium text-white">{item.name}</h4>
                     {item.selectedVariation && (
-                      <p className="text-sm text-cafe-textMuted">Package: {item.selectedVariation.name}</p>
+                      <p className="text-sm text-whiteMuted">Package: {item.selectedVariation.name}</p>
                     )}
                     {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                      <p className="text-sm text-cafe-textMuted">
+                      <p className="text-sm text-whiteMuted">
                         Add-ons: {item.selectedAddOns.map(addOn => addOn.name).join(', ')}
                       </p>
                     )}
-                    <p className="text-sm text-cafe-textMuted">₱{item.totalPrice} x {item.quantity}</p>
+                    <p className="text-sm text-whiteMuted">₱{item.totalPrice} x {item.quantity}</p>
                   </div>
-                  <span className="font-semibold text-cafe-text">₱{item.totalPrice * item.quantity}</span>
+                  <span className="font-semibold text-white">₱{item.totalPrice * item.quantity}</span>
                 </div>
               ))}
             </div>
             
-            <div className="border-t border-cafe-primary/30 pt-4">
-              <div className="flex items-center justify-between text-2xl font-semibold text-cafe-text">
+            <div className="border-t border-pink-500/30 pt-4">
+              <div className="flex items-center justify-between text-2xl font-semibold text-white">
                 <span>Total:</span>
-                <span className="text-cafe-text">₱{totalPrice}</span>
+                <span className="text-white">₱{totalPrice}</span>
               </div>
             </div>
             
@@ -797,17 +797,17 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
       <div className="flex items-center mb-8">
         <button
           onClick={() => setStep('details')}
-          className="flex items-center text-cafe-textMuted hover:text-cafe-primary transition-colors duration-200"
+          className="flex items-center text-whiteMuted hover:text-pink-500 transition-colors duration-200"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-3xl font-semibold text-cafe-text text-center flex-1">Payment</h1>
+        <h1 className="text-3xl font-semibold text-white text-center flex-1">Payment</h1>
       </div>
 
       <div className="max-w-2xl mx-auto">
         {/* Payment Method Selection */}
         <div className="glass-card rounded-xl p-6">
-          <h2 className="text-2xl font-medium text-cafe-text mb-6">Choose Payment Method</h2>
+          <h2 className="text-2xl font-medium text-white mb-6">Choose Payment Method</h2>
           
           <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6">
             {paymentMethods.map((method) => (
@@ -820,9 +820,9 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                 className={`p-2 md:p-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center justify-center gap-2 ${
                   paymentMethod === method.id
                     ? 'border-transparent text-white'
-                    : 'glass border-cafe-primary/30 text-cafe-text hover:border-cafe-primary hover:glass-strong'
+                    : 'glass border-pink-500/30 text-white hover:border-pink-500 hover:glass-strong'
                 }`}
-                style={paymentMethod === method.id ? { backgroundColor: '#E74694' } : {}}
+                style={paymentMethod === method.id ? { backgroundColor: '#FF69B4' } : {}}
               >
                 {/* Icon on Top */}
                 <div className="relative w-12 h-12 md:w-14 md:h-14 flex-shrink-0 rounded-lg overflow-hidden bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg flex items-center justify-center">
@@ -838,37 +838,37 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
           {selectedPaymentMethod && (
             <div 
               ref={paymentDetailsRef}
-              className="glass-strong rounded-lg p-6 mb-6 border border-cafe-primary/30"
+              className="glass-strong rounded-lg p-6 mb-6 border border-pink-500/30"
             >
-              <h3 className="font-medium text-cafe-text mb-4">Payment Details</h3>
+              <h3 className="font-medium text-white mb-4">Payment Details</h3>
               <div className="space-y-4">
                 {/* Payment Method Name */}
                 <div>
-                  <p className="text-lg font-semibold text-cafe-text">{selectedPaymentMethod.name}</p>
+                  <p className="text-lg font-semibold text-white">{selectedPaymentMethod.name}</p>
                 </div>
                 
                 {/* Account Name with Copy Button */}
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <p className="text-sm text-cafe-textMuted">Account Name:</p>
+                    <p className="text-sm text-whiteMuted">Account Name:</p>
                     <button
                       onClick={() => handleCopyAccountName(selectedPaymentMethod.account_name)}
-                      className="px-3 py-1.5 glass-strong rounded-lg hover:bg-cafe-primary/20 transition-colors duration-200 flex-shrink-0 text-sm font-medium"
+                      className="px-3 py-1.5 glass-strong rounded-lg hover:bg-pink-500/20 transition-colors duration-200 flex-shrink-0 text-sm font-medium"
                       title="Copy account name"
                     >
                       {copiedAccountName ? (
                         <span className="text-green-400">Copied!</span>
                       ) : (
-                        <span className="text-cafe-text">Copy</span>
+                        <span className="text-white">Copy</span>
                       )}
                     </button>
                   </div>
-                  <p className="text-cafe-text font-medium">{selectedPaymentMethod.account_name}</p>
+                  <p className="text-white font-medium">{selectedPaymentMethod.account_name}</p>
                 </div>
                 
                 {/* Other Option */}
                 <div>
-                  <h3 className="font-medium text-cafe-text text-center">Other Option</h3>
+                  <h3 className="font-medium text-white text-center">Other Option</h3>
                 </div>
                 
                 {/* Download QR Button and QR Image */}
@@ -878,7 +878,7 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                       {!isMessengerBrowser && (
                         <button
                           onClick={() => handleDownloadQRCode(selectedPaymentMethod.qr_code_url, selectedPaymentMethod.name)}
-                          className="px-3 py-1.5 glass-strong rounded-lg hover:bg-cafe-primary/20 transition-colors duration-200 text-sm font-medium text-cafe-text flex items-center gap-2"
+                          className="px-3 py-1.5 glass-strong rounded-lg hover:bg-pink-500/20 transition-colors duration-200 text-sm font-medium text-white flex items-center gap-2"
                           title="Download QR code"
                         >
                           <Download className="h-4 w-4" />
@@ -886,17 +886,17 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                         </button>
                       )}
                       {isMessengerBrowser && (
-                        <p className="text-xs text-cafe-textMuted text-center">Long-press the QR code to save</p>
+                        <p className="text-xs text-whiteMuted text-center">Long-press the QR code to save</p>
                       )}
                       <img 
                         src={selectedPaymentMethod.qr_code_url} 
                         alt={`${selectedPaymentMethod.name} QR Code`}
-                        className="w-32 h-32 rounded-lg border-2 border-cafe-primary/30 shadow-sm"
+                        className="w-32 h-32 rounded-lg border-2 border-pink-500/30 shadow-sm"
                       />
                     </>
                   ) : (
-                    <div className="w-32 h-32 rounded-lg border-2 border-cafe-primary/30 shadow-sm bg-gray-100 flex items-center justify-center p-4">
-                      <p className="text-sm text-cafe-textMuted text-center">QR code not available</p>
+                    <div className="w-32 h-32 rounded-lg border-2 border-pink-500/30 shadow-sm bg-gray-100 flex items-center justify-center p-4">
+                      <p className="text-sm text-whiteMuted text-center">QR code not available</p>
                     </div>
                   )}
                 </div>
@@ -904,26 +904,26 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                 {/* Account Number with Copy Button */}
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <p className="text-sm text-cafe-textMuted">Account Number:</p>
+                    <p className="text-sm text-whiteMuted">Account Number:</p>
                     <button
                       onClick={() => handleCopyAccountNumber(selectedPaymentMethod.account_number)}
-                      className="px-3 py-1.5 glass-strong rounded-lg hover:bg-cafe-primary/20 transition-colors duration-200 flex-shrink-0 text-sm font-medium"
+                      className="px-3 py-1.5 glass-strong rounded-lg hover:bg-pink-500/20 transition-colors duration-200 flex-shrink-0 text-sm font-medium"
                       title="Copy account number"
                     >
                       {copiedAccountNumber ? (
                         <span className="text-green-400">Copied!</span>
                       ) : (
-                        <span className="text-cafe-text">Copy</span>
+                        <span className="text-white">Copy</span>
                       )}
                     </button>
                   </div>
-                  <p className="font-mono text-cafe-text font-medium text-xl md:text-2xl">{selectedPaymentMethod.account_number}</p>
+                  <p className="font-mono text-white font-medium text-xl md:text-2xl">{selectedPaymentMethod.account_number}</p>
                 </div>
                 
                 {/* Amount and Instructions */}
-                <div className="pt-2 border-t border-cafe-primary/20">
-                  <p className="text-xl font-semibold text-cafe-text mb-2">Amount: ₱{totalPrice}</p>
-                  <p className="text-sm text-cafe-textMuted">Press the copy button to copy the account number or download the QR code, make your payment, then click "Confirm" to proceed to the order page where you can upload your payment receipt.</p>
+                <div className="pt-2 border-t border-pink-500/20">
+                  <p className="text-xl font-semibold text-white mb-2">Amount: ₱{totalPrice}</p>
+                  <p className="text-sm text-whiteMuted">Press the copy button to copy the account number or download the QR code, make your payment, then click "Confirm" to proceed to the order page where you can upload your payment receipt.</p>
                 </div>
               </div>
             </div>
@@ -936,17 +936,17 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
             className={`w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform mb-6 ${
               paymentMethod
                 ? 'text-white hover:opacity-90 hover:scale-[1.02]'
-                : 'glass text-cafe-textMuted cursor-not-allowed'
+                : 'glass text-whiteMuted cursor-not-allowed'
             }`}
-            style={paymentMethod ? { backgroundColor: '#E74694' } : {}}
+            style={paymentMethod ? { backgroundColor: '#FF69B4' } : {}}
           >
             Confirm
           </button>
 
           {/* Payment instructions */}
-          <div className="glass border border-cafe-primary/30 rounded-lg p-4">
-            <h4 className="font-medium text-cafe-text mb-2">📸 Payment Proof Required</h4>
-            <p className="text-sm text-cafe-textMuted">
+          <div className="glass border border-pink-500/30 rounded-lg p-4">
+            <h4 className="font-medium text-white mb-2">📸 Payment Proof Required</h4>
+            <p className="text-sm text-whiteMuted">
               After making your payment, you'll be able to upload a screenshot of your payment receipt in the next step. This helps us verify and process your order quickly.
             </p>
           </div>
@@ -966,21 +966,21 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
         <div className="flex items-center mb-8">
           <button
             onClick={() => setStep('payment')}
-            className="flex items-center text-cafe-textMuted hover:text-cafe-primary transition-colors duration-200"
+            className="flex items-center text-whiteMuted hover:text-pink-500 transition-colors duration-200"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-3xl font-semibold text-cafe-text text-center flex-1">Order</h1>
+          <h1 className="text-3xl font-semibold text-white text-center flex-1">Order</h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Final Order Summary */}
           <div className="glass-card rounded-xl p-6">
-            <h2 className="text-2xl font-medium text-cafe-text mb-6">Final Order Summary</h2>
+            <h2 className="text-2xl font-medium text-white mb-6">Final Order Summary</h2>
             
             <div className="space-y-4 mb-6">
-              <div className="glass-strong rounded-lg p-4 border border-cafe-primary/30">
-                <h4 className="font-medium text-cafe-text mb-2">Customer Details</h4>
+              <div className="glass-strong rounded-lg p-4 border border-pink-500/30">
+                <h4 className="font-medium text-white mb-2">Customer Details</h4>
                 {hasAnyCustomFields ? (
                   itemsWithCustomFields.map((item) => {
                     const originalId = getOriginalMenuItemId(item.id);
@@ -989,7 +989,7 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                       const valueKey = `${originalId}_${fieldIndex}_${field.key}`;
                       const value = customFieldValues[valueKey];
                       return value ? (
-                        <p key={valueKey} className="text-sm text-cafe-textMuted">
+                        <p key={valueKey} className="text-sm text-whiteMuted">
                           {field.label}: {value}
                         </p>
                       ) : null;
@@ -998,30 +998,30 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                     if (!fields || fields.length === 0) return null;
                     
                     return (
-                      <div key={item.id} className="mb-3 pb-3 border-b border-cafe-primary/20 last:border-b-0 last:pb-0">
-                        <p className="text-sm font-semibold text-cafe-text mb-1">{item.name}:</p>
+                      <div key={item.id} className="mb-3 pb-3 border-b border-pink-500/20 last:border-b-0 last:pb-0">
+                        <p className="text-sm font-semibold text-white mb-1">{item.name}:</p>
                         {fields}
                       </div>
                     );
                   })
                 ) : (
                   customFieldValues['default_ign'] && (
-                    <p className="text-sm text-cafe-textMuted">
+                    <p className="text-sm text-whiteMuted">
                       IGN: {customFieldValues['default_ign']}
                     </p>
                   )
                 )}
                 {/* Payment Method Information */}
                 {selectedPaymentMethod && (
-                  <div className="mt-3 pt-3 border-t border-cafe-primary/20">
-                    <p className="text-sm font-semibold text-cafe-text mb-1">Payment Method:</p>
-                    <p className="text-sm text-cafe-textMuted">{selectedPaymentMethod.name}</p>
+                  <div className="mt-3 pt-3 border-t border-pink-500/20">
+                    <p className="text-sm font-semibold text-white mb-1">Payment Method:</p>
+                    <p className="text-sm text-whiteMuted">{selectedPaymentMethod.name}</p>
                   </div>
                 )}
               </div>
 
               {cartItems.map((item) => (
-                <div key={item.id} className="flex items-start gap-4 py-2 border-b border-cafe-primary/30">
+                <div key={item.id} className="flex items-start gap-4 py-2 border-b border-pink-500/30">
                   <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg relative">
                     {item.image ? (
                       <img
@@ -1040,12 +1040,12 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-cafe-text">{item.name}</h4>
+                    <h4 className="font-medium text-white">{item.name}</h4>
                     {item.selectedVariation && (
-                      <p className="text-sm text-cafe-textMuted">Package: {item.selectedVariation.name}</p>
+                      <p className="text-sm text-whiteMuted">Package: {item.selectedVariation.name}</p>
                     )}
                     {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                      <p className="text-sm text-cafe-textMuted">
+                      <p className="text-sm text-whiteMuted">
                         Add-ons: {item.selectedAddOns.map(addOn => 
                           addOn.quantity && addOn.quantity > 1 
                             ? `${addOn.name} x${addOn.quantity}`
@@ -1053,35 +1053,35 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                         ).join(', ')}
                       </p>
                     )}
-                    <p className="text-sm text-cafe-textMuted">₱{item.totalPrice} x {item.quantity}</p>
+                    <p className="text-sm text-whiteMuted">₱{item.totalPrice} x {item.quantity}</p>
                   </div>
                   <div className="flex-shrink-0">
-                    <span className="font-semibold text-cafe-text">₱{item.totalPrice * item.quantity}</span>
+                    <span className="font-semibold text-white">₱{item.totalPrice * item.quantity}</span>
                   </div>
                 </div>
               ))}
             </div>
             
             <div className="pt-4 mb-6">
-              <div className="flex items-center justify-between text-2xl font-semibold text-cafe-text">
+              <div className="flex items-center justify-between text-2xl font-semibold text-white">
                 <span>Total:</span>
-                <span className="text-cafe-text">₱{totalPrice}</span>
+                <span className="text-white">₱{totalPrice}</span>
               </div>
             </div>
           </div>
 
           {/* Receipt Upload and Place Order */}
           <div className="glass-card rounded-xl p-6">
-            <h2 className="text-2xl font-medium text-cafe-text mb-6">Payment Receipt</h2>
+            <h2 className="text-2xl font-medium text-white mb-6">Payment Receipt</h2>
             
             {/* Receipt Upload Section */}
             <div className="mb-6">
-              <label className="block text-sm font-medium text-cafe-text mb-2">
+              <label className="block text-sm font-medium text-white mb-2">
                 Payment Receipt <span className="text-red-400">*</span>
               </label>
               
               {!receiptPreview ? (
-                <div className="relative glass border-2 border-dashed border-cafe-primary/30 rounded-lg p-6 text-center hover:border-cafe-primary transition-colors duration-200">
+                <div className="relative glass border-2 border-dashed border-pink-500/30 rounded-lg p-6 text-center hover:border-pink-500 transition-colors duration-200">
                   <div className="absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-cafe-primary text-white">
                     1
                   </div>
@@ -1104,20 +1104,20 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                   >
                     {uploadingReceipt ? (
                       <>
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cafe-primary"></div>
-                        <span className="text-sm text-cafe-textMuted">Uploading...</span>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div>
+                        <span className="text-sm text-whiteMuted">Uploading...</span>
                       </>
                     ) : (
                       <>
-                        <Upload className="h-8 w-8 text-cafe-primary" />
-                        <span className="text-sm text-cafe-text">Click to upload receipt</span>
-                        <span className="text-xs text-cafe-textMuted">JPEG, PNG, WebP, or GIF (Max 5MB)</span>
+                        <Upload className="h-8 w-8 text-pink-500" />
+                        <span className="text-sm text-white">Click to upload receipt</span>
+                        <span className="text-xs text-whiteMuted">JPEG, PNG, WebP, or GIF (Max 5MB)</span>
                       </>
                     )}
                   </label>
                 </div>
               ) : (
-                <div className="relative glass border border-cafe-primary/30 rounded-lg p-4">
+                <div className="relative glass border border-pink-500/30 rounded-lg p-4">
                   <div className="absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-cafe-primary text-white">
                     1
                   </div>
@@ -1126,14 +1126,14 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                       <img
                         src={receiptPreview}
                         alt="Receipt preview"
-                        className="w-20 h-20 object-cover rounded-lg border border-cafe-primary/30"
+                        className="w-20 h-20 object-cover rounded-lg border border-pink-500/30"
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-cafe-text truncate">
+                      <p className="text-sm font-medium text-white truncate">
                         {receiptFile?.name || 'Receipt uploaded'}
                       </p>
-                      <p className="text-xs text-cafe-textMuted">
+                      <p className="text-xs text-whiteMuted">
                         {receiptImageUrl ? '✓ Uploaded successfully' : 'Uploading...'}
                       </p>
                     </div>
@@ -1142,7 +1142,7 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                       className="flex-shrink-0 p-2 glass-strong rounded-lg hover:bg-red-500/20 transition-colors duration-200"
                       disabled={uploadingReceipt}
                     >
-                      <X className="h-4 w-4 text-cafe-text" />
+                      <X className="h-4 w-4 text-white" />
                     </button>
                   </div>
                 </div>
@@ -1161,8 +1161,8 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                   disabled={uploadingReceipt || !paymentMethod || !receiptImageUrl}
                   className={`w-full py-3 rounded-xl font-medium transition-all duration-200 transform mb-3 flex items-center justify-center space-x-2 ${
                     !uploadingReceipt && paymentMethod && receiptImageUrl
-                      ? 'glass border border-cafe-primary/30 text-cafe-text hover:border-cafe-primary hover:glass-strong'
-                      : 'glass border border-cafe-primary/20 text-cafe-textMuted cursor-not-allowed'
+                      ? 'glass border border-pink-500/30 text-white hover:border-pink-500 hover:glass-strong'
+                      : 'glass border border-pink-500/20 text-whiteMuted cursor-not-allowed'
                   }`}
                 >
                   {copied ? (
@@ -1187,7 +1187,7 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                     <button
                       onClick={() => setIsOrderModalOpen(true)}
                       className="w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform text-white hover:opacity-90 hover:scale-[1.02]"
-                      style={{ backgroundColor: '#E74694' }}
+                      style={{ backgroundColor: '#FF69B4' }}
                     >
                       <div className="absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-cafe-primary text-white">
                         2
@@ -1205,21 +1205,21 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                       className={`relative w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform ${
                         paymentMethod && receiptImageUrl && !uploadingReceipt && !isPlacingOrder
                           ? 'text-white hover:opacity-90 hover:scale-[1.02]'
-                          : 'glass text-cafe-textMuted cursor-not-allowed'
+                          : 'glass text-whiteMuted cursor-not-allowed'
                       }`}
-                      style={paymentMethod && receiptImageUrl && !uploadingReceipt && !isPlacingOrder ? { backgroundColor: '#E74694' } : {}}
+                      style={paymentMethod && receiptImageUrl && !uploadingReceipt && !isPlacingOrder ? { backgroundColor: '#FF69B4' } : {}}
                     >
                       <div className={`absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                         paymentMethod && receiptImageUrl && !uploadingReceipt && !isPlacingOrder
                           ? 'bg-cafe-primary text-white'
-                          : 'bg-cafe-textMuted/30 text-cafe-textMuted'
+                          : 'bg-cafe-textMuted/30 text-whiteMuted'
                       }`}>
                         2
                       </div>
                       {isPlacingOrder ? 'Placing Order...' : existingOrderStatus === 'rejected' ? 'Order Again' : 'Place Order'}
                     </button>
                   )}
-                  <p className="text-xs text-cafe-textMuted text-center mt-3">
+                  <p className="text-xs text-whiteMuted text-center mt-3">
                     Your order will be processed directly. You can track its status after placing the order.
                   </p>
                 </>
@@ -1232,14 +1232,14 @@ Please confirm this order to proceed. Thank you for choosing Kitty Galore Game C
                     className={`w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform ${
                       paymentMethod && receiptImageUrl && !uploadingReceipt && hasCopiedMessage
                         ? 'text-white hover:opacity-90 hover:scale-[1.02]'
-                        : 'glass text-cafe-textMuted cursor-not-allowed'
+                        : 'glass text-whiteMuted cursor-not-allowed'
                     }`}
-                    style={paymentMethod && receiptImageUrl && !uploadingReceipt && hasCopiedMessage ? { backgroundColor: '#E74694' } : {}}
+                    style={paymentMethod && receiptImageUrl && !uploadingReceipt && hasCopiedMessage ? { backgroundColor: '#FF69B4' } : {}}
                   >
                     {uploadingReceipt ? 'Uploading Receipt...' : 'Place Order via Messenger'}
                   </button>
                   
-                  <p className="text-xs text-cafe-textMuted text-center mt-3">
+                  <p className="text-xs text-whiteMuted text-center mt-3">
                     You'll be redirected to Facebook Messenger to confirm your order. Your receipt has been uploaded and will be included in the message.
                   </p>
                 </>

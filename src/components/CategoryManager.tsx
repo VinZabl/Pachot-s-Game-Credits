@@ -145,7 +145,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
                   type="text"
                   value={formData.name}
                   onChange={(e) => handleNameChange(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
                   placeholder="Enter category name"
                 />
               </div>
@@ -156,7 +156,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
                   type="text"
                   value={formData.id}
                   onChange={(e) => setFormData({ ...formData, id: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
                   placeholder="kebab-case-id"
                   disabled={currentView === 'edit'}
                 />
@@ -176,7 +176,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
                   type="number"
                   value={formData.sort_order}
                   onChange={(e) => setFormData({ ...formData, sort_order: Number(e.target.value) })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-black"
                   placeholder="0"
                 />
                 <p className="text-xs text-gray-500 mt-1">

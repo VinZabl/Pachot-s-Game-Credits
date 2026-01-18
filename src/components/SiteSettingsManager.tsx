@@ -327,7 +327,7 @@ const SiteSettingsManager: React.FC = () => {
               name="site_name"
               value={formData.site_name}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
               placeholder="Enter site name"
             />
           ) : (
@@ -347,7 +347,7 @@ const SiteSettingsManager: React.FC = () => {
                 name="currency"
                 value={formData.currency}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
                 placeholder="e.g., ₱, $, €"
               />
             ) : (
@@ -364,7 +364,7 @@ const SiteSettingsManager: React.FC = () => {
                 name="currency_code"
                 value={formData.currency_code}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
                 placeholder="e.g., PHP, USD, EUR"
               />
             ) : (
@@ -389,7 +389,7 @@ const SiteSettingsManager: React.FC = () => {
                   name="footer_social_1"
                   value={formData.footer_social_1}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
                   placeholder="https://facebook.com/yourpage"
                 />
               ) : (
@@ -405,7 +405,7 @@ const SiteSettingsManager: React.FC = () => {
                   name="footer_social_2"
                   value={formData.footer_social_2}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
                   placeholder="https://instagram.com/yourhandle"
                 />
               ) : (
@@ -421,7 +421,7 @@ const SiteSettingsManager: React.FC = () => {
                   name="footer_social_3"
                   value={formData.footer_social_3}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
                   placeholder="https://x.com/yourhandle"
                 />
               ) : (
@@ -437,7 +437,7 @@ const SiteSettingsManager: React.FC = () => {
                   name="footer_social_4"
                   value={formData.footer_social_4}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
                   placeholder="https://youtube.com/@yourchannel"
                 />
               ) : (
@@ -453,7 +453,7 @@ const SiteSettingsManager: React.FC = () => {
                   name="footer_support_url"
                   value={formData.footer_support_url}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
                   placeholder="https://yourwebsite.com/support or tel:+1234567890"
                 />
               ) : (
@@ -480,7 +480,7 @@ const SiteSettingsManager: React.FC = () => {
                   name="order_option"
                   value={formData.order_option}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
                 >
                   <option value="order_via_messenger">Order via Messenger</option>
                   <option value="place_order">Place Order</option>
@@ -511,7 +511,7 @@ const SiteSettingsManager: React.FC = () => {
                   step="0.1"
                   value={formData.notification_volume}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
                 />
               ) : (
                 <p className="text-gray-600">
@@ -563,7 +563,7 @@ const SiteSettingsManager: React.FC = () => {
                     type={showPasswords.current ? 'text' : 'password'}
                     value={passwordData.currentPassword}
                     onChange={(e) => handlePasswordInputChange('currentPassword', e.target.value)}
-                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
                     placeholder="Enter current password"
                   />
                   <button
@@ -585,7 +585,7 @@ const SiteSettingsManager: React.FC = () => {
                     type={showPasswords.new ? 'text' : 'password'}
                     value={passwordData.newPassword}
                     onChange={(e) => handlePasswordInputChange('newPassword', e.target.value)}
-                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
                     placeholder="Enter new password (min. 6 characters)"
                   />
                   <button
@@ -607,7 +607,7 @@ const SiteSettingsManager: React.FC = () => {
                     type={showPasswords.confirm ? 'text' : 'password'}
                     value={passwordData.confirmPassword}
                     onChange={(e) => handlePasswordInputChange('confirmPassword', e.target.value)}
-                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
                     placeholder="Confirm new password"
                   />
                   <button

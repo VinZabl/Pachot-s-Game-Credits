@@ -229,14 +229,14 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
         <div className="rounded-xl mb-4 flex items-stretch overflow-hidden">
           {/* Left Section - Information Area */}
-          <div className="flex-1 p-3 sm:p-4 flex items-center" style={{ backgroundColor: 'rgba(255, 255, 255, 0.7)' }}>
-            <p className="font-semibold text-cafe-text text-sm sm:text-base whitespace-nowrap">{bannerText}</p>
+          <div className="flex-1 p-3 sm:p-4 flex items-center" style={{ backgroundColor: 'rgba(26, 26, 26, 0.9)' }}>
+            <p className="font-semibold text-white text-sm sm:text-base whitespace-nowrap">{bannerText}</p>
           </div>
           {/* Right Section - Action Button */}
           <button
             onClick={() => setIsOrderModalOpen(true)}
             className="px-4 sm:px-6 py-3 sm:py-4 text-white font-semibold hover:opacity-90 transition-all duration-200 flex items-center justify-center whitespace-nowrap"
-            style={{ backgroundColor: '#E74694' }}
+            style={{ backgroundColor: '#FF69B4' }}
           >
             View
           </button>
@@ -254,9 +254,9 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
             <section className="mb-6 md:mb-8">
               <div className="flex items-center mb-3 md:mb-4">
-                <h3 className="text-3xl font-medium text-cafe-text">Search Results</h3>
+                <h3 className="text-3xl font-medium text-white">Search Results</h3>
               </div>
-              <p className="text-gray-500">No games found matching "{searchQuery}"</p>
+              <p className="text-gray-400">No games found matching "{searchQuery}"</p>
             </section>
           </main>
           <OrderStatusModal
@@ -279,10 +279,10 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <section className="mb-16">
             <div className="flex items-center mb-8">
-              <h3 className="text-3xl font-medium text-cafe-text">
+              <h3 className="text-3xl font-medium text-white">
                 Search Results for "{searchQuery}"
               </h3>
-              <span className="ml-4 text-sm text-gray-500">({menuItems.length} {menuItems.length === 1 ? 'game' : 'games'})</span>
+              <span className="ml-4 text-sm text-gray-400">({menuItems.length} {menuItems.length === 1 ? 'game' : 'games'})</span>
             </div>
             
             <div className="grid grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
@@ -315,9 +315,9 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
             <section id="popular" className="mb-6 md:mb-8">
               <div className="flex items-center mb-3 md:mb-4">
-                <h3 className="text-3xl font-medium text-cafe-text">Popular</h3>
+                <h3 className="text-3xl font-medium text-white">Popular</h3>
               </div>
-              <p className="text-gray-500">No popular items available at the moment.</p>
+              <p className="text-gray-400">No popular items available at the moment.</p>
             </section>
           </main>
           <OrderStatusModal
@@ -340,7 +340,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
           <section id="popular" className="mb-6 md:mb-8">
             <div className="flex items-center mb-3 md:mb-4">
-              <h3 className="text-3xl font-medium text-cafe-text">Popular</h3>
+              <h3 className="text-3xl font-medium text-white">Popular</h3>
             </div>
             
             <div className="grid grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
@@ -375,7 +375,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
         {showPopularSection && (
           <section id="popular" className="mb-8 md:mb-12">
             <div className="flex items-center mb-3 md:mb-4">
-              <h3 className="text-3xl font-medium text-cafe-text">Popular</h3>
+              <h3 className="text-3xl font-medium text-white">Popular</h3>
             </div>
             
             <div className="grid grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
@@ -392,9 +392,9 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
           
           return (
             <section key={category.id} id={category.id} className="mb-8 md:mb-12">
-              <div className="flex items-center mb-3 md:mb-4">
-                <h3 className="text-3xl font-medium text-cafe-text">{category.name}</h3>
-              </div>
+            <div className="flex items-center mb-3 md:mb-4">
+              <h3 className="text-3xl font-medium text-white">{category.name}</h3>
+            </div>
               
               <div className="grid grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
                 {renderMenuItems(categoryItems)}

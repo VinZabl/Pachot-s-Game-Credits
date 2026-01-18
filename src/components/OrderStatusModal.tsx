@@ -93,15 +93,15 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
   const getStatusDisplay = (status: OrderStatus) => {
     switch (status) {
       case 'pending':
-        return { text: 'Processing', icon: Loader2, color: '#4B1F42' };
+        return { text: 'Processing', icon: Loader2, color: '#FF69B4' };
       case 'processing':
-        return { text: 'Processing', icon: Loader2, color: '#4B1F42' };
+        return { text: 'Processing', icon: Loader2, color: '#FF69B4' };
       case 'approved':
-        return { text: 'Succeeded', icon: CheckCircle, color: '#4B1F42' }; // purple (header color)
+        return { text: 'Succeeded', icon: CheckCircle, color: '#FF69B4' };
       case 'rejected':
-        return { text: 'Rejected', icon: XCircle, color: '#4B1F42' }; // purple (header color)
+        return { text: 'Rejected', icon: XCircle, color: '#FF00FF' };
       default:
-        return { text: 'Processing', icon: Loader2, color: '#4B1F42' };
+        return { text: 'Processing', icon: Loader2, color: '#FF69B4' };
     }
   };
 
@@ -113,11 +113,11 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
       <div 
         className="flex flex-col rounded-2xl max-w-2xl w-full max-h-[90vh] shadow-2xl overflow-hidden" 
         style={{
-          background: 'rgba(255, 200, 220, 0.4)',
+          background: 'rgba(26, 26, 26, 0.95)',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
-          border: '1.5px solid rgba(255, 182, 193, 0.5)',
-          boxShadow: '0 8px 32px 0 rgba(255, 182, 193, 0.3), 0 2px 8px 0 rgba(0, 0, 0, 0.1), inset 0 1px 0 0 rgba(255, 255, 255, 0.4)'
+          border: '1.5px solid rgba(255, 105, 180, 0.4)',
+          boxShadow: '0 8px 32px 0 rgba(255, 105, 180, 0.2), 0 2px 8px 0 rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 105, 180, 0.1)'
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -125,23 +125,23 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
         <div 
           className="flex-shrink-0 p-6 flex items-center justify-between rounded-t-2xl" 
           style={{ 
-            background: 'rgba(255, 200, 220, 0.5)',
+            background: 'rgba(13, 13, 13, 0.9)',
             backdropFilter: 'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)',
             zIndex: 20,
-            borderBottom: '1.5px solid rgba(255, 182, 193, 0.6)',
-            boxShadow: '0 2px 8px 0 rgba(0, 0, 0, 0.1)'
+            borderBottom: '1.5px solid rgba(255, 105, 180, 0.3)',
+            boxShadow: '0 2px 8px 0 rgba(0, 0, 0, 0.3)'
           }}
         >
           <div className="flex-1 min-w-0">
             {order && (order.status === 'pending' || order.status === 'processing') && (
-              <p className="text-xs text-yellow-200 mb-2 font-light">
+              <p className="text-xs text-pink-300 mb-2 font-light">
                 Please do not exit this website while your order is being processed
               </p>
             )}
-            <h2 className="text-2xl font-semibold text-cafe-text">Order Status</h2>
+            <h2 className="text-2xl font-semibold text-white">Order Status</h2>
             {order && (
-              <p className="text-sm text-cafe-textMuted mt-1">
+              <p className="text-sm text-gray-400 mt-1">
                 Order #{order.id.slice(0, 8)}
               </p>
             )}
@@ -155,9 +155,9 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                 onClose();
               }
             }}
-            className="p-2 hover:bg-cafe-primary/20 rounded-full transition-colors duration-200 flex-shrink-0 ml-2"
+            className="p-2 hover:bg-pink-500/20 rounded-full transition-colors duration-200 flex-shrink-0 ml-2"
           >
-            <X className="h-5 w-5 text-cafe-text" />
+            <X className="h-5 w-5 text-white" />
           </button>
         </div>
 
@@ -165,7 +165,7 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
         <div 
           className="flex-1 overflow-y-auto min-h-0 relative" 
           style={{ 
-            background: 'rgba(255, 200, 220, 0.35)',
+            background: 'rgba(13, 13, 13, 0.8)',
             backdropFilter: 'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)',
             WebkitOverflowScrolling: 'touch',
@@ -177,7 +177,7 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
             className="sticky top-0 left-0 right-0 z-10 pointer-events-none"
             style={{
               height: '32px',
-              background: 'linear-gradient(to bottom, rgba(255, 200, 220, 0.5) 0%, rgba(255, 200, 220, 0.35) 20%, rgba(255, 200, 220, 0.2) 50%, transparent 100%)',
+              background: 'linear-gradient(to bottom, rgba(13, 13, 13, 0.9) 0%, rgba(13, 13, 13, 0.8) 20%, rgba(13, 13, 13, 0.6) 50%, transparent 100%)',
               marginBottom: '-32px'
             }}
           />
@@ -186,7 +186,7 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
 
         {loading && !order ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin" style={{ color: '#4B1F42' }} />
+            <Loader2 className="h-8 w-8 animate-spin text-pink-500" />
           </div>
         ) : order ? (
           <div className="space-y-6">
@@ -205,7 +205,7 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                 </span>
               </div>
               {order.created_at && (
-                <p className="text-sm text-cafe-textMuted">
+                <p className="text-sm text-gray-400">
                   {new Date(order.created_at).toLocaleString()}
                 </p>
               )}
@@ -218,10 +218,10 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                   href={siteSettings.footer_support_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 p-3 rounded-lg bg-white/50 hover:bg-white/70 border border-cafe-primary/30 hover:border-cafe-primary/50 transition-all duration-200 group"
+                  className="flex items-center justify-center gap-2 p-3 rounded-lg bg-gray-900/50 hover:bg-gray-900/70 border border-pink-500/30 hover:border-pink-500/50 transition-all duration-200 group"
                 >
-                  <MessageCircle className="h-5 w-5 text-cafe-primary group-hover:scale-110 transition-transform duration-200" />
-                  <span className="text-sm font-medium text-cafe-text group-hover:text-cafe-primary transition-colors duration-200">
+                  <MessageCircle className="h-5 w-5 text-pink-500 group-hover:scale-110 transition-transform duration-200" />
+                  <span className="text-sm font-medium text-white group-hover:text-pink-500 transition-colors duration-200">
                     Having trouble or issues? Tap here to contact us
                   </span>
                 </a>
@@ -229,11 +229,11 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
             )}
 
             {/* Order Details */}
-            <div className="bg-white rounded-lg p-4 border border-cafe-primary/30 shadow-md">
-              <h3 className="font-medium text-cafe-text mb-4">Order Details</h3>
+            <div className="bg-gray-900 rounded-lg p-4 border border-pink-500/30 shadow-md">
+              <h3 className="font-medium text-white mb-4">Order Details</h3>
               <div className="space-y-3">
                 {order.order_items.map((item, index) => (
-                  <div key={index} className="flex items-start gap-4 py-2 border-b border-cafe-primary/20 last:border-b-0">
+                  <div key={index} className="flex items-start gap-4 py-2 border-b border-pink-500/20 last:border-b-0">
                     <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg">
                       {item.image ? (
                         <img
@@ -248,12 +248,12 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-cafe-text">{item.name}</h4>
+                      <h4 className="font-medium text-white">{item.name}</h4>
                       {item.selectedVariation && (
-                        <p className="text-sm text-cafe-textMuted">Package: {item.selectedVariation.name}</p>
+                        <p className="text-sm text-gray-400">Package: {item.selectedVariation.name}</p>
                       )}
                       {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                        <p className="text-sm text-cafe-textMuted">
+                        <p className="text-sm text-gray-400">
                           Add-ons: {item.selectedAddOns.map(addOn => 
                             addOn.quantity && addOn.quantity > 1 
                               ? `${addOn.name} x${addOn.quantity}`
@@ -261,16 +261,16 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                           ).join(', ')}
                         </p>
                       )}
-                      <p className="text-sm text-cafe-textMuted">₱{item.totalPrice} × {item.quantity}</p>
+                      <p className="text-sm text-gray-400">₱{item.totalPrice} × {item.quantity}</p>
                     </div>
                     <div className="flex-shrink-0">
-                      <span className="font-semibold text-cafe-text">₱{item.totalPrice * item.quantity}</span>
+                      <span className="font-semibold text-white">₱{item.totalPrice * item.quantity}</span>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 pt-4 border-t border-cafe-primary/30">
-                <div className="flex items-center justify-between text-xl font-semibold text-cafe-text">
+              <div className="mt-4 pt-4 border-t border-pink-500/30">
+                <div className="flex items-center justify-between text-xl font-semibold text-white">
                   <span>Total:</span>
                   <span className="text-white">₱{order.total_price}</span>
                 </div>
@@ -278,8 +278,8 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
             </div>
 
             {/* Customer Information */}
-            <div className="bg-white rounded-lg p-4 border border-cafe-primary/30 shadow-md">
-              <h3 className="font-medium text-cafe-text mb-4">Customer Information</h3>
+            <div className="bg-gray-900 rounded-lg p-4 border border-pink-500/30 shadow-md">
+              <h3 className="font-medium text-white mb-4">Customer Information</h3>
               {order.customer_info['Multiple Accounts'] ? (
                 // Multiple accounts mode
                 <div className="space-y-4">
@@ -288,14 +288,14 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                     package: string;
                     fields: Record<string, string>;
                   }>).map((account, accountIndex) => (
-                    <div key={accountIndex} className="pb-4 border-b border-cafe-primary/20 last:border-b-0 last:pb-0">
+                    <div key={accountIndex} className="pb-4 border-b border-pink-500/20 last:border-b-0 last:pb-0">
                       <div className="mb-2">
-                        <p className="text-sm font-semibold text-cafe-text">{account.game}</p>
-                        <p className="text-xs text-cafe-textMuted">Package: {account.package}</p>
+                        <p className="text-sm font-semibold text-white">{account.game}</p>
+                        <p className="text-xs text-gray-400">Package: {account.package}</p>
                       </div>
                       <div className="space-y-2 mt-2">
                         {Object.entries(account.fields).map(([key, value]) => (
-                          <p key={key} className="text-sm text-cafe-textMuted">
+                          <p key={key} className="text-sm text-gray-400">
                             {key}: {String(value)}
                           </p>
                         ))}
@@ -307,7 +307,7 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                 // Single account mode (default)
                 <div className="space-y-2">
                   {Object.entries(order.customer_info).map(([key, value]) => (
-                    <p key={key} className="text-sm text-cafe-textMuted">
+                    <p key={key} className="text-sm text-gray-400">
                       {key}: {String(value)}
                     </p>
                   ))}
@@ -317,14 +317,14 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
           </div>
         ) : (
           <div className="text-center py-12">
-            <p className="text-cafe-textMuted">Order not found</p>
+            <p className="text-gray-400">Order not found</p>
           </div>
         )}
 
             {/* Footer */}
-            <div className="mt-6 pt-4 border-t border-cafe-primary/20">
-              <p className="text-xs text-cafe-textMuted text-center">
-                by Kitty Galore Game Credits
+            <div className="mt-6 pt-4 border-t border-pink-500/20">
+              <p className="text-xs text-gray-400 text-center">
+                by Pachot's Game Credits
               </p>
             </div>
           </div>
