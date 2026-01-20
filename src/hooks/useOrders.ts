@@ -152,15 +152,19 @@ export const useOrders = () => {
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            // Only fetch new orders created after our most recent
-            if (mostRecentDate) {
-              fetchOrders(100, mostRecentDate);
-            } else {
-              // Fallback: fetch all if we don't have a date
-              fetchOrders(100);
-            }
+            // Use the order data from the payload directly (optimized - no extra egress)
+            const newOrder = payload.new as Order;
+            setOrders(prev => {
+              // Check if order already exists (avoid duplicates)
+              if (prev.some(order => order.id === newOrder.id)) {
+                return prev;
+              }
+              // Add new order to the beginning, keep only the most recent 100
+              const updated = [newOrder, ...prev];
+              return updated.slice(0, 100);
+            });
           } else if (payload.eventType === 'UPDATE') {
-            // Update the specific order in the list
+            // Update the specific order in the list using payload data (optimized - no extra egress)
             const updatedOrder = payload.new as Order;
             setOrders(prev => prev.map(order => 
               order.id === updatedOrder.id ? { ...order, ...updatedOrder } : order

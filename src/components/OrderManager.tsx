@@ -1,21 +1,107 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle, XCircle, Loader2, Eye, Download, X, Copy, User } from 'lucide-react';
 import { Order, OrderStatus, Member } from '../types';
 import { useOrders } from '../hooks/useOrders';
+import { useSiteSettings } from '../hooks/useSiteSettings';
 import { supabase } from '../lib/supabase';
 
 const OrderManager: React.FC = () => {
   const { orders, loading, fetchOrders, updateOrderStatus, fetchOrderById } = useOrders();
+  const { siteSettings } = useSiteSettings();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [timeKey, setTimeKey] = useState(0); // Force re-render for time updates
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [orderFilter, setOrderFilter] = useState<'place_order' | 'order_via_messenger'>('place_order');
   const [memberMap, setMemberMap] = useState<Record<string, Member>>({});
+  const previousOrderIdsRef = useRef<Set<string>>(new Set());
+  const notificationVolumeRef = useRef<number>(0.5);
+  
+  // Get order option from site settings
+  const orderOption = siteSettings?.order_option || 'order_via_messenger';
 
   useEffect(() => {
     fetchOrders(100); // Limit to 100 most recent orders
   }, []);
+
+  // Fetch notification volume from settings
+  useEffect(() => {
+    const fetchNotificationVolume = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('site_settings')
+          .select('value')
+          .eq('id', 'notification_volume')
+          .single();
+
+        if (!error && data?.value) {
+          const volume = parseFloat(data.value);
+          if (!isNaN(volume) && volume >= 0 && volume <= 1) {
+            notificationVolumeRef.current = volume;
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching notification volume:', err);
+      }
+    };
+
+    fetchNotificationVolume();
+  }, []);
+
+  // Initialize previous order IDs after first load (only for place_order mode)
+  useEffect(() => {
+    // Only track orders if order_option is 'place_order'
+    if (orderOption === 'place_order' && orders.length > 0 && previousOrderIdsRef.current.size === 0) {
+      // Initialize with current order IDs on first load (don't play sound)
+      previousOrderIdsRef.current = new Set(orders.map(o => o.id));
+    } else if (orderOption === 'order_via_messenger') {
+      // Clear tracking when switching to order_via_messenger mode
+      previousOrderIdsRef.current = new Set();
+    }
+  }, [orders, orderOption]);
+
+  // Play notification sound when new orders arrive (only for place_order mode)
+  useEffect(() => {
+    // Only check for new orders if order_option is 'place_order'
+    if (orderOption !== 'place_order') {
+      return;
+    }
+
+    // Skip if this is the initial load (no previous orders tracked)
+    if (previousOrderIdsRef.current.size === 0) {
+      return;
+    }
+
+    if (orders.length === 0) {
+      return;
+    }
+
+    // Get current order IDs
+    const currentOrderIds = new Set(orders.map(o => o.id));
+
+    // Find new orders (orders that weren't in the previous set)
+    const newOrders = orders.filter(order => {
+      // Play sound for new orders with pending status
+      return !previousOrderIdsRef.current.has(order.id) && 
+             order.status === 'pending';
+    });
+
+    // Play notification sound for each new order
+    if (newOrders.length > 0) {
+      try {
+        const audio = new Audio('/notifSound.mp3');
+        audio.volume = notificationVolumeRef.current;
+        audio.play().catch(err => {
+          console.error('Error playing notification sound:', err);
+        });
+      } catch (err) {
+        console.error('Error creating audio element:', err);
+      }
+    }
+
+    // Update previous order IDs
+    previousOrderIdsRef.current = currentOrderIds;
+  }, [orders, orderOption]);
 
   // Fetch member information for orders
   useEffect(() => {
