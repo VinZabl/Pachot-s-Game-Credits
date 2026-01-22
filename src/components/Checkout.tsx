@@ -1581,7 +1581,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
                                 type="text"
                                 value={customFieldValues[valueKey] || ''}
                                 onChange={(e) => setCustomFieldValues(prev => ({ ...prev, [valueKey]: e.target.value }))}
-                                className="w-full px-4 py-3 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-cafe-text placeholder-cafe-textMuted"
+                                className="w-full px-3 py-2 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-sm text-cafe-text placeholder-cafe-textMuted"
                                 placeholder={field.placeholder || field.label}
                                 required={field.required}
                               />
@@ -1635,7 +1635,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
                                 ...customFieldValues,
                                 [valueKey]: e.target.value
                               })}
-                              className="w-full px-4 py-3 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-cafe-text placeholder-cafe-textMuted"
+                              className="w-full px-3 py-2 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-sm text-cafe-text placeholder-cafe-textMuted"
                               placeholder={field.placeholder || field.label}
                               required={field.required}
                             />
@@ -1657,7 +1657,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
                       ...customFieldValues,
                       ['default_ign']: e.target.value
                     })}
-                    className="w-full px-4 py-3 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-cafe-text placeholder-cafe-textMuted"
+                    className="w-full px-3 py-2 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-sm text-cafe-text placeholder-cafe-textMuted"
                     placeholder="In game name"
                     required
                   />
@@ -1707,7 +1707,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
                 style={paymentMethod?.id === method.id ? { backgroundColor: '#1E7ACB' } : {}}
               >
                 {/* Icon fills the card */}
-                <div className="relative w-full aspect-square flex-shrink-0 overflow-hidden bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg">
+                <div className="relative w-full aspect-square flex-shrink-0 overflow-hidden bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg rounded-lg">
                   {method.icon_url ? (
                     <img
                       src={method.icon_url}
@@ -1719,14 +1719,6 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
                       <span className="text-2xl md:text-4xl">💳</span>
                     </div>
                   )}
-                </div>
-                {/* Title Below */}
-                <div className="px-1 py-1 bg-black/60 flex items-center justify-center min-h-[32px]">
-                  <span className={`font-medium text-[10px] md:text-xs text-center leading-tight ${
-                    paymentMethod?.id === method.id ? 'text-white' : 'text-white'
-                  }`}>
-                    {method.name}
-                  </span>
                 </div>
               </button>
             ))}

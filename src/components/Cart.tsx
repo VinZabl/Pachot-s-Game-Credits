@@ -115,13 +115,8 @@ const Cart: React.FC<CartProps> = ({
     return (
       <div className="max-w-4xl mx-auto px-4 py-12">
         <div className="text-center py-16">
-          <div className="mb-4 text-6xl" style={{ 
-            imageRendering: 'pixelated',
-            filter: 'contrast(1.2)',
-            transform: 'scale(1.5)',
-            display: 'inline-block'
-          }}>
-            🦖
+          <div className="mb-4 flex justify-center">
+            <img src="/logo.png" alt="Logo" className="h-24 w-24 md:h-32 md:w-32 object-contain" />
           </div>
           <h2 className="text-2xl font-medium text-cafe-text mb-2">Your cart is empty</h2>
           <p className="text-cafe-textMuted mb-6">Add some currency packages to get started!</p>
