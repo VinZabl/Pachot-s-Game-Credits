@@ -28,6 +28,7 @@ export const useOrders = () => {
         receipt_url: order.receipt_url || '',
         total_price: order.total_price || 0,
         status: order.status as OrderStatus,
+        rejection_reason: order.rejection_reason || undefined,
         created_at: order.created_at,
         updated_at: order.updated_at || order.created_at,
       }));
@@ -63,6 +64,7 @@ export const useOrders = () => {
         receipt_url: data.receipt_url || '',
         total_price: data.total_price || 0,
         status: data.status as OrderStatus,
+        rejection_reason: data.rejection_reason || undefined,
         created_at: data.created_at,
         updated_at: data.updated_at || data.created_at,
       };
@@ -110,11 +112,21 @@ export const useOrders = () => {
     }
   }, [fetchOrders]);
 
-  const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus): Promise<boolean> => {
+  const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, rejectionReason?: string): Promise<boolean> => {
     try {
+      const updateData: { status: OrderStatus; rejection_reason?: string } = { status };
+      
+      // Only include rejection_reason if status is rejected
+      if (status === 'rejected' && rejectionReason) {
+        updateData.rejection_reason = rejectionReason;
+      } else if (status !== 'rejected') {
+        // Clear rejection reason if status is not rejected
+        updateData.rejection_reason = null;
+      }
+
       const { error: updateError } = await supabase
         .from('orders')
-        .update({ status })
+        .update(updateData)
         .eq('id', orderId);
 
       if (updateError) throw updateError;

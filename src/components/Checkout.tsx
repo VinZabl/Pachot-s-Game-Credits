@@ -14,33 +14,125 @@ interface CheckoutProps {
   onNavigateToMenu?: () => void; // Callback to navigate to menu (e.g., after order succeeded)
 }
 
+const CHECKOUT_STATE_STORAGE_KEY = 'pachot_checkout_state';
+
 const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNavigateToMenu }) => {
   const { paymentMethods } = usePaymentMethods();
   const { uploadImage, uploading: uploadingReceipt } = useImageUpload();
   const { createOrder, fetchOrderById } = useOrders();
   const { siteSettings } = useSiteSettings();
   const orderOption = siteSettings?.order_option || 'order_via_messenger';
-  const [step, setStep] = useState<'details' | 'payment' | 'order'>('details');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+  
+  // Load checkout state from localStorage on mount
+  const [step, setStep] = useState<'details' | 'payment' | 'order'>(() => {
+    try {
+      const stored = localStorage.getItem(CHECKOUT_STATE_STORAGE_KEY);
+      if (stored) {
+        const state = JSON.parse(stored);
+        return state.step || 'details';
+      }
+    } catch (error) {
+      console.error('Error loading checkout state from localStorage:', error);
+    }
+    return 'details';
+  });
+  
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(() => {
+    try {
+      const stored = localStorage.getItem(CHECKOUT_STATE_STORAGE_KEY);
+      if (stored) {
+        const state = JSON.parse(stored);
+        return state.paymentMethod || null;
+      }
+    } catch (error) {
+      console.error('Error loading checkout state from localStorage:', error);
+    }
+    return null;
+  });
+  
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>(() => {
+    try {
+      const stored = localStorage.getItem(CHECKOUT_STATE_STORAGE_KEY);
+      if (stored) {
+        const state = JSON.parse(stored);
+        return state.customFieldValues || {};
+      }
+    } catch (error) {
+      console.error('Error loading checkout state from localStorage:', error);
+    }
+    return {};
+  });
+  
+  const [bulkInputValues, setBulkInputValues] = useState<Record<string, string>>(() => {
+    try {
+      const stored = localStorage.getItem(CHECKOUT_STATE_STORAGE_KEY);
+      if (stored) {
+        const state = JSON.parse(stored);
+        return state.bulkInputValues || {};
+      }
+    } catch (error) {
+      console.error('Error loading checkout state from localStorage:', error);
+    }
+    return {};
+  });
+  
+  const [bulkSelectedGames, setBulkSelectedGames] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem(CHECKOUT_STATE_STORAGE_KEY);
+      if (stored) {
+        const state = JSON.parse(stored);
+        return state.bulkSelectedGames || [];
+      }
+    } catch (error) {
+      console.error('Error loading checkout state from localStorage:', error);
+    }
+    return [];
+  });
+  
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(() => {
+    try {
+      const stored = localStorage.getItem(CHECKOUT_STATE_STORAGE_KEY);
+      if (stored) {
+        const state = JSON.parse(stored);
+        return state.receiptPreview || null;
+      }
+    } catch (error) {
+      console.error('Error loading checkout state from localStorage:', error);
+    }
+    return null;
+  });
+  
   const paymentDetailsRef = useRef<HTMLDivElement>(null);
   const buttonsRef = useRef<HTMLDivElement>(null);
   const [, setShowScrollIndicator] = useState(true);
-  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptImageUrl, setReceiptImageUrl] = useState<string | null>(null);
-  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [hasCopiedMessage, setHasCopiedMessage] = useState(false);
   const [copiedAccountNumber, setCopiedAccountNumber] = useState(false);
   const [copiedAccountName, setCopiedAccountName] = useState(false);
-  const [bulkInputValues, setBulkInputValues] = useState<Record<string, string>>({});
-  const [bulkSelectedGames, setBulkSelectedGames] = useState<string[]>([]);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [existingOrderStatus, setExistingOrderStatus] = useState<OrderStatus | null>(null);
   const [, setIsCheckingExistingOrder] = useState(true);
+
+  // Persist checkout state to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(CHECKOUT_STATE_STORAGE_KEY, JSON.stringify({
+        step,
+        paymentMethod,
+        customFieldValues,
+        bulkInputValues,
+        bulkSelectedGames,
+        receiptPreview
+      }));
+    } catch (error) {
+      console.error('Error saving checkout state to localStorage:', error);
+    }
+  }, [step, paymentMethod, customFieldValues, bulkInputValues, bulkSelectedGames, receiptPreview]);
 
   // Extract original menu item ID from cart item ID (format: "menuItemId:::CART:::timestamp-random")
   // This allows us to group all packages from the same game together
@@ -421,7 +513,7 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
     }
   };
 
-  // Check for existing order on mount
+  // Check for existing order on mount and auto-show modal if processing
   useEffect(() => {
     const checkExistingOrder = async () => {
       const storedOrderId = localStorage.getItem('current_order_id');
@@ -431,12 +523,19 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
           setExistingOrderStatus(order.status);
           setOrderId(order.id);
           
+          // Auto-show modal if order is pending or processing
+          if (order.status === 'pending' || order.status === 'processing') {
+            setIsOrderModalOpen(true);
+          }
+          
           // Clear localStorage only if order is approved (succeeded)
           // Keep rejected orders so user can still view them
           if (order.status === 'approved') {
             localStorage.removeItem('current_order_id');
             setExistingOrderStatus(null);
             setOrderId(null);
+            // Clear checkout state when order is approved
+            localStorage.removeItem(CHECKOUT_STATE_STORAGE_KEY);
           }
         } else {
           localStorage.removeItem('current_order_id');
@@ -580,6 +679,8 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
       }}
       onSucceededClose={() => {
         localStorage.removeItem('current_order_id');
+        // Clear checkout state when order succeeds
+        localStorage.removeItem(CHECKOUT_STATE_STORAGE_KEY);
         setExistingOrderStatus(null);
         setOrderId(null);
         if (onNavigateToMenu) {

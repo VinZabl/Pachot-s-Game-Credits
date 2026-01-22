@@ -211,6 +211,19 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
               )}
             </div>
 
+            {/* Rejection Reason */}
+            {order.status === 'rejected' && order.rejection_reason && (
+              <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-4">
+                <h3 className="font-medium text-red-300 mb-2 flex items-center gap-2">
+                  <XCircle className="h-5 w-5" />
+                  Rejection Reason
+                </h3>
+                <p className="text-sm text-red-200 whitespace-pre-wrap leading-relaxed">
+                  {order.rejection_reason}
+                </p>
+              </div>
+            )}
+
             {/* Support Section */}
             {siteSettings?.footer_support_url && (
               <div className="mb-6">

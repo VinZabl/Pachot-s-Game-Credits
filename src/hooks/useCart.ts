@@ -1,9 +1,31 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { CartItem, MenuItem, Variation, AddOn } from '../types';
 
+const CART_STORAGE_KEY = 'pachot_cart_items';
+
 export const useCart = () => {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  // Load cart from localStorage on mount
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    try {
+      const stored = localStorage.getItem(CART_STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('Error loading cart from localStorage:', error);
+    }
+    return [];
+  });
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  // Persist cart to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
+    } catch (error) {
+      console.error('Error saving cart to localStorage:', error);
+    }
+  }, [cartItems]);
 
   const calculateItemPrice = (item: MenuItem, variation?: Variation, addOns?: AddOn[]) => {
     let price = item.basePrice;
@@ -104,6 +126,11 @@ export const useCart = () => {
 
   const clearCart = useCallback(() => {
     setCartItems([]);
+    try {
+      localStorage.removeItem(CART_STORAGE_KEY);
+    } catch (error) {
+      console.error('Error clearing cart from localStorage:', error);
+    }
   }, []);
 
   const getTotalPrice = useCallback(() => {

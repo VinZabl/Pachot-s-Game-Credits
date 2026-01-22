@@ -9,6 +9,10 @@ const OrderManager: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [, setTimeKey] = useState(0); // Force re-render for time updates
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectingOrderId, setRejectingOrderId] = useState<string | null>(null);
+  const [selectedRejectionReason, setSelectedRejectionReason] = useState<string>('');
+  const [customRejectionText, setCustomRejectionText] = useState<string>('');
 
   useEffect(() => {
     fetchOrders();
@@ -58,12 +62,46 @@ const OrderManager: React.FC = () => {
     }
   };
 
-  const handleReject = async (orderId: string) => {
-    const success = await updateOrderStatus(orderId, 'rejected');
+  const handleRejectClick = (orderId: string) => {
+    setRejectingOrderId(orderId);
+    setIsRejectModalOpen(true);
+    setSelectedRejectionReason('');
+    setCustomRejectionText('');
+  };
+
+  const handleRejectConfirm = async () => {
+    if (!rejectingOrderId) return;
+
+    // Build rejection reason
+    let rejectionReason = '';
+    if (selectedRejectionReason) {
+      rejectionReason = selectedRejectionReason;
+      if (customRejectionText.trim()) {
+        rejectionReason += ` - ${customRejectionText.trim()}`;
+      }
+    } else if (customRejectionText.trim()) {
+      rejectionReason = customRejectionText.trim();
+    } else {
+      // If no reason selected, use a default
+      rejectionReason = 'Order rejected by admin';
+    }
+
+    const success = await updateOrderStatus(rejectingOrderId, 'rejected', rejectionReason);
     if (success) {
+      setIsRejectModalOpen(false);
       setIsModalOpen(false);
       setSelectedOrder(null);
+      setRejectingOrderId(null);
+      setSelectedRejectionReason('');
+      setCustomRejectionText('');
     }
+  };
+
+  const handleRejectCancel = () => {
+    setIsRejectModalOpen(false);
+    setRejectingOrderId(null);
+    setSelectedRejectionReason('');
+    setCustomRejectionText('');
   };
 
   const getTimeAgo = (createdAt: string) => {
@@ -206,7 +244,7 @@ const OrderManager: React.FC = () => {
                        Approve
                      </button>
                      <button
-                       onClick={() => handleReject(order.id)}
+                       onClick={() => handleRejectClick(order.id)}
                        className="px-3 py-1.5 md:px-4 md:py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors duration-200 text-red-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
                      >
                        <XCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -224,7 +262,7 @@ const OrderManager: React.FC = () => {
                        Approve
                      </button>
                      <button
-                       onClick={() => handleReject(order.id)}
+                       onClick={() => handleRejectClick(order.id)}
                        className="px-3 py-1.5 md:px-4 md:py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors duration-200 text-red-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
                      >
                        <XCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -437,7 +475,7 @@ const OrderManager: React.FC = () => {
                       Approve
                     </button>
                     <button
-                      onClick={() => handleReject(selectedOrder.id)}
+                      onClick={() => handleRejectClick(selectedOrder.id)}
                       className="px-3 py-1.5 md:px-4 md:py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors duration-200 text-red-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
                     >
                       <XCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -455,7 +493,7 @@ const OrderManager: React.FC = () => {
                       Approve
                     </button>
                     <button
-                      onClick={() => handleReject(selectedOrder.id)}
+                      onClick={() => handleRejectClick(selectedOrder.id)}
                       className="px-3 py-1.5 md:px-4 md:py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors duration-200 text-red-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
                     >
                       <XCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -464,6 +502,88 @@ const OrderManager: React.FC = () => {
                   </>
                 )}
                </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Reason Modal */}
+      {isRejectModalOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2 md:p-4">
+          <div className="bg-white rounded-lg shadow-xl p-4 md:p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4 md:mb-6">
+              <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+                Reject Order
+              </h2>
+              <button
+                onClick={handleRejectCancel}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 mb-4">
+                Please select a reason for rejection or provide a custom message:
+              </p>
+
+              {/* Predefined rejection reasons */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => setSelectedRejectionReason(selectedRejectionReason === 'Wrong ID or Password' ? '' : 'Wrong ID or Password')}
+                  className={`w-full px-4 py-3 rounded-lg border-2 transition-all duration-200 text-left ${
+                    selectedRejectionReason === 'Wrong ID or Password'
+                      ? 'bg-red-50 border-red-300 text-red-700'
+                      : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
+                  }`}
+                >
+                  <span className="font-medium">Wrong ID or Password</span>
+                </button>
+
+                <button
+                  onClick={() => setSelectedRejectionReason(selectedRejectionReason === 'Invalid Inputs' ? '' : 'Invalid Inputs')}
+                  className={`w-full px-4 py-3 rounded-lg border-2 transition-all duration-200 text-left ${
+                    selectedRejectionReason === 'Invalid Inputs'
+                      ? 'bg-red-50 border-red-300 text-red-700'
+                      : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
+                  }`}
+                >
+                  <span className="font-medium">Invalid Inputs</span>
+                </button>
+              </div>
+
+              {/* Custom text field */}
+              <div>
+                <label htmlFor="custom-rejection" className="block text-sm font-medium text-gray-700 mb-2">
+                  Additional Details (Optional)
+                </label>
+                <textarea
+                  id="custom-rejection"
+                  value={customRejectionText}
+                  onChange={(e) => setCustomRejectionText(e.target.value)}
+                  placeholder="Provide more specific details about the rejection..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none text-sm"
+                />
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={handleRejectCancel}
+                  className="flex-1 px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-gray-700 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRejectConfirm}
+                  className="flex-1 px-4 py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors duration-200 text-red-700 font-medium flex items-center justify-center gap-2"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Confirm Reject
+                </button>
+              </div>
             </div>
           </div>
         </div>

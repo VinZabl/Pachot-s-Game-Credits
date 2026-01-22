@@ -114,6 +114,7 @@ export interface Order {
   receipt_url: string;
   total_price: number;
   status: OrderStatus;
+  rejection_reason?: string; // Reason for rejection if order is rejected
   created_at: string;
   updated_at: string;
 }

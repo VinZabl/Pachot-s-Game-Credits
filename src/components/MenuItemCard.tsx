@@ -173,7 +173,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
                   <p className="text-sm text-gray-400 mt-1">{item.subtitle}</p>
                 )}
                 {item.description && (
-                  <p className="text-sm text-gray-400 mt-2">{item.description}</p>
+                  <p className="text-sm text-gray-400 mt-2 whitespace-pre-wrap">{item.description}</p>
                 )}
               </div>
             </div>

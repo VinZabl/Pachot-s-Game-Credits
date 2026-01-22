@@ -11,12 +11,64 @@ import Footer from './components/Footer';
 import AdminDashboard from './components/AdminDashboard';
 import { useMenu } from './hooks/useMenu';
 
+const APP_STATE_STORAGE_KEY = 'pachot_app_state';
+
 function MainApp() {
   const cart = useCart();
   const { menuItems } = useMenu();
-  const [currentView, setCurrentView] = React.useState<'menu' | 'cart' | 'checkout'>('menu');
-  const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
-  const [searchQuery, setSearchQuery] = React.useState<string>('');
+  
+  // Load app state from localStorage on mount
+  const [currentView, setCurrentView] = React.useState<'menu' | 'cart' | 'checkout'>(() => {
+    try {
+      const stored = localStorage.getItem(APP_STATE_STORAGE_KEY);
+      if (stored) {
+        const state = JSON.parse(stored);
+        return state.currentView || 'menu';
+      }
+    } catch (error) {
+      console.error('Error loading app state from localStorage:', error);
+    }
+    return 'menu';
+  });
+  
+  const [selectedCategory, setSelectedCategory] = React.useState<string>(() => {
+    try {
+      const stored = localStorage.getItem(APP_STATE_STORAGE_KEY);
+      if (stored) {
+        const state = JSON.parse(stored);
+        return state.selectedCategory || 'all';
+      }
+    } catch (error) {
+      console.error('Error loading app state from localStorage:', error);
+    }
+    return 'all';
+  });
+  
+  const [searchQuery, setSearchQuery] = React.useState<string>(() => {
+    try {
+      const stored = localStorage.getItem(APP_STATE_STORAGE_KEY);
+      if (stored) {
+        const state = JSON.parse(stored);
+        return state.searchQuery || '';
+      }
+    } catch (error) {
+      console.error('Error loading app state from localStorage:', error);
+    }
+    return '';
+  });
+
+  // Persist app state to localStorage whenever it changes
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(APP_STATE_STORAGE_KEY, JSON.stringify({
+        currentView,
+        selectedCategory,
+        searchQuery
+      }));
+    } catch (error) {
+      console.error('Error saving app state to localStorage:', error);
+    }
+  }, [currentView, selectedCategory, searchQuery]);
 
   const handleViewChange = (view: 'menu' | 'cart' | 'checkout') => {
     setCurrentView(view);
