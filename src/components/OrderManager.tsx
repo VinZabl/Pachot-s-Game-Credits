@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Loader2, Eye, Download, X, Copy } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { CheckCircle, XCircle, Loader2, Eye, Download, X, Copy, Search } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
 import { useOrders } from '../hooks/useOrders';
 
@@ -13,6 +13,7 @@ const OrderManager: React.FC = () => {
   const [rejectingOrderId, setRejectingOrderId] = useState<string | null>(null);
   const [selectedRejectionReason, setSelectedRejectionReason] = useState<string>('');
   const [customRejectionText, setCustomRejectionText] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     fetchOrders();
@@ -104,6 +105,63 @@ const OrderManager: React.FC = () => {
     setCustomRejectionText('');
   };
 
+  // Filter orders based on search query
+  const filteredOrders = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return orders;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    
+    return orders.filter(order => {
+      // Search by order ID (full or partial)
+      if (order.id.toLowerCase().includes(query)) {
+        return true;
+      }
+
+      // Search in customer_info fields
+      if (order.customer_info) {
+        // Handle multiple accounts case
+        if (order.customer_info['Multiple Accounts']) {
+          const multipleAccounts = order.customer_info['Multiple Accounts'] as Array<{
+            game: string;
+            package: string;
+            fields: Record<string, string>;
+          }>;
+          
+          for (const account of multipleAccounts) {
+            // Check game name
+            if (account.game.toLowerCase().includes(query)) {
+              return true;
+            }
+            // Check package name
+            if (account.package.toLowerCase().includes(query)) {
+              return true;
+            }
+            // Check all fields in the account
+            for (const [key, value] of Object.entries(account.fields)) {
+              if (key.toLowerCase().includes(query) || String(value).toLowerCase().includes(query)) {
+                return true;
+              }
+            }
+          }
+        } else {
+          // Single account mode - search all customer_info fields
+          for (const [key, value] of Object.entries(order.customer_info)) {
+            // Skip payment method as it's less useful for search
+            if (key === 'Payment Method') continue;
+            
+            if (key.toLowerCase().includes(query) || String(value).toLowerCase().includes(query)) {
+              return true;
+            }
+          }
+        }
+      }
+
+      return false;
+    });
+  }, [orders, searchQuery]);
+
   const getTimeAgo = (createdAt: string) => {
     const now = new Date();
     const created = new Date(createdAt);
@@ -162,7 +220,29 @@ const OrderManager: React.FC = () => {
 
   return (
     <div className="space-y-3 md:space-y-6">
-      <div className="flex items-center justify-end mb-3 md:mb-6">
+      <div className="flex items-center gap-3 md:gap-4 mb-3 md:mb-6">
+        {/* Search Bar */}
+        <div className="flex-1 max-w-md">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by order number or customer details..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+        
         <button
           onClick={() => fetchOrders()}
           className="px-3 py-1.5 md:px-4 md:py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-gray-700 flex items-center gap-1.5 md:gap-2 shadow-sm text-xs md:text-sm"
@@ -172,13 +252,15 @@ const OrderManager: React.FC = () => {
         </button>
       </div>
 
-      {orders.length === 0 ? (
+      {filteredOrders.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-          <p className="text-gray-500">No orders found</p>
+          <p className="text-gray-500">
+            {searchQuery ? `No orders found matching "${searchQuery}"` : 'No orders found'}
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
-           {orders.map((order) => (
+           {filteredOrders.map((order) => (
              <div
                key={order.id}
                className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 md:p-6 hover:shadow-md transition-shadow duration-200 relative"
