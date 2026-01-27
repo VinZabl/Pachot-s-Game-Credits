@@ -294,7 +294,7 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
             <div className="bg-gray-900 rounded-lg p-4 border border-pink-500/30 shadow-md">
               <h3 className="font-medium text-white mb-4">Customer Information</h3>
               {order.customer_info['Multiple Accounts'] ? (
-                // Multiple accounts mode
+                // Multiple accounts mode: one section per game/item
                 <div className="space-y-4">
                   {(order.customer_info['Multiple Accounts'] as Array<{
                     game: string;
@@ -304,7 +304,9 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                     <div key={accountIndex} className="pb-4 border-b border-pink-500/20 last:border-b-0 last:pb-0">
                       <div className="mb-2">
                         <p className="text-sm font-semibold text-white">{account.game}</p>
-                        <p className="text-xs text-gray-400">Package: {account.package}</p>
+                        {account.package && (
+                          <p className="text-xs text-gray-400">Package: {account.package}</p>
+                        )}
                       </div>
                       <div className="space-y-2 mt-2">
                         {Object.entries(account.fields).map(([key, value]) => (
@@ -315,6 +317,13 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                       </div>
                     </div>
                   ))}
+                  {order.customer_info['Payment Method'] && (
+                    <div className="pt-2 border-t border-pink-500/20">
+                      <p className="text-sm text-gray-400">
+                        Payment Method: {String(order.customer_info['Payment Method'])}
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 // Single account mode (default)

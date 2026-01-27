@@ -1,10 +1,34 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { CheckCircle, XCircle, Loader2, Eye, Download, X, Copy, Search } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { CheckCircle, XCircle, Loader2, Eye, Download, X, Copy, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
 import { useOrders } from '../hooks/useOrders';
+import { usePaymentMethods, PaymentMethod } from '../hooks/usePaymentMethods';
+import { supabase } from '../lib/supabase';
 
 const OrderManager: React.FC = () => {
-  const { orders, loading, fetchOrders, updateOrderStatus } = useOrders();
+  const { orders, loading, fetchOrders, updateOrderStatus, totalCount, currentPage, ordersPerPage } = useOrders();
+  const { paymentMethods } = usePaymentMethods();
+  const [allPaymentMethods, setAllPaymentMethods] = useState<PaymentMethod[]>([]);
+
+  // Fetch all payment methods (including inactive) for admin view
+  useEffect(() => {
+    const fetchAllPaymentMethods = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('payment_methods')
+          .select('*')
+          .order('sort_order', { ascending: true });
+        
+        if (!error && data) {
+          setAllPaymentMethods(data);
+        }
+      } catch (err) {
+        console.error('Error fetching all payment methods:', err);
+      }
+    };
+    
+    fetchAllPaymentMethods();
+  }, []);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [, setTimeKey] = useState(0); // Force re-render for time updates
@@ -15,9 +39,29 @@ const OrderManager: React.FC = () => {
   const [customRejectionText, setCustomRejectionText] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Calculate pagination info (must be before useEffects that use it)
+  const totalPages = useMemo(() => Math.ceil(totalCount / ordersPerPage), [totalCount, ordersPerPage]);
+  const startIndex = useMemo(() => (currentPage - 1) * ordersPerPage + 1, [currentPage, ordersPerPage]);
+  const endIndex = useMemo(() => Math.min(currentPage * ordersPerPage, totalCount), [currentPage, ordersPerPage, totalCount]);
+
+  const handlePageChange = useCallback((newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      fetchOrders(newPage);
+      // Scroll to top when page changes
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [totalPages, fetchOrders]);
+
   useEffect(() => {
-    fetchOrders();
+    fetchOrders(1);
   }, [fetchOrders]);
+
+  // Reset to page 1 when search is cleared
+  useEffect(() => {
+    if (!searchQuery && currentPage !== 1 && totalPages > 0) {
+      handlePageChange(1);
+    }
+  }, [searchQuery, currentPage, totalPages, handlePageChange]);
 
   // Mark orders as viewed when component mounts or orders change
   useEffect(() => {
@@ -162,6 +206,26 @@ const OrderManager: React.FC = () => {
     });
   }, [orders, searchQuery]);
 
+  const handleRefresh = () => {
+    fetchOrders(currentPage);
+  };
+
+  // Get payment method name from ID
+  const getPaymentMethodName = useCallback((paymentMethodId: string): string => {
+    if (!paymentMethodId) return 'Unknown';
+    
+    // Try to find payment method by id field (check both active and all methods)
+    const paymentMethod = allPaymentMethods.find(method => method.id === paymentMethodId) 
+      || paymentMethods.find(method => method.id === paymentMethodId);
+    
+    if (paymentMethod) {
+      return paymentMethod.name;
+    }
+    
+    // Fallback: return capitalized ID if not found
+    return paymentMethodId.charAt(0).toUpperCase() + paymentMethodId.slice(1);
+  }, [paymentMethods, allPaymentMethods]);
+
   const getTimeAgo = (createdAt: string) => {
     const now = new Date();
     const created = new Date(createdAt);
@@ -244,7 +308,7 @@ const OrderManager: React.FC = () => {
         </div>
         
         <button
-          onClick={() => fetchOrders()}
+          onClick={handleRefresh}
           className="px-3 py-1.5 md:px-4 md:py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-gray-700 flex items-center gap-1.5 md:gap-2 shadow-sm text-xs md:text-sm"
         >
           <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -255,8 +319,13 @@ const OrderManager: React.FC = () => {
       {filteredOrders.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
           <p className="text-gray-500">
-            {searchQuery ? `No orders found matching "${searchQuery}"` : 'No orders found'}
+            {searchQuery ? `No orders found matching "${searchQuery}" on this page` : 'No orders found'}
           </p>
+          {searchQuery && (
+            <p className="text-xs text-gray-400 mt-2">
+              Search is limited to the current page. Clear search to browse all orders.
+            </p>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
@@ -303,7 +372,7 @@ const OrderManager: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1">MOP</p>
-                  <p className="text-sm font-semibold text-gray-900 capitalize">{order.payment_method_id}</p>
+                  <p className="text-sm font-semibold text-gray-900">{getPaymentMethodName(order.payment_method_id)}</p>
                 </div>
               </div>
 
@@ -355,6 +424,71 @@ const OrderManager: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {!searchQuery && totalPages > 1 && (
+        <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 p-4">
+          <div className="text-sm text-gray-600">
+            Showing {startIndex} to {endIndex} of {totalCount} orders
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className={`px-3 py-1.5 rounded-lg border transition-colors duration-200 flex items-center gap-1.5 text-sm ${
+                currentPage === 1
+                  ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </button>
+            
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum: number;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`px-3 py-1.5 rounded-lg border transition-colors duration-200 text-sm ${
+                      currentPage === pageNum
+                        ? 'bg-blue-50 border-blue-300 text-blue-700 font-medium'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+            
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-1.5 rounded-lg border transition-colors duration-200 flex items-center gap-1.5 text-sm ${
+                currentPage === totalPages
+                  ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -431,6 +565,12 @@ const OrderManager: React.FC = () => {
                     <span className="text-gray-900">₱{selectedOrder.total_price}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Payment Method */}
+              <div className="bg-gray-50 rounded-lg p-3 md:p-4 border border-gray-200">
+                <h3 className="text-sm md:text-base font-medium text-gray-900 mb-3 md:mb-4">Payment Method</h3>
+                <p className="text-sm text-gray-700">{getPaymentMethodName(selectedOrder.payment_method_id)}</p>
               </div>
 
               {/* Customer Information */}

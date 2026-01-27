@@ -2,20 +2,30 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Order, CreateOrderData, OrderStatus } from '../types';
 
+const ORDERS_PER_PAGE = 20; // Number of orders to fetch per page
+
 export const useOrders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
-  const fetchOrders = useCallback(async (showLoading = true) => {
+  const fetchOrders = useCallback(async (page: number = 1, showLoading = true) => {
     try {
       if (showLoading) {
         setLoading(true);
       }
-      const { data, error: fetchError } = await supabase
+      
+      const from = (page - 1) * ORDERS_PER_PAGE;
+      const to = from + ORDERS_PER_PAGE - 1;
+
+      // Fetch orders with pagination
+      const { data, error: fetchError, count } = await supabase
         .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (fetchError) throw fetchError;
 
@@ -34,6 +44,8 @@ export const useOrders = () => {
       }));
 
       setOrders(transformedOrders);
+      setTotalCount(count || 0);
+      setCurrentPage(page);
       setError(null);
     } catch (err) {
       console.error('Error fetching orders:', err);
@@ -103,14 +115,14 @@ export const useOrders = () => {
         updated_at: data.updated_at || data.created_at,
       };
 
-      // Refresh orders list
-      await fetchOrders(false);
+      // Refresh orders list (stay on current page)
+      await fetchOrders(currentPage, false);
       return newOrder;
     } catch (err) {
       console.error('Error creating order:', err);
       throw err;
     }
-  }, [fetchOrders]);
+  }, [fetchOrders, currentPage]);
 
   const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, rejectionReason?: string): Promise<boolean> => {
     try {
@@ -131,14 +143,14 @@ export const useOrders = () => {
 
       if (updateError) throw updateError;
 
-      // Refresh orders list
-      await fetchOrders(false);
+      // Refresh orders list (stay on current page)
+      await fetchOrders(currentPage, false);
       return true;
     } catch (err) {
       console.error('Error updating order status:', err);
       return false;
     }
-  }, [fetchOrders]);
+  }, [fetchOrders, currentPage]);
 
   // Use ref to store the latest fetchOrders function
   const fetchOrdersRef = useRef(fetchOrders);
@@ -147,20 +159,20 @@ export const useOrders = () => {
   }, [fetchOrders]);
 
   useEffect(() => {
-    fetchOrders();
+    fetchOrders(1);
   }, [fetchOrders]);
 
   // Set up polling fallback - check for new orders every 5 seconds
   useEffect(() => {
     const pollInterval = setInterval(() => {
       console.log('🔄 Polling for new orders...');
-      fetchOrdersRef.current(false);
+      fetchOrdersRef.current(currentPage, false);
     }, 5000); // Check every 5 seconds
 
     return () => {
       clearInterval(pollInterval);
     };
-  }, []); // Empty dependency array - polling stays active
+  }, [currentPage]); // Include currentPage in dependencies
 
   // Set up real-time subscription (active regardless of current view)
   useEffect(() => {
@@ -183,7 +195,7 @@ export const useOrders = () => {
             // Use ref to call latest fetchOrders function
             // Reduced delay for faster updates
             setTimeout(() => {
-              fetchOrdersRef.current(false);
+              fetchOrdersRef.current(currentPage, false);
             }, 100);
           }
         )
@@ -215,12 +227,15 @@ export const useOrders = () => {
         supabase.removeChannel(channel);
       }
     };
-  }, []); // Empty dependency array - subscription stays active on all admin views
+  }, [currentPage]); // Include currentPage in dependencies
 
   return {
     orders,
     loading,
     error,
+    totalCount,
+    currentPage,
+    ordersPerPage: ORDERS_PER_PAGE,
     fetchOrders,
     fetchOrderById,
     createOrder,

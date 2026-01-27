@@ -141,24 +141,25 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
     return parts.length > 1 ? parts[0] : cartItemId;
   };
 
-  // Group custom fields by item/game
-  // If any game has custom fields, show those grouped by game. Otherwise, show default "IGN" field
-  // Deduplicate by original menu item ID to avoid showing the same fields multiple times for the same game
-  // (even if different packages/variations are selected)
+  // Cart items that require custom fields (e.g. USER ID, IGN) — one entry per line item (no deduplication)
+  // so each product/package can have different account info
+  const cartItemsWithCustomFields = useMemo(() => {
+    return cartItems.filter(item => item.customFields && item.customFields.length > 0);
+  }, [cartItems]);
+
+  // Unique games (by menu item ID) for bulk input UI and count
   const itemsWithCustomFields = useMemo(() => {
-    const itemsWithFields = cartItems.filter(item => item.customFields && item.customFields.length > 0);
-    // Deduplicate by original menu item ID
     const uniqueItems = new Map<string, typeof cartItems[0]>();
-    itemsWithFields.forEach(item => {
+    cartItemsWithCustomFields.forEach(item => {
       const originalId = getOriginalMenuItemId(item.id);
       if (!uniqueItems.has(originalId)) {
         uniqueItems.set(originalId, item);
       }
     });
     return Array.from(uniqueItems.values());
-  }, [cartItems]);
+  }, [cartItemsWithCustomFields]);
 
-  const hasAnyCustomFields = itemsWithCustomFields.length > 0;
+  const hasAnyCustomFields = cartItemsWithCustomFields.length > 0;
 
   // Get bulk input fields based on selected games - position-based
   // If selected games have N fields, show N bulk input fields
@@ -191,41 +192,8 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
     return fields;
   }, [bulkSelectedGames, itemsWithCustomFields]);
 
-  // Sync bulk input values to selected games by position
-  React.useEffect(() => {
-    if (bulkSelectedGames.length === 0) return;
-    
-    const updates: Record<string, string> = {};
-    
-    // Get selected items (bulkSelectedGames contains original menu item IDs)
-    const selectedItems = itemsWithCustomFields.filter(item => 
-      bulkSelectedGames.includes(getOriginalMenuItemId(item.id))
-    );
-    
-    // For each bulk input field (by index)
-    Object.entries(bulkInputValues).forEach(([fieldIndexStr, value]) => {
-      const fieldIndex = parseInt(fieldIndexStr, 10);
-      
-      // Apply to all selected games at the same field position
-      selectedItems.forEach((item) => {
-        if (item.customFields && item.customFields[fieldIndex]) {
-          const field = item.customFields[fieldIndex];
-          const originalId = getOriginalMenuItemId(item.id);
-          // Find the actual itemIndex from itemsWithCustomFields
-          const actualItemIndex = itemsWithCustomFields.findIndex(i => getOriginalMenuItemId(i.id) === originalId);
-          if (actualItemIndex !== -1) {
-            // Use fieldIndex to ensure uniqueness even if field.key is duplicated
-            const valueKey = `${originalId}_${fieldIndex}_${field.key}`;
-            updates[valueKey] = value;
-          }
-        }
-      });
-    });
-    
-    if (Object.keys(updates).length > 0) {
-      setCustomFieldValues(prev => ({ ...prev, ...updates }));
-    }
-  }, [bulkInputValues, bulkSelectedGames, itemsWithCustomFields]);
+  // Do NOT sync bulk → per-item in an effect: that overwrites the first game when customer entered two different accounts.
+  // Bulk only applies when user explicitly types in a bulk field (see handleBulkInputChange).
 
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -276,6 +244,22 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
   
   const handleBulkInputChange = (fieldKey: string, value: string) => {
     setBulkInputValues(prev => ({ ...prev, [fieldKey]: value }));
+    // Apply bulk only when user types here — write to all cart items in bulkSelectedGames so per-item sections stay in sync
+    if (bulkSelectedGames.length === 0) return;
+    const fieldIndex = parseInt(fieldKey, 10);
+    const selectedCartItems = cartItemsWithCustomFields.filter(item =>
+      bulkSelectedGames.includes(getOriginalMenuItemId(item.id))
+    );
+    const updates: Record<string, string> = {};
+    selectedCartItems.forEach((item) => {
+      if (item.customFields?.[fieldIndex]) {
+        const field = item.customFields[fieldIndex];
+        updates[`${item.id}_${fieldIndex}_${field.key}`] = value;
+      }
+    });
+    if (Object.keys(updates).length > 0) {
+      setCustomFieldValues(prev => ({ ...prev, ...updates }));
+    }
   };
 
   const handleBulkGameSelectionChange = (itemId: string, checked: boolean) => {
@@ -336,27 +320,24 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
     // Build custom fields section grouped by game
     let customFieldsSection = '';
     if (hasAnyCustomFields) {
-      // Group games by their field values (to simplify when bulk input is used)
       const gamesByFieldValues = new Map<string, { games: string[], fields: Array<{ label: string, value: string }> }>();
       
-      itemsWithCustomFields.forEach(item => {
-        // Get all field values for this game (use original menu item ID)
-        const originalId = getOriginalMenuItemId(item.id);
-        const fields = item.customFields?.map(field => {
-          const valueKey = `${originalId}_${field.key}`;
+      cartItemsWithCustomFields.forEach(item => {
+        const fields = item.customFields?.map((field, fieldIndex) => {
+          const valueKey = `${item.id}_${fieldIndex}_${field.key}`;
           const value = customFieldValues[valueKey] || '';
           return value ? { label: field.label, value } : null;
         }).filter(Boolean) as Array<{ label: string, value: string }> || [];
         
         if (fields.length === 0) return;
         
-        // Create a key based on field values (to group games with same values)
+        const itemLabel = item.selectedVariation ? `${item.name} (${item.selectedVariation.name})` : item.name;
         const valueKey = fields.map(f => `${f.label}:${f.value}`).join('|');
         
         if (!gamesByFieldValues.has(valueKey)) {
           gamesByFieldValues.set(valueKey, { games: [], fields });
         }
-        gamesByFieldValues.get(valueKey)!.games.push(item.name);
+        gamesByFieldValues.get(valueKey)!.games.push(itemLabel);
       });
       
       // Build the section
@@ -588,25 +569,34 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
       // Build customer info object
       const customerInfo: Record<string, string | unknown> = {};
       
-      // Add payment method
+      // Add payment method (shown in modals)
       customerInfo['Payment Method'] = selectedPaymentMethod.name;
 
-      // Single account mode (default)
-      // Add custom fields
       if (hasAnyCustomFields) {
-        itemsWithCustomFields.forEach((item) => {
-          const originalId = getOriginalMenuItemId(item.id);
+        // One account block per cart item so each product/package keeps its own UID, IGN, etc.
+        const multipleAccounts: Array<{ game: string; package: string; fields: Record<string, string> }> = [];
+        cartItemsWithCustomFields.forEach((item) => {
+          const fields: Record<string, string> = {};
           item.customFields?.forEach((field, fieldIndex) => {
-            // Use fieldIndex to ensure uniqueness even if field.key is duplicated
-            const valueKey = `${originalId}_${fieldIndex}_${field.key}`;
+            const valueKey = `${item.id}_${fieldIndex}_${field.key}`;
             const value = customFieldValues[valueKey];
             if (value) {
-              customerInfo[field.label] = value;
+              fields[field.label] = value;
             }
           });
+          if (Object.keys(fields).length > 0) {
+            multipleAccounts.push({
+              game: item.name,
+              package: item.selectedVariation?.name ?? '',
+              fields,
+            });
+          }
         });
+        if (multipleAccounts.length > 0) {
+          customerInfo['Multiple Accounts'] = multipleAccounts;
+        }
       } else {
-        // Default IGN field
+        // Single account: default IGN field
         if (customFieldValues['default_ign']) {
           customerInfo['IGN'] = customFieldValues['default_ign'];
         }
@@ -637,22 +627,17 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
 
   const isDetailsValid = useMemo(() => {
     if (!hasAnyCustomFields) {
-      // Default IGN field
       return customFieldValues['default_ign']?.trim() || false;
     }
-    
-    // Check all required fields for all items (use original menu item ID)
-    return itemsWithCustomFields.every(item => {
+    return cartItemsWithCustomFields.every(item => {
       if (!item.customFields) return true;
-      const originalId = getOriginalMenuItemId(item.id);
       return item.customFields.every((field, fieldIndex) => {
         if (!field.required) return true;
-        // Use fieldIndex to ensure uniqueness even if field.key is duplicated
-        const valueKey = `${originalId}_${fieldIndex}_${field.key}`;
+        const valueKey = `${item.id}_${fieldIndex}_${field.key}`;
         return customFieldValues[valueKey]?.trim() || false;
       });
     });
-  }, [hasAnyCustomFields, itemsWithCustomFields, customFieldValues]);
+  }, [hasAnyCustomFields, cartItemsWithCustomFields, customFieldValues]);
 
   const renderOrderStatusModal = () => (
     <OrderStatusModal
@@ -711,16 +696,16 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
             
             <form className="space-y-6">
               {/* Show count of items with custom fields */}
-              {hasAnyCustomFields && itemsWithCustomFields.length > 0 && (
+              {hasAnyCustomFields && cartItemsWithCustomFields.length > 0 && (
                 <div className="mb-4 p-3 glass border border-pink-500/30 rounded-lg">
                   <p className="text-sm text-white">
-                    <span className="font-semibold">{itemsWithCustomFields.length}</span> game{itemsWithCustomFields.length > 1 ? 's' : ''} require{itemsWithCustomFields.length === 1 ? 's' : ''} additional information
+                    <span className="font-semibold">{cartItemsWithCustomFields.length}</span> item{cartItemsWithCustomFields.length > 1 ? 's' : ''} require{cartItemsWithCustomFields.length === 1 ? 's' : ''} additional information
                   </p>
                 </div>
               )}
 
               {/* Bulk Input Section */}
-              {itemsWithCustomFields.length >= 2 && (
+              {cartItemsWithCustomFields.length >= 2 && (
                 <div className="mb-6 p-4 glass-strong border border-pink-500/30 rounded-lg">
                   <h3 className="text-lg font-semibold text-white mb-4">Bulk Input</h3>
                   <p className="text-sm text-gray-400 mb-4">
@@ -771,19 +756,20 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
                 </div>
               )}
 
-              {/* Dynamic Custom Fields grouped by game */}
+              {/* Dynamic Custom Fields: one section per cart item so each can have different UID/IGN */}
               {hasAnyCustomFields ? (
-                itemsWithCustomFields.map((item, itemIndex) => (
+                cartItemsWithCustomFields.map((item, itemIndex) => (
                   <div key={item.id} className="space-y-4 pb-6 border-b border-pink-500/20 last:border-b-0 last:pb-0">
                     <div className="mb-4">
                       <h3 className="text-lg font-semibold text-white">{item.name}</h3>
-                      <p className="text-sm text-gray-400">Please provide the following information for this game</p>
+                      {item.selectedVariation && (
+                        <p className="text-sm text-gray-400">Package: {item.selectedVariation.name}</p>
+                      )}
+                      <p className="text-sm text-gray-400">Please provide the following information for this item</p>
                     </div>
                     {item.customFields?.map((field, fieldIndex) => {
-                      const originalId = getOriginalMenuItemId(item.id);
-                      // Use fieldIndex to ensure uniqueness even if field.key is duplicated within the same game
-                      const valueKey = `${originalId}_${fieldIndex}_${field.key}`;
-                      const inputId = `input-${originalId}-${itemIndex}-${fieldIndex}-${field.key}`;
+                      const valueKey = `${item.id}_${fieldIndex}_${field.key}`;
+                      const inputId = `input-${item.id}-${itemIndex}-${fieldIndex}-${field.key}`;
                       return (
                         <div key={`${item.id}-${fieldIndex}-${field.key}`}>
                           <label htmlFor={inputId} className="block text-sm font-medium text-white mb-2">
@@ -1083,11 +1069,9 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
               <div className="glass-strong rounded-lg p-4 border border-pink-500/30">
                 <h4 className="font-medium text-white mb-2">Customer Details</h4>
                 {hasAnyCustomFields ? (
-                  itemsWithCustomFields.map((item) => {
-                    const originalId = getOriginalMenuItemId(item.id);
+                  cartItemsWithCustomFields.map((item) => {
                     const fields = item.customFields?.map((field, fieldIndex) => {
-                      // Use fieldIndex to ensure uniqueness even if field.key is duplicated
-                      const valueKey = `${originalId}_${fieldIndex}_${field.key}`;
+                      const valueKey = `${item.id}_${fieldIndex}_${field.key}`;
                       const value = customFieldValues[valueKey];
                       return value ? (
                         <p key={valueKey} className="text-sm text-whiteMuted">
@@ -1100,7 +1084,9 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
                     
                     return (
                       <div key={item.id} className="mb-3 pb-3 border-b border-pink-500/20 last:border-b-0 last:pb-0">
-                        <p className="text-sm font-semibold text-white mb-1">{item.name}:</p>
+                        <p className="text-sm font-semibold text-white mb-1">
+                          {item.name}{item.selectedVariation ? ` (${item.selectedVariation.name})` : ''}:
+                        </p>
                         {fields}
                       </div>
                     );
