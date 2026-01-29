@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Order, CreateOrderData, OrderStatus } from '../types';
+import { useSiteSettings } from './useSiteSettings';
 
 export const useOrders = () => {
+  const { siteSettings } = useSiteSettings();
+  const orderOption = siteSettings?.order_option || 'order_via_messenger';
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -13,7 +17,7 @@ export const useOrders = () => {
       setLoading(true);
       let query = supabase
         .from('orders')
-        .select('id, invoice_number, status, total_price, payment_method_id, created_at, updated_at, member_id, order_option, order_items, customer_info, receipt_url')
+        .select('id, invoice_number, status, total_price, payment_method_id, created_at, updated_at, member_id, order_option, order_items, customer_info, receipt_url, rejection_message')
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -109,20 +113,26 @@ export const useOrders = () => {
     }
   };
 
-  // Update order status
-  const updateOrderStatus = async (orderId: string, status: OrderStatus): Promise<boolean> => {
+  // Update order status (rejectionMessage optional, used when status is 'rejected')
+  const updateOrderStatus = async (orderId: string, status: OrderStatus, rejectionMessage?: string | null): Promise<boolean> => {
     try {
+      const updatePayload: { status: OrderStatus; rejection_message?: string | null } = { status };
+      if (status === 'rejected' && rejectionMessage !== undefined) {
+        updatePayload.rejection_message = rejectionMessage && rejectionMessage.trim() ? rejectionMessage.trim() : null;
+      }
       const { error: updateError } = await supabase
         .from('orders')
-        .update({ status })
+        .update(updatePayload)
         .eq('id', orderId);
 
       if (updateError) throw updateError;
 
       // Update the specific order in the list
       if (orders.length > 0) {
-        setOrders(prev => prev.map(order => 
-          order.id === orderId ? { ...order, status } : order
+        setOrders(prev => prev.map(order =>
+          order.id === orderId
+            ? { ...order, status, rejection_message: status === 'rejected' ? (updatePayload.rejection_message ?? null) : null }
+            : order
         ));
       }
 
@@ -134,10 +144,12 @@ export const useOrders = () => {
     }
   };
 
-  // Subscribe to order updates (real-time) - only if orders are already loaded
+  // Subscribe to order updates (real-time) only when order_option is 'place_order'
+  // When order_via_messenger, stop polling/realtime for new orders
   useEffect(() => {
+    if (orderOption !== 'place_order') return;
     if (orders.length === 0) return;
-    
+
     const mostRecentOrder = orders[0];
     const mostRecentDate = mostRecentOrder?.created_at;
     
@@ -180,7 +192,7 @@ export const useOrders = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [orders.length, orders[0]?.created_at]);
+  }, [orderOption, orders.length, orders[0]?.created_at]);
 
   return {
     orders,

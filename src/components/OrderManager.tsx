@@ -14,15 +14,34 @@ const OrderManager: React.FC = () => {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [orderFilter, setOrderFilter] = useState<'place_order' | 'order_via_messenger'>('place_order');
   const [memberMap, setMemberMap] = useState<Record<string, Member>>({});
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [orderToReject, setOrderToReject] = useState<Order | null>(null);
+  const [rejectMessage, setRejectMessage] = useState('');
   const previousOrderIdsRef = useRef<Set<string>>(new Set());
+
+  const REJECT_SHORTCUTS = [
+    'Invalid inputs',
+    'Receipt is not valid',
+    'Payment not received',
+    'Wrong amount',
+    'Order cancelled',
+  ];
   const notificationVolumeRef = useRef<number>(0.5);
   
   // Get order option from site settings
   const orderOption = siteSettings?.order_option || 'order_via_messenger';
 
+  // Initial fetch when Orders view is shown
   useEffect(() => {
-    fetchOrders(100); // Limit to 100 most recent orders
+    fetchOrders(100);
   }, []);
+
+  // Poll for new orders only when order_option is 'place_order'; stop polling when 'order_via_messenger'
+  useEffect(() => {
+    if (orderOption !== 'place_order') return;
+    const interval = setInterval(() => fetchOrders(100), 10000); // every 10s
+    return () => clearInterval(interval);
+  }, [orderOption]);
 
   // Fetch notification volume from settings
   useEffect(() => {
@@ -172,9 +191,20 @@ const OrderManager: React.FC = () => {
     }
   };
 
-  const handleReject = async (orderId: string) => {
-    const success = await updateOrderStatus(orderId, 'rejected');
+  const openRejectModal = (order: Order) => {
+    setOrderToReject(order);
+    setRejectMessage('');
+    setShowRejectModal(true);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!orderToReject) return;
+    const message = rejectMessage.trim() || null;
+    const success = await updateOrderStatus(orderToReject.id, 'rejected', message);
     if (success) {
+      setShowRejectModal(false);
+      setOrderToReject(null);
+      setRejectMessage('');
       setIsModalOpen(false);
       setSelectedOrder(null);
     }
@@ -375,7 +405,7 @@ const OrderManager: React.FC = () => {
                        Approve
                      </button>
                      <button
-                       onClick={() => handleReject(order.id)}
+                       onClick={() => openRejectModal(order)}
                        className="px-3 py-1.5 md:px-4 md:py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors duration-200 text-red-700 flex items-center gap-1.5 md:gap-2 text-xs font-medium"
                      >
                        <XCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -393,7 +423,7 @@ const OrderManager: React.FC = () => {
                        Approve
                      </button>
                      <button
-                       onClick={() => handleReject(order.id)}
+                       onClick={() => openRejectModal(order)}
                        className="px-3 py-1.5 md:px-4 md:py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors duration-200 text-red-700 flex items-center gap-1.5 md:gap-2 text-xs font-medium"
                      >
                        <XCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -572,7 +602,7 @@ const OrderManager: React.FC = () => {
                         Approve
                       </button>
                       <button
-                        onClick={() => handleReject(selectedOrder.id)}
+                        onClick={() => openRejectModal(selectedOrder)}
                         className="px-3 py-1.5 md:px-4 md:py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors duration-200 text-red-700 flex items-center gap-1.5 md:gap-2 text-xs font-medium"
                       >
                         <XCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -590,7 +620,7 @@ const OrderManager: React.FC = () => {
                         Approve
                       </button>
                       <button
-                        onClick={() => handleReject(selectedOrder.id)}
+                        onClick={() => openRejectModal(selectedOrder)}
                         className="px-3 py-1.5 md:px-4 md:py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors duration-200 text-red-700 flex items-center gap-1.5 md:gap-2 text-xs font-medium"
                       >
                         <XCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -600,6 +630,69 @@ const OrderManager: React.FC = () => {
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Order Modal - send message to customer */}
+      {showRejectModal && orderToReject && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-2 md:p-4">
+          <div className="bg-white rounded-lg shadow-xl p-4 md:p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-900">Reject order – send message</h3>
+              <button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setOrderToReject(null);
+                  setRejectMessage('');
+                }}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {REJECT_SHORTCUTS.map((text) => (
+                <button
+                  key={text}
+                  type="button"
+                  onClick={() => setRejectMessage(text)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    rejectMessage === text
+                      ? 'bg-red-50 border-red-200 text-red-700'
+                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Custom message (optional)</label>
+            <textarea
+              value={rejectMessage}
+              onChange={(e) => setRejectMessage(e.target.value)}
+              placeholder="Type a message for the customer..."
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+            />
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setOrderToReject(null);
+                  setRejectMessage('');
+                }}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmReject}
+                className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
+              >
+                Reject order
+              </button>
             </div>
           </div>
         </div>

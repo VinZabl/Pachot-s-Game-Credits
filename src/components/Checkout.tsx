@@ -795,43 +795,18 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
 
   const handleCopyMessage = async () => {
     try {
-      // Save order to database if not already saved
-      saveOrderToDb();
+      // Create order first and allocate invoice from DB (invoice count) – single source of truth
+      await saveOrderToDb();
+      // Build message using that invoice (reuse – no extra increment)
+      const message = await generateOrderMessage(false);
 
-      // Detect iOS and Mac - use execCommand directly for better compatibility
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isMac = /Mac/.test(navigator.platform) || /MacIntel|MacPPC|Mac68K/.test(navigator.platform);
-      const needsSyncCopy = isIOS || isMac;
-      
-      // For iOS and Mac, we need to copy synchronously within user gesture
-      // So we generate message first, then copy immediately
-      let message: string;
-      
-      if (needsSyncCopy) {
-        // On iOS/Mac, we MUST copy synchronously within the user gesture
-        // Use existing state first, then calculate optimistically, copy immediately
-        const { dateString: todayStr, dayOfMonth } = getPhilippineDate();
-        
-        // Calculate optimistic invoice number synchronously
-        let optimisticCount = 1;
-        if (generatedInvoiceNumber && invoiceNumberDate === todayStr) {
-          // We have an existing invoice number for today - increment it
-          const match = generatedInvoiceNumber.match(/TD1M\d+D(\d+)/);
-          if (match) {
-            optimisticCount = parseInt(match[1], 10) + 1;
-          }
-        } else {
-          // No existing number or different day - start at 1
-          optimisticCount = 1;
-        }
-        
-        const optimisticInvoiceNumber = `TD1M${dayOfMonth}D${optimisticCount}`;
-        
-        // Generate message synchronously (this function is async but doesn't do DB calls)
-        message = await generateOrderMessageSync(optimisticInvoiceNumber);
-        
-        // Copy immediately (synchronously) - MUST happen within user gesture
+      const useExecCommand = isIOS || isMac;
+
+      let didCopy = false;
+      if (useExecCommand) {
         const textarea = document.createElement('textarea');
         textarea.value = message;
         textarea.style.position = 'fixed';
@@ -842,64 +817,29 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
         textarea.setAttribute('readonly', '');
         textarea.setAttribute('contenteditable', 'true');
         document.body.appendChild(textarea);
-        
-        // Focus and select for iOS/Mac
         textarea.focus();
         textarea.select();
         textarea.setSelectionRange(0, message.length);
-        
-        // Try execCommand first (works better on iOS/Mac)
-        let successful = false;
         try {
-          successful = document.execCommand('copy');
+          didCopy = document.execCommand('copy');
         } catch (e) {
           console.error('execCommand failed:', e);
         }
-        
-        // Clean up
         document.body.removeChild(textarea);
-        
-        if (successful) {
-          setCopied(true);
-          setHasCopiedMessage(true);
-          setTimeout(() => setCopied(false), 2000);
-          
-          // Update database in background (async, doesn't block)
-          // This ensures the count is properly saved for the next order
-          generateInvoiceNumber(true).then((actualInvoiceNumber) => {
-            // Update state with actual invoice number
-            setGeneratedInvoiceNumber(actualInvoiceNumber);
-            setInvoiceNumberDate(todayStr);
-          }).catch(console.error);
-        } else {
-          // Fallback: try clipboard API (may not work on older iOS/Mac)
+        if (!didCopy) {
           try {
             await navigator.clipboard.writeText(message);
-            setCopied(true);
-            setHasCopiedMessage(true);
-            setTimeout(() => setCopied(false), 2000);
-            
-            // Update database in background
-            generateInvoiceNumber(true).then((actualInvoiceNumber) => {
-              setGeneratedInvoiceNumber(actualInvoiceNumber);
-              setInvoiceNumberDate(todayStr);
-            }).catch(console.error);
+            didCopy = true;
           } catch (clipboardError) {
-            console.error('Failed to copy message on iOS/Mac:', clipboardError);
+            console.error('Failed to copy on iOS/Mac:', clipboardError);
             alert('Failed to copy. Please try again or copy manually.');
           }
         }
       } else {
-        // For non-iOS/Mac, use async approach
-        message = await generateOrderMessage(true);
-        
         try {
           await navigator.clipboard.writeText(message);
-          setCopied(true);
-          setHasCopiedMessage(true);
-          setTimeout(() => setCopied(false), 2000);
+          didCopy = true;
         } catch (clipboardError) {
-          // Fallback for older browsers
           const textarea = document.createElement('textarea');
           textarea.value = message;
           textarea.style.position = 'fixed';
@@ -908,25 +848,22 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
           document.body.appendChild(textarea);
           textarea.focus();
           textarea.select();
-          
-          const successful = document.execCommand('copy');
+          didCopy = document.execCommand('copy');
           document.body.removeChild(textarea);
-          
-          if (successful) {
-            setCopied(true);
-            setHasCopiedMessage(true);
-            setTimeout(() => setCopied(false), 2000);
-          } else {
-            console.error('Failed to copy message');
-          }
         }
+      }
+      if (didCopy) {
+        setCopied(true);
+        setHasCopiedMessage(true);
+        setTimeout(() => setCopied(false), 2000);
       }
     } catch (error) {
       console.error('Failed to copy message:', error);
     }
   };
-  
-  // Synchronous version of generateOrderMessage that uses a provided invoice number
+
+  // Kept for potential future use (e.g. sync copy paths); order_via_messenger now uses DB invoice count
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const generateOrderMessageSync = async (invoiceNumber: string): Promise<string> => {
     // Build message lines (same logic as generateOrderMessage but without invoice generation)
     const lines: string[] = [];

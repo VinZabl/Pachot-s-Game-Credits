@@ -10,8 +10,12 @@ import SiteSettingsManager from './SiteSettingsManager';
 import OrderManager from './OrderManager';
 import MemberManager from './MemberManager';
 import { supabase } from '../lib/supabase';
+import { useSiteSettings } from '../hooks/useSiteSettings';
 
 const AdminDashboard: React.FC = () => {
+  const { siteSettings } = useSiteSettings();
+  const orderOption = siteSettings?.order_option || 'order_via_messenger';
+
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('beracah_admin_auth') === 'true';
   });
@@ -56,11 +60,15 @@ const AdminDashboard: React.FC = () => {
     fetchAdminPassword();
   }, []);
 
-  // Fetch pending orders
+  // Fetch pending orders only when order_option is 'place_order'; when order_via_messenger, don't poll
   useEffect(() => {
+    if (orderOption !== 'place_order') {
+      setPendingOrders(0);
+      return;
+    }
+
     const fetchPendingOrders = async () => {
       try {
-        // Only fetch id and order_option, not full order data
         const { data, error } = await supabase
           .from('orders')
           .select('id, order_option')
@@ -68,10 +76,9 @@ const AdminDashboard: React.FC = () => {
 
         if (error) throw error;
 
-        // Only count orders placed via "place_order", exclude "order_via_messenger"
         const placeOrderPending = data?.filter(order => {
-          const orderOption = order.order_option || 'place_order';
-          return orderOption === 'place_order';
+          const oo = order.order_option || 'place_order';
+          return oo === 'place_order';
         }).length || 0;
 
         setPendingOrders(placeOrderPending);
@@ -80,8 +87,10 @@ const AdminDashboard: React.FC = () => {
       }
     };
 
-      fetchPendingOrders();
-  }, []);
+    fetchPendingOrders();
+    const interval = setInterval(fetchPendingOrders, 10000);
+    return () => clearInterval(interval);
+  }, [orderOption]);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);

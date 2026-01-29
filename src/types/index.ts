@@ -124,6 +124,7 @@ export interface Order {
   status: OrderStatus;
   order_option?: 'order_via_messenger' | 'place_order';
   member_id?: string | null;
+  rejection_message?: string | null; // Message shown to customer when order is rejected
   created_at: string;
   updated_at: string;
 }
