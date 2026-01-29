@@ -32,7 +32,12 @@ export const useSiteSettings = () => {
         footer_social_3: data.find(s => s.id === 'footer_social_3')?.value || '',
         footer_social_4: data.find(s => s.id === 'footer_social_4')?.value || '',
         footer_support_url: data.find(s => s.id === 'footer_support_url')?.value || '',
-        order_option: (orderOptionValue === 'place_order' ? 'place_order' : 'order_via_messenger') as 'order_via_messenger' | 'place_order'
+        order_option: (orderOptionValue === 'place_order' ? 'place_order' : 'order_via_messenger') as 'order_via_messenger' | 'place_order',
+        hero_image_1: data.find(s => s.id === 'hero_image_1')?.value || '',
+        hero_image_2: data.find(s => s.id === 'hero_image_2')?.value || '',
+        hero_image_3: data.find(s => s.id === 'hero_image_3')?.value || '',
+        hero_image_4: data.find(s => s.id === 'hero_image_4')?.value || '',
+        hero_image_5: data.find(s => s.id === 'hero_image_5')?.value || '',
       };
 
       setSiteSettings(settings);

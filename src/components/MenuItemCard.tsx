@@ -148,18 +148,18 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
         onClick={handleCardClick}
         className={`relative flex flex-col transition-all duration-300 group rounded-xl overflow-hidden ${!item.available ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
         style={{
-          border: '1px solid rgba(0, 206, 209, 0.3)',
+          border: '1px solid rgba(185, 28, 28, 0.3)',
           boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
         }}
         onMouseEnter={(e) => {
           if (item.available) {
-            e.currentTarget.style.borderColor = 'rgba(0, 206, 209, 0.6)';
-            e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 206, 209, 0.4), 0 8px 32px 0 rgba(0, 0, 0, 0.37)';
+            e.currentTarget.style.borderColor = 'rgba(185, 28, 28, 0.6)';
+            e.currentTarget.style.boxShadow = '0 0 20px rgba(185, 28, 28, 0.4), 0 8px 32px 0 rgba(0, 0, 0, 0.37)';
           }
         }}
         onMouseLeave={(e) => {
           if (item.available) {
-            e.currentTarget.style.borderColor = 'rgba(0, 206, 209, 0.3)';
+            e.currentTarget.style.borderColor = 'rgba(185, 28, 28, 0.3)';
             e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
           }
         }}
@@ -226,9 +226,9 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
       {/* Item Selection Modal - Diginix branding */}
       {showCustomization && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowCustomization(false)}>
-          <div className="flex flex-col rounded-2xl max-w-2xl w-full max-h-[90vh] shadow-2xl overflow-hidden border border-cafe-primary/30 bg-cafe-darkBg" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-col rounded-xl max-w-xl w-full max-h-[85vh] shadow-xl overflow-hidden border border-cafe-primary/30 bg-cafe-darkBg" onClick={(e) => e.stopPropagation()}>
             <div 
-              className="flex-shrink-0 p-6 flex items-start justify-between rounded-t-2xl relative overflow-hidden" 
+              className="flex-shrink-0 p-4 md:p-5 flex items-start justify-between rounded-t-xl relative overflow-hidden" 
               style={{ 
                 backgroundImage: item.image ? `url(${item.image})` : 'none',
                 backgroundSize: 'cover',
@@ -236,12 +236,12 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
                 backgroundRepeat: 'no-repeat',
                 zIndex: 20,
                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-                minHeight: '120px'
+                minHeight: '96px'
               }}
             >
               {/* Dark overlay for text readability - covers entire header including edges */}
               <div 
-                className="absolute inset-0 bg-black/70 rounded-t-2xl"
+                className="absolute inset-0 bg-black/70 rounded-t-xl"
                 style={{
                   zIndex: 1,
                   top: 0,
@@ -251,9 +251,9 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
                 }}
               />
               
-              {/* Border with Diginix cyan accent */}
+              {/* Trish Devion red accent */}
               <div 
-                className="absolute bottom-0 left-0 right-0 h-[2px] bg-cafe-primary/50 rounded-b-2xl"
+                className="absolute bottom-0 left-0 right-0 h-[2px] bg-cafe-primary/50 rounded-b-xl"
                 style={{
                   zIndex: 2
                 }}
@@ -262,7 +262,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
               {/* Content with relative positioning to be above overlay */}
               <div className="relative z-10 flex items-start justify-between w-full gap-4">
                 <div className="flex-1 min-w-0 font-sans">
-                  <h3 className="text-xl font-bold text-white drop-shadow-lg">{item.name}</h3>
+                  <h3 className="text-lg font-bold text-white drop-shadow-lg">{item.name}</h3>
                 {item.subtitle && (
                     <p className="text-sm text-cafe-primary/95 mt-1 drop-shadow-md">{item.subtitle}</p>
                 )}
@@ -274,7 +274,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
                 onClick={() => setShowCustomization(false)}
                   className="p-2 hover:bg-cafe-primary/20 rounded-full transition-colors duration-200 relative z-10 flex-shrink-0 text-white hover:text-cafe-primary"
               >
-                  <X className="h-5 w-5 drop-shadow-lg" />
+                  <X className="h-4 w-4 drop-shadow-lg" />
               </button>
               </div>
             </div>
@@ -296,7 +296,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
                 }}
               />
               
-              <div className="p-6 pt-4">
+              <div className="p-4 md:p-5 pt-3">
                 {/* Show currency packages grouped by category */}
                 {item.variations && item.variations.length > 0 ? (
                   (() => {
@@ -343,10 +343,10 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
                         {sortedCategories.map((category, categoryIndex) => (
                           <div key={category}>
                             {/* Category Header - Diginix cyan accent */}
-                            <h4 className="text-lg font-bold text-white mb-3 font-sans border-b border-cafe-primary/50 pb-1">{category}</h4>
+                            <h4 className="text-base font-bold text-white mb-2 font-sans border-b border-cafe-primary/50 pb-1">{category}</h4>
                             
                             {/* Packages Grid */}
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-2">
                               {groupedByCategory[category].variations.map((variation) => {
                                 const originalPrice = variation.price;
                                 // Recalculate price on every render to ensure it updates immediately on login/logout
@@ -358,13 +358,13 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
                                   <button
                                     key={variation.id}
                                     onClick={() => handleItemSelect(variation)}
-                                    className="bg-cafe-darkCard border border-cafe-primary/30 rounded-lg p-3 text-left group shadow-md relative overflow-hidden transition-all duration-200 hover:border-cafe-primary hover:bg-cafe-primary/10 hover:shadow-[0_0_16px_rgba(0,206,209,0.25)]"
+                                    className="bg-cafe-darkCard border border-cafe-primary/30 rounded-lg p-2.5 text-left group shadow-md relative overflow-hidden transition-all duration-200 hover:border-cafe-primary hover:bg-cafe-primary/10 hover:shadow-[0_0_16px_rgba(185,28,28,0.25)]"
                                     style={{
                                       boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)'
                                     }}
                                   >
                                     <div className="flex flex-col">
-                                      <div className="font-semibold text-cafe-text text-sm mb-1">
+                                      <div className="font-semibold text-cafe-text text-xs mb-0.5">
                                         {variation.name}
                                       </div>
                                       {variation.description && (
@@ -373,7 +373,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
                                         </div>
                                       )}
                                       <div className="mt-auto">
-                                        <div className="text-base font-bold text-cafe-primary">
+                                        <div className="text-sm font-bold text-cafe-primary">
                                           ₱{discountedPrice.toFixed(2)}
                                         </div>
                                         {isDiscounted && (

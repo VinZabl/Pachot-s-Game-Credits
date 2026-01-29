@@ -267,25 +267,27 @@ function MainApp() {
   }, [menuItems, selectedCategory, searchQuery]);
 
   return (
-    <div className="min-h-screen bg-cafe-darkBg bg-logo-overlay">
+    <div className="min-h-screen theme-page-bg">
       {currentView !== 'member-login' && (
-        <Header 
-          cartItemsCount={cart.getTotalItems()}
-          onCartClick={() => handleViewChange('cart')}
-          onMenuClick={() => handleViewChange('menu')}
-          onMemberClick={handleMemberClick}
-          currentMember={currentMember}
-        />
-      )}
-      {currentView === 'menu' && (
-        <SubNav 
-          selectedCategory={selectedCategory} 
-          onCategoryClick={handleCategoryClick}
-          searchQuery={searchQuery}
-          onSearchChange={handleSearchChange}
-          hasPopularItems={hasPopularItems}
-          currentMember={currentMember}
-        />
+        <div className="sticky-nav-bar sticky top-0 z-50 w-full">
+          <Header
+            cartItemsCount={cart.getTotalItems()}
+            onCartClick={() => handleViewChange('cart')}
+            onMenuClick={() => handleViewChange('menu')}
+            onMemberClick={handleMemberClick}
+            currentMember={currentMember}
+          />
+          {currentView === 'menu' && (
+            <SubNav
+              selectedCategory={selectedCategory}
+              onCategoryClick={handleCategoryClick}
+              searchQuery={searchQuery}
+              onSearchChange={handleSearchChange}
+              hasPopularItems={hasPopularItems}
+              currentMember={currentMember}
+            />
+          )}
+        </div>
       )}
       
       {currentView === 'menu' && (

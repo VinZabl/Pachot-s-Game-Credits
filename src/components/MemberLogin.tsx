@@ -78,7 +78,7 @@ const MemberLogin: React.FC<MemberLoginProps> = ({ onBack, onLoginSuccess }) => 
   };
 
   return (
-    <div className="min-h-screen bg-cafe-darkBg bg-logo-overlay flex items-center justify-center p-4">
+    <div className="min-h-screen theme-page-bg flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <button
           onClick={onBack}

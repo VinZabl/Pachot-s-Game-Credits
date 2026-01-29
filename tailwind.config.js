@@ -5,22 +5,22 @@ export default {
     extend: {
       colors: {
         cafe: {
-          accent: '#00CED1', // Cyan accent (Diginix)
-          accent2: '#E03090', // Pink accent (Diginix)
-          dark: '#0A0A0A', // Off-black background
+          // Trish Devion theme: red accents, off-black background
+          accent: '#B91C1C',
+          accent2: '#DC2626',
+          dark: '#0A0A0A',
           cream: '#F5F5F5',
           beige: '#E5E5E5',
           latte: '#D5D5D5',
-          espresso: '#E03090',
-          light: '#1A1A1A',
-          // Diginix theme colors
-          primary: '#00CED1', // Cyan primary
-          secondary: '#E03090', // Pink secondary
-          darkBg: '#0A0A0A', // Off-black main background
-          darkCard: '#1A1A1A', // Slightly lighter card background
-          glass: 'rgba(0, 206, 209, 0.1)', // Glass effect with cyan
-          text: '#FFFFFF', // White text for dark background
-          textMuted: '#B0B0B0' // Muted text
+          espresso: '#DC2626',
+          light: '#141414',
+          primary: '#B91C1C',   // Crimson red accent
+          secondary: '#DC2626', // Brighter red for gradients/hover
+          darkBg: '#0A0A0A',    // Off-black main background
+          darkCard: '#141414',  // Slightly lighter card background
+          glass: 'rgba(185, 28, 28, 0.1)',
+          text: '#FFFFFF',
+          textMuted: '#B0B0B0'
         }
       },
       fontFamily: {

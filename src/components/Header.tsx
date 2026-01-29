@@ -15,29 +15,27 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount, onCartClick, onMenuClic
   const { siteSettings } = useSiteSettings();
 
   return (
-    <header className="sticky top-0 z-50 shadow-sm" style={{ 
-      border: 'none',
-      background: 'rgba(10, 10, 10, 0.9)',
-      backdropFilter: 'blur(20px)',
-      WebkitBackdropFilter: 'blur(20px)',
-      borderBottom: '1px solid rgba(0, 206, 209, 0.2)'
+    <header className="w-full" style={{
+      background: 'rgba(10, 10, 10, 0.55)',
+      backdropFilter: 'blur(14px)',
+      WebkitBackdropFilter: 'blur(14px)',
     }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 md:py-3">
-        <div className="flex items-center justify-between min-h-12 md:min-h-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 md:py-2">
+        <div className="flex items-center justify-between min-h-10 md:min-h-12">
           <button 
             onClick={onMenuClick}
             className="text-white hover:opacity-80 transition-colors duration-200 flex items-center gap-3"
           >
             <img 
               src="/logo.png" 
-              alt="Diginix Logo"
-              className="h-10 sm:h-12 md:h-16 w-auto object-contain"
+              alt="Trish Devion Logo"
+              className="h-10 sm:h-12 md:h-12 w-auto object-contain"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
               }}
             />
-            <span className="text-base sm:text-lg md:text-xl font-bold text-white whitespace-nowrap">
-              Diginix
+            <span className="text-base sm:text-lg md:text-lg font-bold text-white whitespace-nowrap">
+              Trish Devion
             </span>
           </button>
 

@@ -20,7 +20,18 @@ const AdminDashboard: React.FC = () => {
   const [adminPassword, setAdminPassword] = useState<string>('Diginix@Admin!2025'); // Default fallback
   const { menuItems, loading, addMenuItem, updateMenuItem, deleteMenuItem, duplicateMenuItem } = useMenu();
   const { categories } = useCategories();
-  const [currentView, setCurrentView] = useState<'dashboard' | 'items' | 'add' | 'edit' | 'categories' | 'payments' | 'settings' | 'orders' | 'members'>('dashboard');
+  type AdminView = 'dashboard' | 'items' | 'add' | 'edit' | 'categories' | 'payments' | 'settings' | 'orders' | 'members';
+  const [currentView, setCurrentViewState] = useState<AdminView>(() => {
+    const saved = localStorage.getItem('beracah_admin_currentView');
+    if (saved && saved !== 'add' && saved !== 'edit') return saved as AdminView;
+    return 'dashboard';
+  });
+  const setCurrentView = (view: AdminView) => {
+    setCurrentViewState(view);
+    if (view !== 'add' && view !== 'edit') {
+      localStorage.setItem('beracah_admin_currentView', view);
+    }
+  };
   const [pendingOrders, setPendingOrders] = useState<number>(0);
 
   // Fetch admin password from database on mount

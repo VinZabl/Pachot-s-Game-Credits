@@ -17,11 +17,8 @@ const SubNav: React.FC<SubNavProps> = ({ selectedCategory, onCategoryClick, sear
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
 
   return (
-    <div className="sticky top-12 md:top-14 z-40" style={{ 
-      background: 'transparent',
-      border: 'none'
-    }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+    <div className="w-full" style={{ background: 'transparent' }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 pb-3">
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
           {/* Search Bar */}
           <div className="flex-1 sm:flex-initial sm:w-64">
@@ -43,10 +40,6 @@ const SubNav: React.FC<SubNavProps> = ({ selectedCategory, onCategoryClick, sear
                     ? 'text-white border-transparent bg-cafe-primary'
                     : 'bg-transparent border-cafe-primary/30 hover:border-cafe-primary hover:bg-cafe-primary/10'
                 }`}
-                style={isSearchFocused || searchQuery 
-                  ? { backgroundColor: '#00CED1', color: 'white' } 
-                  : { color: '#00CED1' }
-                }
               />
               {searchQuery && (
                 <button
@@ -73,10 +66,9 @@ const SubNav: React.FC<SubNavProps> = ({ selectedCategory, onCategoryClick, sear
                   onClick={() => onCategoryClick('all')}
                   className={`px-3 py-1.5 rounded-full text-sm transition-all duration-200 border flex-shrink-0 whitespace-nowrap ${
                     selectedCategory === 'all'
-                      ? 'text-white border-transparent'
+                      ? 'text-white border-transparent bg-cafe-primary'
                       : 'bg-transparent text-cafe-text border-cafe-primary/30 hover:border-cafe-primary hover:bg-white/50'
                   }`}
-                  style={selectedCategory === 'all' ? { backgroundColor: '#00CED1' } : {}}
                 >
                   All
                 </button>
@@ -85,10 +77,9 @@ const SubNav: React.FC<SubNavProps> = ({ selectedCategory, onCategoryClick, sear
                     onClick={() => onCategoryClick('popular')}
                     className={`px-3 py-1.5 rounded-full text-sm transition-all duration-200 border flex-shrink-0 whitespace-nowrap ${
                       selectedCategory === 'popular'
-                        ? 'text-white border-transparent'
+                        ? 'text-white border-transparent bg-cafe-primary'
                         : 'bg-transparent text-cafe-text border-cafe-primary/30 hover:border-cafe-primary hover:bg-white/50'
                     }`}
-                    style={selectedCategory === 'popular' ? { backgroundColor: '#00CED1' } : {}}
                   >
                     Popular
                   </button>
@@ -99,10 +90,9 @@ const SubNav: React.FC<SubNavProps> = ({ selectedCategory, onCategoryClick, sear
                     onClick={() => onCategoryClick(c.id)}
                     className={`px-3 py-1.5 rounded-full text-sm transition-all duration-200 border flex-shrink-0 whitespace-nowrap ${
                       selectedCategory === c.id
-                        ? 'text-white border-transparent'
+                        ? 'text-white border-transparent bg-cafe-primary'
                         : 'bg-transparent text-cafe-text border-cafe-primary/30 hover:border-cafe-primary hover:bg-white/50'
                     }`}
-                    style={selectedCategory === c.id ? { backgroundColor: '#00CED1' } : {}}
                   >
                     {c.name}
                   </button>

@@ -526,10 +526,10 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
 
       const orderNumber = currentCount;
 
-      // Format: 1M{day}D{orderNumber}
-      // Example: AKGXT1M17D1 (1st order on day 17), AKGXT1M17D2 (2nd order on day 17), etc.
+      // Format: TD1M{day}D{orderNumber}
+      // Example: TD1M17D1 (1st order on day 17), TD1M17D2 (2nd order on day 17), etc.
       // The first number is always 1, the last number is the order number
-      const invoiceNumber = `AKGXT1M${dayOfMonth}D${orderNumber}`;
+      const invoiceNumber = `TD1M${dayOfMonth}D${orderNumber}`;
       
       // Store the generated invoice number and date
       setGeneratedInvoiceNumber(invoiceNumber);
@@ -540,7 +540,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
       console.error('Error generating invoice number:', error);
       // Fallback to a simple format if there's an error
       const { dayOfMonth } = getPhilippineDate();
-      return `1M${dayOfMonth}D1`;
+      return `TD1M${dayOfMonth}D1`;
     }
   };
 
@@ -817,7 +817,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
         let optimisticCount = 1;
         if (generatedInvoiceNumber && invoiceNumberDate === todayStr) {
           // We have an existing invoice number for today - increment it
-          const match = generatedInvoiceNumber.match(/AKGXT1M\d+D(\d+)/);
+          const match = generatedInvoiceNumber.match(/TD1M\d+D(\d+)/);
           if (match) {
             optimisticCount = parseInt(match[1], 10) + 1;
           }
@@ -826,7 +826,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
           optimisticCount = 1;
         }
         
-        const optimisticInvoiceNumber = `AKGXT1M${dayOfMonth}D${optimisticCount}`;
+        const optimisticInvoiceNumber = `TD1M${dayOfMonth}D${optimisticCount}`;
         
         // Generate message synchronously (this function is async but doesn't do DB calls)
         message = await generateOrderMessageSync(optimisticInvoiceNumber);
@@ -1376,7 +1376,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
     // If no invoice number exists yet, it will generate one, but ideally Copy should be clicked first
     const orderDetails = await generateOrderMessage(false);
     const encodedMessage = encodeURIComponent(orderDetails);
-    const messengerUrl = `https://m.me/DiginixPh?text=${encodedMessage}`;
+    const messengerUrl = `https://m.me/trishdiscountedgamecredits?text=${encodedMessage}`;
     
     window.open(messengerUrl, '_blank');
     
@@ -1455,14 +1455,14 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-3xl font-semibold text-cafe-text">Top Up</h1>
+        <h1 className="text-2xl font-semibold text-cafe-text">Top Up</h1>
       </div>
 
         <div className="space-y-6">
           {/* Customer Details Form */}
           <div>
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-6 h-6 rounded-full bg-cafe-primary text-black flex items-center justify-center text-xs font-bold flex-shrink-0">
+              <div className="w-6 h-6 rounded-full bg-cafe-primary text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
                 1
               </div>
               <h2 className="text-sm font-medium text-cafe-text">Customer Information</h2>
@@ -1676,7 +1676,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
         {/* Payment Section */}
         <div>
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-6 h-6 rounded-full bg-cafe-primary text-black flex items-center justify-center text-xs font-bold flex-shrink-0">
+            <div className="w-6 h-6 rounded-full bg-cafe-primary text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
               2
             </div>
             <h2 className="text-sm font-medium text-cafe-text">Choose Payment Method</h2>
@@ -1703,10 +1703,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
                 }}
                 className={`rounded-lg border-2 transition-all duration-200 flex flex-col overflow-hidden ${
                   paymentMethod?.id === method.id
-                    ? 'border-transparent'
+                    ? 'border-transparent bg-cafe-primary'
                     : 'glass border-cafe-primary/30 hover:border-cafe-primary hover:glass-strong'
                 }`}
-                style={paymentMethod?.id === method.id ? { backgroundColor: '#1E7ACB' } : {}}
               >
                 {/* Icon fills the card */}
                 <div className="relative w-full aspect-square flex-shrink-0 overflow-hidden bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg rounded-lg">
@@ -1730,7 +1729,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
           {/* Receipt Upload Section */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-6 h-6 rounded-full bg-cafe-primary text-black flex items-center justify-center text-xs font-bold flex-shrink-0">
+              <div className="w-6 h-6 rounded-full bg-cafe-primary text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
                 3
               </div>
               <label className="text-sm font-medium text-cafe-text">
@@ -1830,7 +1829,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
               >
                 <div className={`absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                   !uploadingReceipt && paymentMethod && receiptImageUrl
-                    ? 'bg-cafe-primary text-black'
+                    ? 'bg-cafe-primary text-white'
                     : 'bg-cafe-textMuted/30 text-cafe-textMuted'
                 }`}>
                   4
@@ -1854,14 +1853,13 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
                 disabled={!paymentMethod || !receiptImageUrl || uploadingReceipt || !hasCopiedMessage}
                 className={`relative w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform ${
                   paymentMethod && receiptImageUrl && !uploadingReceipt && hasCopiedMessage
-                    ? 'text-white hover:opacity-90 hover:scale-[1.02]'
+                    ? 'text-white bg-cafe-primary hover:bg-cafe-secondary hover:opacity-90 hover:scale-[1.02]'
                     : 'glass text-cafe-textMuted cursor-not-allowed'
                 }`}
-                style={paymentMethod && receiptImageUrl && !uploadingReceipt && hasCopiedMessage ? { backgroundColor: '#1E7ACB' } : {}}
               >
                 <div className={`absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                   paymentMethod && receiptImageUrl && !uploadingReceipt && hasCopiedMessage
-                    ? 'bg-cafe-primary text-black'
+                    ? 'bg-cafe-primary text-white'
                     : 'bg-cafe-textMuted/30 text-cafe-textMuted'
                 }`}>
                   5
@@ -1881,14 +1879,13 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
                 disabled={!paymentMethod || !receiptImageUrl || uploadingReceipt || isPlacingOrder}
                 className={`relative w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform ${
                   paymentMethod && receiptImageUrl && !uploadingReceipt && !isPlacingOrder
-                    ? 'text-white hover:opacity-90 hover:scale-[1.02]'
+                    ? 'text-white bg-cafe-primary hover:bg-cafe-secondary hover:opacity-90 hover:scale-[1.02]'
                     : 'glass text-cafe-textMuted cursor-not-allowed'
                 }`}
-                style={paymentMethod && receiptImageUrl && !uploadingReceipt && !isPlacingOrder ? { backgroundColor: '#1E7ACB' } : {}}
               >
                 <div className={`absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                   paymentMethod && receiptImageUrl && !uploadingReceipt && !isPlacingOrder
-                    ? 'bg-cafe-primary text-black'
+                    ? 'bg-cafe-primary text-white'
                     : 'bg-cafe-textMuted/30 text-cafe-textMuted'
                 }`}>
                   4

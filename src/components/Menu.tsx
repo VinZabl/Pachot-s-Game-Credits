@@ -1,7 +1,9 @@
 import React from 'react';
 import { MenuItem, CartItem, Member } from '../types';
 import { useCategories } from '../hooks/useCategories';
+import { useSiteSettings } from '../hooks/useSiteSettings';
 import MenuItemCard from './MenuItemCard';
+import Hero from './Hero';
 
 // Preload images for better performance
 const preloadImages = (items: MenuItem[]) => {
@@ -26,6 +28,7 @@ interface MenuProps {
 
 const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuantity, selectedCategory, searchQuery = '', onItemAdded, currentMember }) => {
   const { categories } = useCategories();
+  const { siteSettings } = useSiteSettings();
   const [activeCategory, setActiveCategory] = React.useState(selectedCategory === 'popular' ? 'popular' : 'hot-coffee');
 
   // Preload images when menu items change
@@ -62,9 +65,8 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
     setActiveCategory(categoryId);
     const element = document.getElementById(categoryId);
     if (element) {
-      const headerHeight = 64; // Header height
-      const subNavHeight = 60; // SubNav height
-      const offset = headerHeight + subNavHeight + 20; // Extra padding
+      const combinedBarHeight = 100; // Header + search + category nav (one sticky bar)
+      const offset = combinedBarHeight + 16; // Extra padding
       const elementPosition = element.offsetTop - offset;
       
       window.scrollTo({
@@ -161,10 +163,10 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
   if (searchQuery.trim() !== '') {
     if (menuItems.length === 0) {
       return (
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 md:pt-10 pb-4 md:pb-6">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-5 pb-4 md:pb-6">
           <section className="mb-6 md:mb-8">
             <div className="flex items-center mb-3 md:mb-4">
-              <h3 className="text-2xl md:text-5xl font-medium text-cafe-text">Search Results</h3>
+            <h3 className="text-2xl md:text-3xl font-medium text-cafe-text">Search Results</h3>
             </div>
             <p className="text-gray-500">No games found matching "{searchQuery}"</p>
           </section>
@@ -173,16 +175,16 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
     }
 
     return (
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 md:pt-10 pb-4 md:pb-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-5 pb-4 md:pb-6">
         <section className="mb-16">
           <div className="flex items-center mb-8">
-            <h3 className="text-2xl md:text-5xl font-medium text-cafe-text">
+            <h3 className="text-2xl md:text-3xl font-medium text-cafe-text">
               Search Results for "{searchQuery}"
             </h3>
             <span className="ml-4 text-sm text-gray-500">({menuItems.length} {menuItems.length === 1 ? 'game' : 'games'})</span>
           </div>
           
-          <div className="grid grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+          <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-3">
             {renderMenuItems(menuItems)}
           </div>
         </section>
@@ -196,10 +198,10 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
     // menuItems is already filtered to only popular items from App.tsx
     if (menuItems.length === 0) {
       return (
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 md:pt-10 pb-4 md:pb-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-5 pb-4 md:pb-6">
           <section id="popular" className="mb-6 md:mb-8">
             <div className="flex items-center mb-3 md:mb-4">
-              <h3 className="text-2xl md:text-5xl font-medium text-cafe-text">Popular</h3>
+              <h3 className="text-2xl md:text-3xl font-medium text-cafe-text">Popular</h3>
             </div>
             <p className="text-gray-500">No popular items available at the moment.</p>
           </section>
@@ -208,10 +210,10 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
     }
 
     return (
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 md:pt-8 pb-4 md:pb-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-5 pb-4 md:pb-6">
         {/* Welcome back card - Mobile only */}
         {currentMember && (
-          <div className="mb-6 md:hidden flex justify-center">
+          <div className="mb-4 md:hidden flex justify-center">
             <div className="glass-card rounded-lg px-3 py-2 inline-block">
               <div className="flex items-center justify-center">
                 <p className="text-sm text-cafe-text">
@@ -223,10 +225,10 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
         )}
         <section id="popular" className="mb-6 md:mb-8">
           <div className="flex items-center mb-3 md:mb-4">
-            <h3 className="text-2xl md:text-5xl font-medium text-cafe-text">Popular</h3>
+            <h3 className="text-2xl md:text-3xl font-medium text-cafe-text">Popular</h3>
           </div>
           
-          <div className="grid grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+          <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-3">
             {renderMenuItems(menuItems)}
           </div>
         </section>
@@ -239,13 +241,25 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
   const popularItems = menuItems.filter(item => Boolean(item.popular) === true);
   const showPopularSection = selectedCategory === 'all' && popularItems.length > 0 && searchQuery.trim() === '';
 
+  // Get hero images for slideshow (only show on "All" category)
+  const heroImages = React.useMemo(() => {
+    if (!siteSettings || selectedCategory !== 'all') return [];
+    return [
+      siteSettings.hero_image_1,
+      siteSettings.hero_image_2,
+      siteSettings.hero_image_3,
+      siteSettings.hero_image_4,
+      siteSettings.hero_image_5,
+    ].filter(img => img && img.trim() !== '');
+  }, [siteSettings, selectedCategory]);
+
   return (
     <>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 md:pt-8 pb-4 md:pb-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-5 pb-4 md:pb-6">
         {/* Welcome message for logged-in members */}
         {/* Welcome back card - Mobile only */}
         {currentMember && (
-          <div className="mb-6 md:hidden flex justify-center">
+          <div className="mb-4 md:hidden flex justify-center">
             <div className="glass-card rounded-lg px-3 py-2 inline-block">
               <div className="flex items-center justify-center">
                 <p className="text-sm text-cafe-text">
@@ -255,15 +269,20 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
             </div>
           </div>
         )}
+
+        {/* Hero Slideshow - Only show on "All" category */}
+        {selectedCategory === 'all' && heroImages.length > 0 && (
+          <Hero images={heroImages} />
+        )}
         
         {/* Show Popular section when viewing "All" */}
         {showPopularSection && (
           <section id="popular" className="mb-8 md:mb-12">
             <div className="flex items-center mb-3 md:mb-4">
-              <h3 className="text-2xl md:text-5xl font-medium text-cafe-text">Popular</h3>
+              <h3 className="text-2xl md:text-3xl font-medium text-cafe-text">Popular</h3>
             </div>
             
-            <div className="grid grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+            <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-3">
               {renderMenuItems(popularItems)}
             </div>
           </section>
@@ -278,10 +297,10 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
           return (
             <section key={category.id} id={category.id} className="mb-8 md:mb-12">
               <div className="flex items-center mb-3 md:mb-4">
-                <h3 className="text-2xl md:text-5xl font-medium text-cafe-text font-sans">{category.name}</h3>
+                <h3 className="text-2xl md:text-3xl font-medium text-cafe-text font-sans">{category.name}</h3>
               </div>
               
-              <div className="grid grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+              <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-3">
                 {renderMenuItems(categoryItems)}
               </div>
             </section>
