@@ -293,48 +293,58 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
             {/* Customer Information */}
             <div className="bg-gray-900 rounded-lg p-4 border border-pink-500/30 shadow-md">
               <h3 className="font-medium text-white mb-4">Customer Information</h3>
-              {order.customer_info['Multiple Accounts'] ? (
-                // Multiple accounts mode: one section per game/item
-                <div className="space-y-4">
-                  {(order.customer_info['Multiple Accounts'] as Array<{
-                    game: string;
-                    package: string;
-                    fields: Record<string, string>;
-                  }>).map((account, accountIndex) => (
-                    <div key={accountIndex} className="pb-4 border-b border-pink-500/20 last:border-b-0 last:pb-0">
-                      <div className="mb-2">
-                        <p className="text-sm font-semibold text-white">{account.game}</p>
-                        {account.package && (
-                          <p className="text-xs text-gray-400">Package: {account.package}</p>
-                        )}
-                      </div>
-                      <div className="space-y-2 mt-2">
-                        {Object.entries(account.fields).map(([key, value]) => (
-                          <p key={key} className="text-sm text-gray-400">
-                            {key}: {String(value)}
+              {(() => {
+                const info = order.customer_info || {};
+                const multipleAccounts = Array.isArray(info['Multiple Accounts']) ? info['Multiple Accounts'] : null;
+                const hasMultipleAccounts = multipleAccounts && multipleAccounts.length > 0;
+                const singleEntries = Object.entries(info).filter(([key]) => key !== 'Multiple Accounts');
+                const hasSingleEntries = singleEntries.length > 0;
+
+                if (hasMultipleAccounts) {
+                  return (
+                    <div className="space-y-4">
+                      {multipleAccounts.map((account: { game?: string; package?: string; fields?: Record<string, string> }, accountIndex: number) => (
+                        <div key={accountIndex} className="pb-4 border-b border-pink-500/20 last:border-b-0 last:pb-0">
+                          <div className="mb-2">
+                            <p className="text-sm font-semibold text-white">{account.game || 'Item'}</p>
+                            {account.package && (
+                              <p className="text-xs text-gray-400">Package: {account.package}</p>
+                            )}
+                          </div>
+                          <div className="space-y-2 mt-2">
+                            {account.fields && Object.entries(account.fields).map(([key, value]) => (
+                              <p key={key} className="text-sm text-gray-400">
+                                {key}: {String(value)}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      {info['Payment Method'] && (
+                        <div className="pt-2 border-t border-pink-500/20">
+                          <p className="text-sm text-gray-400">
+                            Payment Method: {String(info['Payment Method'])}
                           </p>
-                        ))}
-                      </div>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                  {order.customer_info['Payment Method'] && (
-                    <div className="pt-2 border-t border-pink-500/20">
-                      <p className="text-sm text-gray-400">
-                        Payment Method: {String(order.customer_info['Payment Method'])}
-                      </p>
+                  );
+                }
+                if (hasSingleEntries) {
+                  return (
+                    <div className="space-y-2">
+                      {singleEntries.map(([key, value]) => (
+                        <p key={key} className="text-sm text-gray-400">
+                          {key}: {String(value)}
+                        </p>
+                      ))}
                     </div>
-                  )}
-                </div>
-              ) : (
-                // Single account mode (default)
-                <div className="space-y-2">
-                  {Object.entries(order.customer_info).map(([key, value]) => (
-                    <p key={key} className="text-sm text-gray-400">
-                      {key}: {String(value)}
-                    </p>
-                  ))}
-                </div>
-              )}
+                  );
+                }
+                return (
+                  <p className="text-sm text-gray-500 italic">No customer information recorded for this order.</p>
+                );
+              })()}
             </div>
           </div>
         ) : (
