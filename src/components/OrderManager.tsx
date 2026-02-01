@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { CheckCircle, XCircle, Loader2, Eye, Download, X, Copy, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
 import { useOrders } from '../hooks/useOrders';
@@ -6,7 +6,7 @@ import { usePaymentMethods, PaymentMethod } from '../hooks/usePaymentMethods';
 import { supabase } from '../lib/supabase';
 
 const OrderManager: React.FC = () => {
-  const { orders, loading, fetchOrders, updateOrderStatus, totalCount, currentPage, ordersPerPage } = useOrders();
+  const { orders, loading, fetchOrders, fetchOrderById, updateOrderStatus, totalCount, currentPage, ordersPerPage } = useOrders();
   const { paymentMethods } = usePaymentMethods();
   const [allPaymentMethods, setAllPaymentMethods] = useState<PaymentMethod[]>([]);
 
@@ -41,8 +41,6 @@ const OrderManager: React.FC = () => {
 
   // Calculate pagination info (must be before useEffects that use it)
   const totalPages = useMemo(() => Math.ceil(totalCount / ordersPerPage), [totalCount, ordersPerPage]);
-  const startIndex = useMemo(() => (currentPage - 1) * ordersPerPage + 1, [currentPage, ordersPerPage]);
-  const endIndex = useMemo(() => Math.min(currentPage * ordersPerPage, totalCount), [currentPage, ordersPerPage, totalCount]);
 
   const handlePageChange = useCallback((newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -56,12 +54,16 @@ const OrderManager: React.FC = () => {
     fetchOrders(1);
   }, [fetchOrders]);
 
-  // Reset to page 1 when search is cleared
+  // Reset to page 1 only when search is cleared (not when simply on page 2+ with no search)
+  const prevSearchQuery = useRef(searchQuery);
   useEffect(() => {
-    if (!searchQuery && currentPage !== 1 && totalPages > 0) {
+    const hadSearch = prevSearchQuery.current.trim().length > 0;
+    const hasSearch = searchQuery.trim().length > 0;
+    if (hadSearch && !hasSearch && currentPage !== 1) {
       handlePageChange(1);
     }
-  }, [searchQuery, currentPage, totalPages, handlePageChange]);
+    prevSearchQuery.current = searchQuery;
+  }, [searchQuery, currentPage, handlePageChange]);
 
   // Mark orders as viewed when component mounts or orders change
   useEffect(() => {
@@ -84,9 +86,12 @@ const OrderManager: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleViewOrder = (order: Order) => {
-    setSelectedOrder(order);
-    setIsModalOpen(true);
+  const handleViewOrder = async (order: Order) => {
+    const fullOrder = await fetchOrderById(order.id);
+    if (fullOrder) {
+      setSelectedOrder(fullOrder);
+      setIsModalOpen(true);
+    }
   };
 
   const handleCopyField = async (key: string, value: string) => {
@@ -429,25 +434,23 @@ const OrderManager: React.FC = () => {
 
       {/* Pagination Controls */}
       {!searchQuery && totalPages > 1 && (
-        <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 p-4">
-          <div className="text-sm text-gray-600">
-            Showing {startIndex} to {endIndex} of {totalCount} orders
-          </div>
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-center sm:justify-end bg-white rounded-lg border border-gray-200 p-2 sm:p-4 mt-4">
+          <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-center">
             <button
+              type="button"
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className={`px-3 py-1.5 rounded-lg border transition-colors duration-200 flex items-center gap-1.5 text-sm ${
+              className={`flex-shrink-0 px-2 py-1 sm:px-3 sm:py-1.5 rounded-md sm:rounded-lg border transition-colors duration-200 flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm whitespace-nowrap ${
                 currentPage === 1
                   ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
                   : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
               }`}
             >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
+              <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              Prev
             </button>
             
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 let pageNum: number;
                 if (totalPages <= 5) {
@@ -463,8 +466,9 @@ const OrderManager: React.FC = () => {
                 return (
                   <button
                     key={pageNum}
+                    type="button"
                     onClick={() => handlePageChange(pageNum)}
-                    className={`px-3 py-1.5 rounded-lg border transition-colors duration-200 text-sm ${
+                    className={`min-w-[28px] sm:min-w-0 px-2 py-1 sm:px-3 sm:py-1.5 rounded-md sm:rounded-lg border transition-colors duration-200 text-xs sm:text-sm ${
                       currentPage === pageNum
                         ? 'bg-blue-50 border-blue-300 text-blue-700 font-medium'
                         : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -477,16 +481,17 @@ const OrderManager: React.FC = () => {
             </div>
             
             <button
+              type="button"
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className={`px-3 py-1.5 rounded-lg border transition-colors duration-200 flex items-center gap-1.5 text-sm ${
+              className={`flex-shrink-0 px-2 py-1 sm:px-3 sm:py-1.5 rounded-md sm:rounded-lg border transition-colors duration-200 flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm whitespace-nowrap ${
                 currentPage === totalPages
                   ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
                   : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
               }`}
             >
               Next
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </button>
           </div>
         </div>

@@ -20,16 +20,17 @@ export const useOrders = () => {
       const from = (page - 1) * ORDERS_PER_PAGE;
       const to = from + ORDERS_PER_PAGE - 1;
 
-      // Fetch orders with pagination
+      // Fetch orders with pagination - exclude receipt_url for list view (heavy, only needed in detail)
+      // Full order with receipt_url is fetched via fetchOrderById when viewing details
       const { data, error: fetchError, count } = await supabase
         .from('orders')
-        .select('*', { count: 'exact' })
+        .select('id, order_items, total_price, payment_method_id, status, created_at, updated_at, rejection_reason, customer_info', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(from, to);
 
       if (fetchError) throw fetchError;
 
-      // Transform the data to match Order interface
+      // Transform the data to match Order interface (receipt_url omitted for list, fetched on View)
       const transformedOrders: Order[] = (data || []).map((order: any) => ({
         id: order.id,
         order_items: order.order_items || [],
@@ -154,6 +155,7 @@ export const useOrders = () => {
 
   // Use ref to store the latest fetchOrders function
   const fetchOrdersRef = useRef(fetchOrders);
+  const lastFetchRef = useRef<number>(0);
   useEffect(() => {
     fetchOrdersRef.current = fetchOrders;
   }, [fetchOrders]);
@@ -162,17 +164,21 @@ export const useOrders = () => {
     fetchOrders(1);
   }, [fetchOrders]);
 
-  // Set up polling fallback - check for new orders every 5 seconds
+  // Set up polling fallback - check every 30s (reduced from 5s for egress efficiency)
+  // Real-time subscription is the primary update mechanism
+  const POLL_INTERVAL_MS = 30000;
+  const MIN_FETCH_INTERVAL_MS = 2000; // Skip poll if we just fetched (e.g. from real-time)
+
   useEffect(() => {
     const pollInterval = setInterval(() => {
-      console.log('🔄 Polling for new orders...');
+      const now = Date.now();
+      if (now - lastFetchRef.current < MIN_FETCH_INTERVAL_MS) return; // Avoid duplicate fetch after real-time
+      lastFetchRef.current = now;
       fetchOrdersRef.current(currentPage, false);
-    }, 5000); // Check every 5 seconds
+    }, POLL_INTERVAL_MS);
 
-    return () => {
-      clearInterval(pollInterval);
-    };
-  }, [currentPage]); // Include currentPage in dependencies
+    return () => clearInterval(pollInterval);
+  }, [currentPage]);
 
   // Set up real-time subscription (active regardless of current view)
   useEffect(() => {
@@ -192,8 +198,7 @@ export const useOrders = () => {
           },
           (payload) => {
             console.log('✅ Real-time order change detected:', payload.eventType, payload.new?.id);
-            // Use ref to call latest fetchOrders function
-            // Reduced delay for faster updates
+            lastFetchRef.current = Date.now(); // Mark fetch time to avoid immediate poll duplicate
             setTimeout(() => {
               fetchOrdersRef.current(currentPage, false);
             }, 100);
