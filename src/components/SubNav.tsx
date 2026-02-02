@@ -1,6 +1,7 @@
 import React from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X, Coins } from 'lucide-react';
 import { useCategories } from '../hooks/useCategories';
+import { Member } from '../types';
 
 interface SubNavProps {
   selectedCategory: string;
@@ -8,18 +9,16 @@ interface SubNavProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   hasPopularItems: boolean;
+  currentMember?: Member | null;
 }
 
-const SubNav: React.FC<SubNavProps> = ({ selectedCategory, onCategoryClick, searchQuery, onSearchChange, hasPopularItems }) => {
+const SubNav: React.FC<SubNavProps> = ({ selectedCategory, onCategoryClick, searchQuery, onSearchChange, hasPopularItems, currentMember }) => {
   const { categories, loading } = useCategories();
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
 
   return (
-    <div className="sticky top-12 md:top-14 z-40" style={{ 
-      background: 'transparent',
-      border: 'none'
-    }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+    <div className="w-full" style={{ background: 'transparent' }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 pb-3">
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
           {/* Search Bar */}
           <div className="flex-1 sm:flex-initial sm:w-64">

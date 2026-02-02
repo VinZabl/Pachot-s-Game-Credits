@@ -1,8 +1,7 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { X, CheckCircle, XCircle, Loader2, MessageCircle } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { X, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
 import { useOrders } from '../hooks/useOrders';
-import { useSiteSettings } from '../hooks/useSiteSettings';
 
 interface OrderStatusModalProps {
   orderId: string | null;
@@ -13,13 +12,26 @@ interface OrderStatusModalProps {
 
 const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, onClose, onSucceededClose }) => {
   const { fetchOrderById } = useOrders();
-  const { siteSettings } = useSiteSettings();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const isInitialLoad = useRef(true);
-  const shouldContinuePolling = useRef(true);
 
-  const loadOrder = useCallback(async (isInitial: boolean) => {
+  useEffect(() => {
+    if (isOpen && orderId) {
+      isInitialLoad.current = true;
+      loadOrder(true);
+      // Poll for order updates every 3 seconds
+      const interval = setInterval(() => loadOrder(false), 3000);
+      return () => clearInterval(interval);
+    } else {
+      // Reset when modal closes
+      setOrder(null);
+      setLoading(true);
+      isInitialLoad.current = true;
+    }
+  }, [isOpen, orderId]);
+
+  const loadOrder = async (isInitial: boolean) => {
     if (!orderId) return;
     
     if (isInitial) {
@@ -29,64 +41,24 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
     const orderData = await fetchOrderById(orderId);
     
     if (orderData) {
-      // Stop polling if order reaches final state (approved or rejected)
-      if (orderData.status === 'approved' || orderData.status === 'rejected') {
-        shouldContinuePolling.current = false;
-      }
-      
-      // Always update the order data to ensure it stays visible
+      // Only update if status or updated_at changed (indicating a real update)
+      // Do not auto-close on approve/reject; user closes via X to dismiss the banner
       setOrder(prevOrder => {
         if (!prevOrder || isInitial) {
           return orderData;
         }
-        // Always update to latest order data, especially when status changes to approved or rejected
         if (prevOrder.status !== orderData.status || prevOrder.updated_at !== orderData.updated_at) {
           return orderData;
         }
-        // If status is approved or rejected, always keep the order data visible
-        if (orderData.status === 'approved' || orderData.status === 'rejected') {
-          return orderData;
-        }
-        // Keep previous order if nothing changed
         return prevOrder;
       });
-    } else {
-      // If order data is not found, only clear on initial load
-      if (isInitial) {
-        setOrder(null);
-      }
     }
     
     if (isInitial) {
       setLoading(false);
       isInitialLoad.current = false;
     }
-  }, [orderId, fetchOrderById]);
-
-  useEffect(() => {
-    if (isOpen && orderId) {
-      isInitialLoad.current = true;
-      shouldContinuePolling.current = true;
-      loadOrder(true);
-      // Poll for order updates every 3 seconds, but stop if order is in final state
-      const interval = setInterval(() => {
-        // Only continue polling if we should (order is still pending or processing)
-        if (shouldContinuePolling.current) {
-          loadOrder(false);
-        }
-      }, 3000);
-      return () => clearInterval(interval);
-    } else {
-      // Only reset when modal closes AND order is not approved or rejected
-      // Keep order data if it was approved or rejected so user can see it when reopening
-      if (order?.status !== 'approved' && order?.status !== 'rejected') {
-        setOrder(null);
-        setLoading(true);
-        isInitialLoad.current = true;
-        shouldContinuePolling.current = true;
-      }
-    }
-  }, [isOpen, orderId, order, loadOrder]);
+  };
 
   if (!isOpen) return null;
 
@@ -143,8 +115,8 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
           </div>
           <button
             onClick={() => {
-              // If order is succeeded and onSucceededClose is provided, call it
-              if (order?.status === 'approved' && onSucceededClose) {
+              // If order is completed (approved or rejected) and onSucceededClose is provided, call it
+              if ((order?.status === 'approved' || order?.status === 'rejected') && onSucceededClose) {
                 onSucceededClose();
               } else {
                 onClose();
@@ -208,6 +180,12 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                 <p className="text-xs sm:text-sm text-gray-400">
                   {new Date(order.created_at).toLocaleString()}
                 </p>
+              )}
+              {order.status === 'rejected' && order.rejection_message && (
+                <div className="mt-2 w-full max-w-md rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-center">
+                  <p className="text-sm font-medium text-red-400">Message from store:</p>
+                  <p className="text-sm text-cafe-text mt-1">{order.rejection_message}</p>
+                </div>
               )}
             </div>
 

@@ -31,7 +31,7 @@ const OrderManager: React.FC = () => {
   }, []);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [, setTimeKey] = useState(0); // Force re-render for time updates
+  const [timeKey, setTimeKey] = useState(0); // Force re-render for time updates
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectingOrderId, setRejectingOrderId] = useState<string | null>(null);
@@ -67,14 +67,36 @@ const OrderManager: React.FC = () => {
 
   // Mark orders as viewed when component mounts or orders change
   useEffect(() => {
-    const viewedIds = sessionStorage.getItem('viewed_order_ids');
-    const viewedSet = viewedIds ? new Set(JSON.parse(viewedIds)) : new Set();
-    
-    // Mark all current orders as viewed
-    const currentOrderIds = orders.map(order => order.id);
-    currentOrderIds.forEach(id => viewedSet.add(id));
-    
-    sessionStorage.setItem('viewed_order_ids', JSON.stringify(Array.from(viewedSet)));
+    fetchOrders(100);
+  }, []);
+
+  // Fetch member information for orders
+  useEffect(() => {
+    const fetchMembers = async () => {
+      const memberIds = [...new Set(orders.filter(o => o.member_id).map(o => o.member_id!))];
+      if (memberIds.length === 0) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('members')
+          .select('id, username, email, mobile_no, user_type')
+          .in('id', memberIds);
+
+        if (error) throw error;
+
+        const map: Record<string, Member> = {};
+        data?.forEach(member => {
+          map[member.id] = member as Member;
+        });
+        setMemberMap(map);
+      } catch (err) {
+        console.error('Error fetching members:', err);
+      }
+    };
+
+    if (orders.length > 0) {
+      fetchMembers();
+    }
   }, [orders]);
 
   // Update time indicators every minute
@@ -250,7 +272,19 @@ const OrderManager: React.FC = () => {
     }
   };
 
-  const getStatusBadge = (status: OrderStatus) => {
+  const getStatusBadge = (order: Order) => {
+    const orderOption = order.order_option || 'place_order';
+    const status = order.status;
+
+    // For messenger orders with pending status, show "Done"
+    if (orderOption === 'order_via_messenger' && status === 'pending') {
+      return (
+        <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+          Done
+        </span>
+      );
+    }
+
     switch (status) {
       case 'pending':
         return (
@@ -266,13 +300,13 @@ const OrderManager: React.FC = () => {
         );
       case 'approved':
         return (
-          <span className="px-3 py-1 rounded-full text-xs font-medium border" style={{ backgroundColor: 'rgba(75, 31, 66, 0.1)', color: '#4B1F42', borderColor: 'rgba(75, 31, 66, 0.3)' }}>
+          <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
             Approved
           </span>
         );
       case 'rejected':
         return (
-          <span className="px-3 py-1 rounded-full text-xs font-medium border" style={{ backgroundColor: 'rgba(75, 31, 66, 0.1)', color: '#4B1F42', borderColor: 'rgba(75, 31, 66, 0.3)' }}>
+          <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
             Rejected
           </span>
         );
@@ -286,6 +320,12 @@ const OrderManager: React.FC = () => {
       </div>
     );
   }
+
+  // Filter orders based on selected filter
+  const filteredOrders = orders.filter(order => {
+    const orderOption = order.order_option || 'place_order';
+    return orderOption === orderFilter;
+  });
 
   return (
     <div className="space-y-3 md:space-y-6">
@@ -349,8 +389,8 @@ const OrderManager: React.FC = () => {
                    }`}>
                      {getTimeAgo(order.created_at)}
                    </span>
-                   <h3 className="text-sm font-semibold text-gray-900">
-                     Order #{order.id.slice(0, 8)}
+                   <h3 className="text-xs font-semibold text-gray-900">
+                     Order {order.invoice_number ? `#${order.invoice_number}` : `#${order.id.slice(0, 8)}`}
                    </h3>
                  </div>
                </div>
@@ -358,22 +398,34 @@ const OrderManager: React.FC = () => {
                {/* Order Header with Status */}
                <div className="flex items-start justify-end mb-4 pl-32 pr-2">
                  <div className="flex flex-col items-end gap-1.5">
-                   {getStatusBadge(order.status)}
+                   {getStatusBadge(order)}
                    <p className="text-xs text-gray-500">
                      {new Date(order.created_at).toLocaleString()}
                    </p>
                  </div>
                </div>
 
+              {/* Member Information */}
+              {order.member_id && memberMap[order.member_id] && (
+                <div className="mb-3 pb-3 border-b border-gray-200">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="font-semibold text-gray-900">{memberMap[order.member_id].username}</span>
+                    <span className="text-gray-500">
+                      / {memberMap[order.member_id].user_type === 'reseller' ? 'Reseller' : 'Member'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Order Summary */}
               <div className="grid grid-cols-3 gap-4 mb-4 pb-4 border-b border-gray-200">
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Total Price</p>
-                  <p className="text-base font-semibold text-gray-900">₱{order.total_price}</p>
+                  <p className="text-xs font-semibold text-gray-900">₱{order.total_price}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Items</p>
-                  <p className="text-sm font-semibold text-gray-900">{order.order_items.length} item(s)</p>
+                  <p className="text-xs font-semibold text-gray-900">{order.order_items.length} item(s)</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1">MOP</p>
@@ -384,17 +436,17 @@ const OrderManager: React.FC = () => {
               <div className="flex items-center gap-2 md:gap-3 flex-wrap">
                 <button
                   onClick={() => handleViewOrder(order)}
-                  className="px-3 py-1.5 md:px-4 md:py-2 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-gray-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
+                  className="px-3 py-1.5 md:px-4 md:py-2 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-gray-700 flex items-center gap-1.5 md:gap-2 text-xs font-medium"
                 >
                   <Eye className="h-3.5 w-3.5 md:h-4 md:w-4" />
                   <span className="hidden sm:inline">View Details</span>
                   <span className="sm:hidden">View</span>
                 </button>
-                 {order.status === 'pending' && (
+                 {(order.order_option || 'place_order') !== 'order_via_messenger' && order.status === 'pending' && (
                    <>
                      <button
                        onClick={() => handleApprove(order.id)}
-                       className="px-3 py-1.5 md:px-4 md:py-2 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 text-green-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
+                       className="px-3 py-1.5 md:px-4 md:py-2 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 text-green-700 flex items-center gap-1.5 md:gap-2 text-xs font-medium"
                      >
                        <CheckCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
                        Approve
@@ -408,11 +460,11 @@ const OrderManager: React.FC = () => {
                      </button>
                    </>
                  )}
-                 {order.status === 'processing' && (
+                 {(order.order_option || 'place_order') !== 'order_via_messenger' && order.status === 'processing' && (
                    <>
                      <button
                        onClick={() => handleApprove(order.id)}
-                       className="px-3 py-1.5 md:px-4 md:py-2 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 text-green-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
+                       className="px-3 py-1.5 md:px-4 md:py-2 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 text-green-700 flex items-center gap-1.5 md:gap-2 text-xs font-medium"
                      >
                        <CheckCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
                        Approve
@@ -502,8 +554,8 @@ const OrderManager: React.FC = () => {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2 md:p-4">
           <div className="bg-white rounded-lg shadow-xl p-3 md:p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4 md:mb-6 pb-3 md:pb-4 border-b border-gray-200">
-              <h2 className="text-lg md:text-2xl font-semibold text-gray-900">
-                Order #{selectedOrder.id.slice(0, 8)}
+              <h2 className="text-xs font-semibold text-gray-900">
+                Order {selectedOrder.invoice_number ? `#${selectedOrder.invoice_number}` : `#${selectedOrder.id.slice(0, 8)}`}
               </h2>
               <button
                 onClick={() => {
@@ -519,13 +571,30 @@ const OrderManager: React.FC = () => {
             <div className="space-y-4 md:space-y-6">
               {/* Order Status */}
               <div className="flex items-center gap-2 md:gap-3">
-                <span className="text-xs md:text-sm text-gray-600">Status:</span>
-                {getStatusBadge(selectedOrder.status)}
+                <span className="text-xs text-gray-600">Status:</span>
+                {getStatusBadge(selectedOrder)}
               </div>
+
+              {/* Member Information */}
+              {selectedOrder.member_id && memberMap[selectedOrder.member_id] && (
+                <div className="bg-blue-50 rounded-lg p-3 md:p-4 border border-blue-200">
+                  <div className="space-y-1.5 md:space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-gray-900">
+                        {memberMap[selectedOrder.member_id].username} / {memberMap[selectedOrder.member_id].user_type === 'reseller' ? 'Reseller' : 'Member'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-600">Mobile:</span>
+                      <span className="text-xs text-gray-900">{memberMap[selectedOrder.member_id].mobile_no}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Order Items */}
               <div className="bg-gray-50 rounded-lg p-3 md:p-4 border border-gray-200">
-                <h3 className="text-sm md:text-base font-medium text-gray-900 mb-3 md:mb-4">Order Items</h3>
+                <h3 className="text-xs font-medium text-gray-900 mb-3 md:mb-4">Order Items</h3>
                 <div className="space-y-2 md:space-y-3">
                   {selectedOrder.order_items.map((item, index) => (
                     <div key={index} className="flex items-start gap-2 md:gap-4 py-2 md:py-3 border-b border-gray-200 last:border-b-0">
@@ -538,17 +607,17 @@ const OrderManager: React.FC = () => {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <div className="text-xl opacity-40 text-gray-400">🎮</div>
+                            <div className="text-xs opacity-40 text-gray-400">🎮</div>
                           </div>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm md:text-base font-medium text-gray-900">{item.name}</h4>
+                        <h4 className="text-xs font-medium text-gray-900">{item.name}</h4>
                         {item.selectedVariation && (
-                          <p className="text-xs md:text-sm text-gray-600">Package: {item.selectedVariation.name}</p>
+                          <p className="text-xs text-gray-600">Package: {item.selectedVariation.name}</p>
                         )}
                         {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                          <p className="text-xs md:text-sm text-gray-600">
+                          <p className="text-xs text-gray-600">
                             Add-ons: {item.selectedAddOns.map(addOn => 
                               addOn.quantity && addOn.quantity > 1 
                                 ? `${addOn.name} x${addOn.quantity}`
@@ -556,16 +625,16 @@ const OrderManager: React.FC = () => {
                             ).join(', ')}
                           </p>
                         )}
-                        <p className="text-xs md:text-sm text-gray-500 mt-0.5 md:mt-1">₱{item.totalPrice} × {item.quantity}</p>
+                        <p className="text-xs text-gray-500 mt-0.5 md:mt-1">₱{item.totalPrice} × {item.quantity}</p>
                       </div>
                       <div className="flex-shrink-0">
-                        <span className="text-sm md:text-base font-semibold text-gray-900">₱{item.totalPrice * item.quantity}</span>
+                        <span className="text-xs font-semibold text-gray-900">₱{item.totalPrice * item.quantity}</span>
                       </div>
                     </div>
                   ))}
                 </div>
                 <div className="mt-3 md:mt-4 pt-3 md:pt-4 border-t border-gray-200">
-                  <div className="flex items-center justify-between text-base md:text-xl font-semibold text-gray-900">
+                  <div className="flex items-center justify-between text-xs font-semibold text-gray-900">
                     <span>Total:</span>
                     <span className="text-gray-900">₱{selectedOrder.total_price}</span>
                   </div>
@@ -660,7 +729,7 @@ const OrderManager: React.FC = () => {
 
               {/* Receipt */}
               <div className="bg-gray-50 rounded-lg p-3 md:p-4 border border-gray-200">
-                <h3 className="text-sm md:text-base font-medium text-gray-900 mb-3 md:mb-4">Payment Receipt</h3>
+                <h3 className="text-xs font-medium text-gray-900 mb-3 md:mb-4">Payment Receipt</h3>
                 <div className="flex flex-col items-center gap-3 md:gap-4">
                   <a
                     href={selectedOrder.receipt_url}
@@ -682,20 +751,10 @@ const OrderManager: React.FC = () => {
                       href={selectedOrder.receipt_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-3 py-1.5 md:px-4 md:py-2 bg-blue-50 border border-blue-300 rounded-lg hover:bg-blue-100 transition-colors duration-200 text-blue-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
+                      className="px-3 py-1.5 md:px-4 md:py-2 bg-blue-50 border border-blue-300 rounded-lg hover:bg-blue-100 transition-colors duration-200 text-blue-700 flex items-center gap-1.5 md:gap-2 text-xs font-medium"
                     >
                       <Eye className="h-3.5 w-3.5 md:h-4 md:w-4" />
                       View Receipt
-                    </a>
-                    <a
-                      href={selectedOrder.receipt_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      download
-                      className="px-3 py-1.5 md:px-4 md:py-2 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-gray-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
-                    >
-                      <Download className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                      Download Receipt
                     </a>
                   </div>
                 </div>

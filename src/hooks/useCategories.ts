@@ -16,7 +16,7 @@ export const useCategories = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (retries = 3) => {
     try {
       setLoading(true);
       
@@ -26,13 +26,28 @@ export const useCategories = () => {
         .eq('active', true)
         .order('sort_order', { ascending: true });
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        // If it's a network/CORS error and we have retries left, try again
+        if (retries > 0 && (fetchError.message.includes('NetworkError') || fetchError.message.includes('CORS') || fetchError.code === 'PGRST116')) {
+          console.warn(`Retrying categories fetch... (${retries} retries left)`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * (4 - retries))); // Exponential backoff
+          return fetchCategories(retries - 1);
+        }
+        throw fetchError;
+      }
 
       setCategories(data || []);
       setError(null);
     } catch (err) {
       console.error('Error fetching categories:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch categories');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch categories';
+      
+      // Provide more helpful error message for CORS issues
+      if (errorMessage.includes('CORS') || errorMessage.includes('NetworkError')) {
+        setError('Network error: Please check your Supabase CORS settings and internet connection.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }

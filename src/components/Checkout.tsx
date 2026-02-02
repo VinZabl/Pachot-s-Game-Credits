@@ -1,14 +1,17 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { ArrowLeft, Upload, X, Copy, Check, Download, Eye } from 'lucide-react';
-import { CartItem, PaymentMethod, CustomField, OrderStatus } from '../types';
-import { usePaymentMethods } from '../hooks/usePaymentMethods';
+import React, { useState, useMemo, useRef } from 'react';
+import { ArrowLeft, Upload, X, Copy, Check, MousePointerClick, Download } from 'lucide-react';
+import { CartItem, CustomField } from '../types';
+import { usePaymentMethods, PaymentMethod } from '../hooks/usePaymentMethods';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { useOrders } from '../hooks/useOrders';
 import { useSiteSettings } from '../hooks/useSiteSettings';
+import { useMemberAuth } from '../hooks/useMemberAuth';
+import { supabase } from '../lib/supabase';
 import OrderStatusModal from './OrderStatusModal';
 
 interface CheckoutProps {
   cartItems: CartItem[];
+  getEffectiveUnitPrice: (item: CartItem) => number;
   totalPrice: number;
   onBack: () => void;
   onNavigateToMenu?: () => void; // Callback to navigate to menu (e.g., after order succeeded)
@@ -19,8 +22,9 @@ const CHECKOUT_STATE_STORAGE_KEY = 'pachot_checkout_state';
 const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNavigateToMenu }) => {
   const { paymentMethods } = usePaymentMethods();
   const { uploadImage, uploading: uploadingReceipt } = useImageUpload();
-  const { createOrder, fetchOrderById } = useOrders();
+  const { createOrder } = useOrders();
   const { siteSettings } = useSiteSettings();
+  const { currentMember } = useMemberAuth();
   const orderOption = siteSettings?.order_option || 'order_via_messenger';
   
   // Load checkout state from localStorage on mount
@@ -115,8 +119,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
   const [orderId, setOrderId] = useState<string | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-  const [existingOrderStatus, setExistingOrderStatus] = useState<OrderStatus | null>(null);
-  const [, setIsCheckingExistingOrder] = useState(true);
+  const [generatedInvoiceNumber, setGeneratedInvoiceNumber] = useState<string | null>(null);
+  const [invoiceNumberDate, setInvoiceNumberDate] = useState<string | null>(null);
+  const [showPaymentDetailsModal, setShowPaymentDetailsModal] = useState(false);
 
   // Persist checkout state to localStorage whenever it changes
   useEffect(() => {
@@ -161,6 +166,83 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
 
   const hasAnyCustomFields = cartItemsWithCustomFields.length > 0;
 
+  // Detect if we can use multiple accounts (same game with different packages)
+  const canUseMultipleAccounts = useMemo(() => {
+    if (!hasAnyCustomFields) return false;
+    
+    // Group cart items by original menu item ID (game)
+    const itemsByGame = new Map<string, typeof cartItems>();
+    cartItems.forEach(item => {
+      const originalId = getOriginalMenuItemId(item.id);
+      if (!itemsByGame.has(originalId)) {
+        itemsByGame.set(originalId, []);
+      }
+      itemsByGame.get(originalId)!.push(item);
+    });
+    
+    // Check if any game has multiple different packages/variations
+    for (const [gameId, items] of itemsByGame.entries()) {
+      if (items.length > 1) {
+        // Check if they have different variations
+        const variationIds = new Set(items.map(item => item.selectedVariation?.id || 'none'));
+        if (variationIds.size > 1) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }, [cartItems, hasAnyCustomFields]);
+
+  // Get items grouped by game and variation for multiple accounts
+  const itemsByGameAndVariation = useMemo(() => {
+    if (!canUseMultipleAccounts) return [];
+    
+    const grouped = new Map<string, Map<string, typeof cartItems[0][]>>();
+    
+    cartItems.forEach(item => {
+      const originalId = getOriginalMenuItemId(item.id);
+      const variationId = item.selectedVariation?.id || 'none';
+      
+      if (!grouped.has(originalId)) {
+        grouped.set(originalId, new Map());
+      }
+      const gameGroup = grouped.get(originalId)!;
+      
+      if (!gameGroup.has(variationId)) {
+        gameGroup.set(variationId, []);
+      }
+      gameGroup.get(variationId)!.push(item);
+    });
+    
+    // Convert to array format
+    const result: Array<{
+      gameId: string;
+      gameName: string;
+      variationId: string;
+      variationName: string;
+      items: typeof cartItems[0][];
+    }> = [];
+    
+    grouped.forEach((variations, gameId) => {
+      const firstItem = Array.from(variations.values())[0][0];
+      const gameName = firstItem.name;
+      
+      variations.forEach((items, variationId) => {
+        const variationName = items[0].selectedVariation?.name || 'Default';
+        result.push({
+          gameId,
+          gameName,
+          variationId,
+          variationName,
+          items
+        });
+      });
+    });
+    
+    return result;
+  }, [cartItems, canUseMultipleAccounts]);
+
   // Get bulk input fields based on selected games - position-based
   // If selected games have N fields, show N bulk input fields
   const bulkInputFields = useMemo(() => {
@@ -197,18 +279,12 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
 
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [step]);
+  }, []);
 
-  // Auto-scroll to payment details when payment method is selected
+  // Show payment details modal when payment method is selected
   React.useEffect(() => {
-    if (paymentMethod && paymentDetailsRef.current) {
-      setShowScrollIndicator(true); // Reset to show indicator when payment method is selected
-      setTimeout(() => {
-        paymentDetailsRef.current?.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'start' 
-        });
-      }, 100);
+    if (paymentMethod) {
+      setShowPaymentDetailsModal(true);
     }
   }, [paymentMethod]);
 
@@ -238,9 +314,9 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
     return () => {
       observer.disconnect();
     };
-  }, [step]);
+  }, []);
 
-  const selectedPaymentMethod = paymentMethods.find(method => method.id === paymentMethod);
+  const selectedPaymentMethod = paymentMethod;
   
   const handleBulkInputChange = (fieldKey: string, value: string) => {
     setBulkInputValues(prev => ({ ...prev, [fieldKey]: value }));
@@ -272,17 +348,6 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
     }
   };
 
-  const handleProceedToPayment = () => {
-    setStep('payment');
-  };
-
-  const handleProceedToOrder = () => {
-    if (!paymentMethod) {
-      setReceiptError('Please select a payment method');
-      return;
-    }
-    setStep('order');
-  };
 
   const handleReceiptUpload = async (file: File) => {
     try {
@@ -313,6 +378,145 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
     setReceiptPreview(null);
     setReceiptError(null);
     setHasCopiedMessage(false); // Reset copy state when receipt is removed
+    setGeneratedInvoiceNumber(null); // Reset invoice number when receipt is removed
+    setInvoiceNumberDate(null);
+  };
+
+  // Helper function to get current date in Philippine timezone (Asia/Manila, UTC+8)
+  const getPhilippineDate = () => {
+    const now = new Date();
+    // Convert to Philippine time (UTC+8)
+    const philippineTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Manila" }));
+    // Get date components
+    const year = philippineTime.getFullYear();
+    const month = String(philippineTime.getMonth() + 1).padStart(2, '0');
+    const day = String(philippineTime.getDate()).padStart(2, '0');
+    return {
+      dateString: `${year}-${month}-${day}`, // YYYY-MM-DD
+      dayOfMonth: philippineTime.getDate()
+    };
+  };
+
+  // Generate invoice number (format: {orderNumber}M{day}D{orderNumber})
+  // Example: 1M17D1 = 1st order on the 17th day of the month
+  //          1M17D2 = 2nd order on the 17th day of the month
+  // Resets daily at 12:00 AM Philippine time (Asia/Manila, UTC+8)
+  // The invoice number increments each time "Copy Order Message" is clicked (forceNew = true)
+  // Subsequent calls (like "Order via Messenger") will reuse the same invoice number (forceNew = false)
+  // Uses database (site_settings) to track invoice count with proper locking to prevent race conditions
+  const generateInvoiceNumber = async (forceNew: boolean = false): Promise<string> => {
+    const { dateString: todayStr, dayOfMonth } = getPhilippineDate();
+    
+    // Check if we already generated an invoice number for today and forceNew is false
+    // If forceNew is false, reuse the existing number from state
+    if (!forceNew && generatedInvoiceNumber && invoiceNumberDate === todayStr) {
+      return generatedInvoiceNumber;
+    }
+
+    try {
+      // Get invoice count from database (site_settings table)
+      const countSettingId = 'invoice_count';
+      const dateSettingId = 'invoice_count_date';
+      
+      // Fetch current invoice count and date from database
+      // Use a transaction-like approach: fetch, check, update
+      const { data: countData, error: countError } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('id', countSettingId)
+        .maybeSingle();
+      
+      if (countError) {
+        console.error('Error fetching invoice count:', countError);
+        // Continue with default value
+      }
+      
+      const { data: dateData, error: dateError } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('id', dateSettingId)
+        .maybeSingle();
+      
+      if (dateError) {
+        console.error('Error fetching invoice count date:', dateError);
+        // Continue with default value
+      }
+      
+      let currentCount = 0;
+      const lastDate = dateData?.value || null;
+      
+      // Check if we need to reset (new day)
+      if (lastDate !== todayStr) {
+        // New day - reset the count to 0
+        currentCount = 0;
+        
+        // Update both count and date in database atomically
+        const { error: updateCountError } = await supabase
+          .from('site_settings')
+          .upsert({ id: countSettingId, value: '0', type: 'number', description: 'Current invoice count for the day' }, { onConflict: 'id' });
+        
+        if (updateCountError) {
+          console.error('Error updating invoice count:', updateCountError);
+        }
+        
+        const { error: updateDateError } = await supabase
+          .from('site_settings')
+          .upsert({ id: dateSettingId, value: todayStr, type: 'text', description: 'Date of the current invoice count' }, { onConflict: 'id' });
+        
+        if (updateDateError) {
+          console.error('Error updating invoice date:', updateDateError);
+        }
+      } else {
+        // Same day - get current count from database
+        currentCount = countData?.value ? parseInt(countData.value, 10) : 0;
+      }
+      
+      // If forceNew is true (Copy button clicked), always increment the count
+      // This ensures each new order gets a new invoice number
+      if (forceNew) {
+        currentCount += 1;
+        
+        // Update count in database - ensure this completes before returning
+        const { error: updateError } = await supabase
+          .from('site_settings')
+          .upsert({ id: countSettingId, value: currentCount.toString(), type: 'number', description: 'Current invoice count for the day' }, { onConflict: 'id' });
+        
+        if (updateError) {
+          console.error('Error updating invoice count:', updateError);
+          // Still use the incremented count even if update fails
+        }
+      } else {
+        // If forceNew is false and no count exists, start at 1
+        if (currentCount === 0) {
+          currentCount = 1;
+          const { error: updateError } = await supabase
+            .from('site_settings')
+            .upsert({ id: countSettingId, value: currentCount.toString(), type: 'number', description: 'Current invoice count for the day' }, { onConflict: 'id' });
+          
+          if (updateError) {
+            console.error('Error updating invoice count:', updateError);
+          }
+        }
+      }
+
+      const orderNumber = currentCount;
+
+      // Format: TD1M{day}D{orderNumber}
+      // Example: TD1M17D1 (1st order on day 17), TD1M17D2 (2nd order on day 17), etc.
+      // The first number is always 1, the last number is the order number
+      const invoiceNumber = `TD1M${dayOfMonth}D${orderNumber}`;
+      
+      // Store the generated invoice number and date
+      setGeneratedInvoiceNumber(invoiceNumber);
+      setInvoiceNumberDate(todayStr);
+      
+      return invoiceNumber;
+    } catch (error) {
+      console.error('Error generating invoice number:', error);
+      // Fallback to a simple format if there's an error
+      const { dayOfMonth } = getPhilippineDate();
+      return `TD1M${dayOfMonth}D1`;
+    }
   };
 
   // Generate the order message text
@@ -329,47 +533,112 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
           return value ? { label: field.label, value } : null;
         }).filter(Boolean) as Array<{ label: string, value: string }> || [];
         
-        if (fields.length === 0) return;
+        if (fields.length === 0) {
+          // No field values, treat as item without fields
+          itemsWithoutFields.push(cartItem);
+          return;
+        }
         
         const itemLabel = item.selectedVariation ? `${item.name} (${item.selectedVariation.name})` : item.name;
         const valueKey = fields.map(f => `${f.label}:${f.value}`).join('|');
         
         if (!gamesByFieldValues.has(valueKey)) {
-          gamesByFieldValues.set(valueKey, { games: [], fields });
+          gamesByFieldValues.set(valueKey, { games: [], items: [], fields });
         }
         gamesByFieldValues.get(valueKey)!.games.push(itemLabel);
       });
       
-      // Build the section
-      const sections: string[] = [];
-      gamesByFieldValues.forEach(({ games, fields }) => {
-        if (games.length === 0 || fields.length === 0) return;
+      // Build sections for each group
+      gamesByFieldValues.forEach(({ games, items, fields }) => {
+        // Game name (only once if multiple games share same fields)
+        lines.push(`GAME: ${games.join(', ')}`);
         
-        // Add game names
-        sections.push(games.join('\n'));
-        
-        // If all values are the same, combine into one line
-        const allValuesSame = fields.every(f => f.value === fields[0].value);
-        if (allValuesSame && fields.length > 1) {
-          const labels = fields.map(f => f.label).join(', ');
-          const lastCommaIndex = labels.lastIndexOf(',');
-          const combinedLabels = lastCommaIndex > 0 
-            ? labels.substring(0, lastCommaIndex) + ' &' + labels.substring(lastCommaIndex + 1)
-            : labels;
-          sections.push(`${combinedLabels}: ${fields[0].value}`);
-        } else {
-          // Different values, show each field separately
-          const fieldStrings = fields.map(f => `${f.label}: ${f.value}`).join(', ');
-          sections.push(fieldStrings);
+        // ID & SERVER or other fields
+        if (fields.length === 1) {
+          lines.push(`${fields[0].label}: ${fields[0].value}`);
+        } else if (fields.length > 1) {
+          // Combine fields with & if multiple
+          const allValuesSame = fields.every(f => f.value === fields[0].value);
+          if (allValuesSame) {
+            // All values same, combine labels with &
+            const labels = fields.map(f => f.label);
+            if (labels.length === 2) {
+              lines.push(`${labels[0]} & ${labels[1]}: ${fields[0].value}`);
+            } else {
+              const allButLast = labels.slice(0, -1).join(', ');
+              const lastLabel = labels[labels.length - 1];
+              lines.push(`${allButLast} & ${lastLabel}: ${fields[0].value}`);
+            }
+          } else {
+            // Different values, show each field separately
+            const fieldPairs = fields.map(f => `${f.label}: ${f.value}`);
+            lines.push(fieldPairs.join(', '));
+          }
         }
+        
+        // Order items
+        items.forEach(item => {
+          let orderLine = `ORDER: ${item.selectedVariation?.name || item.name}`;
+          if (item.quantity > 1) {
+            orderLine += ` x${item.quantity}`;
+          }
+          orderLine += ` - ₱${getEffectiveUnitPrice(item) * item.quantity}`;
+          lines.push(orderLine);
+        });
       });
       
-      if (sections.length > 0) {
-        customFieldsSection = sections.join('\n');
+      // Handle items without custom fields
+      if (itemsWithoutFields.length > 0) {
+        const uniqueGames = [...new Set(itemsWithoutFields.map(item => item.name))];
+        lines.push(`GAME: ${uniqueGames.join(', ')}`);
+        
+        itemsWithoutFields.forEach(item => {
+          let orderLine = `ORDER: ${item.selectedVariation?.name || item.name}`;
+          if (item.quantity > 1) {
+            orderLine += ` x${item.quantity}`;
+          }
+          orderLine += ` - ₱${getEffectiveUnitPrice(item) * item.quantity}`;
+          lines.push(orderLine);
+        });
       }
     } else {
-      customFieldsSection = `🎮 IGN: ${customFieldValues['default_ign'] || ''}`;
+      // No custom fields, single account mode
+      const uniqueGames = [...new Set(cartItems.map(item => item.name))];
+      lines.push(`GAME: ${uniqueGames.join(', ')}`);
+      
+      // Default IGN field
+      const ign = customFieldValues['default_ign'] || '';
+      if (ign) {
+        lines.push(`IGN: ${ign}`);
+      }
+      
+      // Order items
+      cartItems.forEach(item => {
+        let orderLine = `ORDER: ${item.selectedVariation?.name || item.name}`;
+        if (item.quantity > 1) {
+          orderLine += ` x${item.quantity}`;
+        }
+        orderLine += ` - ₱${getEffectiveUnitPrice(item) * item.quantity}`;
+        lines.push(orderLine);
+      });
     }
+    
+    // Payment
+    const paymentLine = `PAYMENT: ${selectedPaymentMethod?.name || ''}${selectedPaymentMethod?.account_name ? ` - ${selectedPaymentMethod.account_name}` : ''}`;
+    lines.push(paymentLine);
+    
+    // Total
+    lines.push(`TOTAL: ₱${totalPrice}`);
+    lines.push(''); // Break before payment receipt
+    
+    // Payment Receipt
+    lines.push('PAYMENT RECEIPT:');
+    if (receiptImageUrl) {
+      lines.push(receiptImageUrl);
+    }
+    
+    return lines.join('\n');
+  };
 
     const orderDetails = `
 🛒 Pachot's Game Credits ORDER
@@ -400,21 +669,323 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
 
   const handleCopyMessage = async () => {
     try {
-      const message = generateOrderMessage();
-      await navigator.clipboard.writeText(message);
-      setCopied(true);
-      setHasCopiedMessage(true); // Mark that copy button has been clicked
-      setTimeout(() => setCopied(false), 2000);
+      // Create order first and allocate invoice from DB (invoice count) – single source of truth
+      await saveOrderToDb();
+      // Build message using that invoice (reuse – no extra increment)
+      const message = await generateOrderMessage(false);
+
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isMac = /Mac/.test(navigator.platform) || /MacIntel|MacPPC|Mac68K/.test(navigator.platform);
+      const useExecCommand = isIOS || isMac;
+
+      let didCopy = false;
+      if (useExecCommand) {
+        const textarea = document.createElement('textarea');
+        textarea.value = message;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '0';
+        textarea.style.top = '0';
+        textarea.style.opacity = '0';
+        textarea.style.pointerEvents = 'none';
+        textarea.setAttribute('readonly', '');
+        textarea.setAttribute('contenteditable', 'true');
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        textarea.setSelectionRange(0, message.length);
+        try {
+          didCopy = document.execCommand('copy');
+        } catch (e) {
+          console.error('execCommand failed:', e);
+        }
+        document.body.removeChild(textarea);
+        if (!didCopy) {
+          try {
+            await navigator.clipboard.writeText(message);
+            didCopy = true;
+          } catch (clipboardError) {
+            console.error('Failed to copy on iOS/Mac:', clipboardError);
+            alert('Failed to copy. Please try again or copy manually.');
+          }
+        }
+      } else {
+        try {
+          await navigator.clipboard.writeText(message);
+          didCopy = true;
+        } catch (clipboardError) {
+          const textarea = document.createElement('textarea');
+          textarea.value = message;
+          textarea.style.position = 'fixed';
+          textarea.style.left = '-999999px';
+          textarea.style.top = '-999999px';
+          document.body.appendChild(textarea);
+          textarea.focus();
+          textarea.select();
+          didCopy = document.execCommand('copy');
+          document.body.removeChild(textarea);
+        }
+      }
+      if (didCopy) {
+        setCopied(true);
+        setHasCopiedMessage(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
     } catch (error) {
       console.error('Failed to copy message:', error);
     }
   };
 
+  // Kept for potential future use (e.g. sync copy paths); order_via_messenger now uses DB invoice count
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const generateOrderMessageSync = async (invoiceNumber: string): Promise<string> => {
+    // Build message lines (same logic as generateOrderMessage but without invoice generation)
+    const lines: string[] = [];
+    
+    // Invoice number
+    lines.push(`INVOICE # ${invoiceNumber}`);
+    lines.push(''); // Break after invoice
+    
+    // Handle multiple accounts mode
+    if (useMultipleAccounts && canUseMultipleAccounts) {
+      // Group by game and variation
+      const gameGroups = new Map<string, Array<{ variationName: string; items: CartItem[]; fields: Array<{ label: string, value: string }> }>>();
+      
+      itemsByGameAndVariation.forEach(({ gameId, gameName, variationId, variationName, items }) => {
+        const firstItem = items[0];
+        if (!firstItem.customFields) return;
+        
+        const fields = firstItem.customFields.map(field => {
+          const valueKey = `${gameId}_${variationId}_${field.key}`;
+          const value = customFieldValues[valueKey] || '';
+          return value ? { label: field.label, value } : null;
+        }).filter(Boolean) as Array<{ label: string, value: string }>;
+        
+        if (fields.length === 0) return;
+        
+        if (!gameGroups.has(gameName)) {
+          gameGroups.set(gameName, []);
+        }
+        gameGroups.get(gameName)!.push({ variationName, items, fields });
+      });
+      
+      // Build message for each game (game name mentioned once)
+      gameGroups.forEach((variations, gameName) => {
+        lines.push(`GAME: ${gameName}`);
+        
+        variations.forEach(({ variationName, items, fields }) => {
+          // ID & SERVER or other fields
+          if (fields.length === 1) {
+            lines.push(`${fields[0].label}: ${fields[0].value}`);
+          } else if (fields.length > 1) {
+            // Combine fields with & if multiple
+            const allValuesSame = fields.every(f => f.value === fields[0].value);
+            if (allValuesSame) {
+              const labels = fields.map(f => f.label);
+              if (labels.length === 2) {
+                lines.push(`${labels[0]} & ${labels[1]}: ${fields[0].value}`);
+              } else {
+                const allButLast = labels.slice(0, -1).join(', ');
+                const lastLabel = labels[labels.length - 1];
+                lines.push(`${allButLast} & ${lastLabel}: ${fields[0].value}`);
+              }
+            } else {
+              // Different values, show each field separately
+              fields.forEach(field => {
+                lines.push(`${field.label}: ${field.value}`);
+              });
+            }
+          }
+          
+          // Order items for this variation
+          items.forEach(item => {
+            const variationText = item.selectedVariation ? ` ${item.selectedVariation.name}` : '';
+            const addOnsText = item.selectedAddOns && item.selectedAddOns.length > 0
+              ? ` + ${item.selectedAddOns.map(a => a.name).join(', ')}`
+              : '';
+            lines.push(`ORDER: ${item.name}${variationText}${addOnsText} x${item.quantity} - ₱${getEffectiveUnitPrice(item) * item.quantity}`);
+          });
+        });
+      });
+    } else if (hasAnyCustomFields) {
+      // Build game/order sections (single account or bulk mode)
+      // Group games by their field values (for bulk input)
+      const gamesByFieldValues = new Map<string, { games: string[], items: CartItem[], fields: Array<{ label: string, value: string }> }>();
+      const itemsWithoutFields: CartItem[] = [];
+      
+      cartItems.forEach(cartItem => {
+        const originalId = getOriginalMenuItemId(cartItem.id);
+        const item = itemsWithCustomFields.find(i => getOriginalMenuItemId(i.id) === originalId);
+        
+        if (!item || !item.customFields || item.customFields.length === 0) {
+          // Item without custom fields, handle separately
+          itemsWithoutFields.push(cartItem);
+          return;
+        }
+        
+        const fields = item.customFields.map(field => {
+          const valueKey = `${originalId}_${field.key}`;
+          const value = customFieldValues[valueKey] || '';
+          return value ? { label: field.label, value } : null;
+        }).filter(Boolean) as Array<{ label: string, value: string }> || [];
+        
+        if (fields.length === 0) {
+          // No field values, treat as item without fields
+          itemsWithoutFields.push(cartItem);
+          return;
+        }
+        
+        // Create a key based on field values (to group games with same values)
+        const valueKey = fields.map(f => `${f.label}:${f.value}`).join('|');
+        
+        if (!gamesByFieldValues.has(valueKey)) {
+          gamesByFieldValues.set(valueKey, { games: [], items: [], fields });
+        }
+        const group = gamesByFieldValues.get(valueKey)!;
+        if (!group.games.includes(item.name)) {
+          group.games.push(item.name);
+        }
+        group.items.push(cartItem);
+        group.fields = fields; // Use the fields from this item
+      });
+      
+      // Build sections for each group
+      gamesByFieldValues.forEach(({ games, items, fields }) => {
+        // Game name (only once if multiple games share same fields)
+        lines.push(`GAME: ${games.join(', ')}`);
+        
+        // ID & SERVER or other fields
+        if (fields.length === 1) {
+          lines.push(`${fields[0].label}: ${fields[0].value}`);
+        } else if (fields.length > 1) {
+          // Combine fields with & if multiple
+          const allValuesSame = fields.every(f => f.value === fields[0].value);
+          if (allValuesSame) {
+            // All values same, combine labels with &
+            const labels = fields.map(f => f.label);
+            if (labels.length === 2) {
+              lines.push(`${labels[0]} & ${labels[1]}: ${fields[0].value}`);
+            } else {
+              const allButLast = labels.slice(0, -1).join(', ');
+              const lastLabel = labels[labels.length - 1];
+              lines.push(`${allButLast} & ${lastLabel}: ${fields[0].value}`);
+            }
+          } else {
+            // Different values, show each field separately
+            const fieldPairs = fields.map(f => `${f.label}: ${f.value}`);
+            lines.push(fieldPairs.join(', '));
+          }
+        }
+        
+        // Order items
+        items.forEach(item => {
+          let orderLine = `ORDER: ${item.selectedVariation?.name || item.name}`;
+          if (item.quantity > 1) {
+            orderLine += ` x${item.quantity}`;
+          }
+          orderLine += ` - ₱${getEffectiveUnitPrice(item) * item.quantity}`;
+          lines.push(orderLine);
+        });
+      });
+      
+      // Handle items without custom fields
+      if (itemsWithoutFields.length > 0) {
+        const uniqueGames = [...new Set(itemsWithoutFields.map(item => item.name))];
+        lines.push(`GAME: ${uniqueGames.join(', ')}`);
+        
+        itemsWithoutFields.forEach(item => {
+          let orderLine = `ORDER: ${item.selectedVariation?.name || item.name}`;
+          if (item.quantity > 1) {
+            orderLine += ` x${item.quantity}`;
+          }
+          orderLine += ` - ₱${getEffectiveUnitPrice(item) * item.quantity}`;
+          lines.push(orderLine);
+        });
+      }
+    } else {
+      // No custom fields, single account mode
+      const uniqueGames = [...new Set(cartItems.map(item => item.name))];
+      lines.push(`GAME: ${uniqueGames.join(', ')}`);
+      
+      // Default IGN field
+      const ign = customFieldValues['default_ign'] || '';
+      if (ign) {
+        lines.push(`IGN: ${ign}`);
+      }
+      
+      // Order items
+      cartItems.forEach(item => {
+        let orderLine = `ORDER: ${item.selectedVariation?.name || item.name}`;
+        if (item.quantity > 1) {
+          orderLine += ` x${item.quantity}`;
+        }
+        orderLine += ` - ₱${getEffectiveUnitPrice(item) * item.quantity}`;
+        lines.push(orderLine);
+      });
+    }
+    
+    // Payment
+    const paymentLine = `PAYMENT: ${selectedPaymentMethod?.name || ''}${selectedPaymentMethod?.account_name ? ` - ${selectedPaymentMethod.account_name}` : ''}`;
+    lines.push(paymentLine);
+    
+    // Total
+    lines.push(`TOTAL: ₱${totalPrice}`);
+    lines.push(''); // Break before payment receipt
+    
+    // Payment Receipt
+    lines.push('PAYMENT RECEIPT:');
+    if (receiptImageUrl) {
+      lines.push(receiptImageUrl);
+    }
+    
+    return lines.join('\n');
+  };
+
   const handleCopyAccountNumber = async (accountNumber: string) => {
     try {
-      await navigator.clipboard.writeText(accountNumber);
-      setCopiedAccountNumber(true);
-      setTimeout(() => setCopiedAccountNumber(false), 2000);
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      
+      if (isIOS) {
+        const textarea = document.createElement('textarea');
+        textarea.value = accountNumber;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '0';
+        textarea.style.top = '0';
+        textarea.style.opacity = '0';
+        textarea.style.pointerEvents = 'none';
+        textarea.setAttribute('readonly', '');
+        document.body.appendChild(textarea);
+        textarea.select();
+        textarea.setSelectionRange(0, accountNumber.length);
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (successful) {
+          setCopiedAccountNumber(true);
+          setTimeout(() => setCopiedAccountNumber(false), 2000);
+        }
+      } else {
+        try {
+          await navigator.clipboard.writeText(accountNumber);
+          setCopiedAccountNumber(true);
+          setTimeout(() => setCopiedAccountNumber(false), 2000);
+        } catch (clipboardError) {
+          const textarea = document.createElement('textarea');
+          textarea.value = accountNumber;
+          textarea.style.position = 'fixed';
+          textarea.style.left = '-999999px';
+          textarea.style.top = '-999999px';
+          document.body.appendChild(textarea);
+          textarea.focus();
+          textarea.select();
+          const successful = document.execCommand('copy');
+          document.body.removeChild(textarea);
+          if (successful) {
+            setCopiedAccountNumber(true);
+            setTimeout(() => setCopiedAccountNumber(false), 2000);
+          }
+        }
+      }
     } catch (error) {
       console.error('Failed to copy account number:', error);
     }
@@ -422,9 +993,49 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
 
   const handleCopyAccountName = async (accountName: string) => {
     try {
-      await navigator.clipboard.writeText(accountName);
-      setCopiedAccountName(true);
-      setTimeout(() => setCopiedAccountName(false), 2000);
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      
+      if (isIOS) {
+        const textarea = document.createElement('textarea');
+        textarea.value = accountName;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '0';
+        textarea.style.top = '0';
+        textarea.style.opacity = '0';
+        textarea.style.pointerEvents = 'none';
+        textarea.setAttribute('readonly', '');
+        document.body.appendChild(textarea);
+        textarea.select();
+        textarea.setSelectionRange(0, accountName.length);
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (successful) {
+          setCopiedAccountName(true);
+          setTimeout(() => setCopiedAccountName(false), 2000);
+        }
+      } else {
+        try {
+          await navigator.clipboard.writeText(accountName);
+          setCopiedAccountName(true);
+          setTimeout(() => setCopiedAccountName(false), 2000);
+        } catch (clipboardError) {
+          const textarea = document.createElement('textarea');
+          textarea.value = accountName;
+          textarea.style.position = 'fixed';
+          textarea.style.left = '-999999px';
+          textarea.style.top = '-999999px';
+          document.body.appendChild(textarea);
+          textarea.focus();
+          textarea.select();
+          const successful = document.execCommand('copy');
+          document.body.removeChild(textarea);
+          if (successful) {
+            setCopiedAccountName(true);
+            setTimeout(() => setCopiedAccountName(false), 2000);
+          }
+        }
+      }
     } catch (error) {
       console.error('Failed to copy account name:', error);
     }
@@ -436,11 +1047,12 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
            /FB_IAB/i.test(navigator.userAgent);
   }, []);
 
-  const handleDownloadQRCode = async (qrCodeUrl: string, paymentMethodName: string) => {
+  const handleDownloadQRCode = async (qrCodeUrl: string | null | undefined, paymentMethodName: string) => {
     // Only disable in Messenger's in-app browser
     // All external browsers (Chrome, Safari, Firefox, Edge, etc.) should work
-    if (isMessengerBrowser) {
+    if (isMessengerBrowser || !qrCodeUrl) {
       // In Messenger, downloads don't work - users can long-press the QR code image
+      // Also return early if no QR code URL is provided
       return;
     }
     
@@ -518,17 +1130,52 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
             // Clear checkout state when order is approved
             localStorage.removeItem(CHECKOUT_STATE_STORAGE_KEY);
           }
-        } else {
-          localStorage.removeItem('current_order_id');
+        });
+        
+        if (Object.keys(fields).length > 0) {
+          accountsData.push({
+            game: gameName,
+            package: variationName,
+            fields
+          });
+        }
+      });
+      
+      customerInfo = accountsData.length > 0 ? accountsData : {};
+    } else {
+      // Single account mode: store as flat object
+      const singleAccountInfo: Record<string, string> = {};
+      
+      // Add payment method
+      if (selectedPaymentMethod) {
+        singleAccountInfo['Payment Method'] = selectedPaymentMethod.name;
+      }
+
+      // Add custom fields
+      if (hasAnyCustomFields) {
+        itemsWithCustomFields.forEach((item) => {
+          const originalId = getOriginalMenuItemId(item.id);
+          item.customFields?.forEach(field => {
+            const valueKey = `${originalId}_${field.key}`;
+            const value = customFieldValues[valueKey];
+            if (value) {
+              singleAccountInfo[field.label] = value;
+            }
+          });
+        });
+      } else {
+        // Default IGN field
+        if (customFieldValues['default_ign']) {
+          singleAccountInfo['IGN'] = customFieldValues['default_ign'];
         }
       }
-      setIsCheckingExistingOrder(false);
-    };
+      
+      customerInfo = singleAccountInfo;
+    }
+    return customerInfo;
+  };
 
-    checkExistingOrder();
-  }, [fetchOrderById]);
-
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (!paymentMethod) {
       setReceiptError('Please select a payment method');
       return;
@@ -539,11 +1186,17 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
       return;
     }
 
-    const orderDetails = generateOrderMessage();
+    // Save order to database if not already saved
+    await saveOrderToDb();
+
+    // Reuse the existing invoice number (don't generate a new one)
+    // If no invoice number exists yet, it will generate one, but ideally Copy should be clicked first
+    const orderDetails = await generateOrderMessage(false);
     const encodedMessage = encodeURIComponent(orderDetails);
     const messengerUrl = `https://m.me/pachotsgamecredits?text=${encodedMessage}`;
     
     window.open(messengerUrl, '_blank');
+    
   };
 
   const handlePlaceOrderDirect = async () => {
@@ -557,14 +1210,11 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
       return;
     }
 
-    if (!selectedPaymentMethod) {
-      setReceiptError('Please select a payment method');
-      return;
-    }
+    setIsPlacingOrder(true);
+    setReceiptError(null);
 
     try {
-      setIsPlacingOrder(true);
-      setReceiptError(null);
+      const savedOrderId = await saveOrderToDb();
 
       // Build customer info object
       const customerInfo: Record<string, string | unknown> = {};
@@ -616,10 +1266,12 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
         setExistingOrderStatus(newOrder.status);
         localStorage.setItem('current_order_id', newOrder.id);
         setIsOrderModalOpen(true);
+      } else {
+        setReceiptError('Failed to create order. Please try again.');
       }
     } catch (error) {
       console.error('Error placing order:', error);
-      setReceiptError('Failed to place order. Please try again.');
+      setReceiptError('Failed to create order. Please try again.');
     } finally {
       setIsPlacingOrder(false);
     }
@@ -793,10 +1445,81 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
                             required={field.required}
                           />
                         </div>
-                      );
-                    })}
-                  </div>
-                ))
+                        {firstItem.customFields.map((field) => {
+                          const valueKey = `${gameId}_${variationId}_${field.key}`;
+                          return (
+                            <div key={field.key}>
+                              <label className="block text-sm font-medium text-cafe-text mb-2">
+                                {field.label} {field.required && <span className="text-red-500">*</span>}
+                              </label>
+                              <input
+                                type="text"
+                                value={customFieldValues[valueKey] || ''}
+                                onChange={(e) => setCustomFieldValues(prev => ({ ...prev, [valueKey]: e.target.value }))}
+                                className="w-full px-3 py-2 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-sm text-cafe-text placeholder-cafe-textMuted"
+                                placeholder={field.placeholder || field.label}
+                                required={field.required}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })
+                ) : (
+                  // Single account mode: show fields grouped by game
+                  itemsWithCustomFields.map((item) => (
+                    <div key={item.id} className="space-y-4 pb-6 border-b border-cafe-primary/20 last:border-b-0 last:pb-0">
+                      <div className="mb-4 flex items-center gap-4">
+                        {/* Game Icon */}
+                        <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg">
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <div className={`w-full h-full flex items-center justify-center ${item.image ? 'hidden' : ''}`}>
+                            <div className="text-2xl opacity-20 text-gray-400">🎮</div>
+                          </div>
+                        </div>
+                        
+                        {/* Game Title and Description */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-semibold text-cafe-text">{item.name}</h3>
+                          <p className="text-sm text-cafe-textMuted">Please provide the following information for this game</p>
+                        </div>
+                      </div>
+                      {item.customFields?.map((field) => {
+                        const originalId = getOriginalMenuItemId(item.id);
+                        const valueKey = `${originalId}_${field.key}`;
+                        return (
+                          <div key={valueKey}>
+                            <label className="block text-sm font-medium text-cafe-text mb-2">
+                              {field.label} {field.required && <span className="text-red-500">*</span>}
+                            </label>
+                            <input
+                              type="text"
+                              value={customFieldValues[valueKey] || ''}
+                              onChange={(e) => setCustomFieldValues({
+                                ...customFieldValues,
+                                [valueKey]: e.target.value
+                              })}
+                              className="w-full px-3 py-2 glass border border-cafe-primary/30 rounded-lg focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary transition-all duration-200 text-sm text-cafe-text placeholder-cafe-textMuted"
+                              placeholder={field.placeholder || field.label}
+                              required={field.required}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))
+                )
               ) : (
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">
@@ -870,11 +1593,6 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
             
           </div>
         </div>
-      </div>
-        {renderOrderStatusModal()}
-      </>
-    );
-  }
 
   // Payment Step
   if (step === 'payment') {
@@ -902,7 +1620,8 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
                 key={method.id}
                 type="button"
                 onClick={() => {
-                  setPaymentMethod(method.id as PaymentMethod);
+                  setPaymentMethod(method);
+                  setShowPaymentDetailsModal(true);
                 }}
                 title={method.name}
                 className={`w-14 h-14 md:w-16 md:h-16 rounded-xl border-2 transition-all duration-200 flex items-center justify-center p-1.5 ${
@@ -944,7 +1663,7 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
                       title="Copy account name"
                     >
                       {copiedAccountName ? (
-                        <span className="text-green-400">Copied!</span>
+                        <Check className="h-3.5 w-3.5 text-green-400" />
                       ) : (
                         <span className="text-white">Copy</span>
                       )}
@@ -1323,7 +2042,8 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
                     }`}
                     style={paymentMethod && receiptImageUrl && !uploadingReceipt && hasCopiedMessage ? { backgroundColor: '#FF69B4' } : {}}
                   >
-                    {uploadingReceipt ? 'Uploading Receipt...' : 'Place Order via Messenger'}
+                    <Download className="h-4 w-4" />
+                    <span>Download QR</span>
                   </button>
                   
                   <p className="text-xs text-whiteMuted text-center mt-3">
@@ -1334,13 +2054,17 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
             </div>
           </div>
         </div>
-      </div>
-        {renderOrderStatusModal()}
-      </>
-    );
-  }
+      )}
 
-  return null;
+      {/* Order Status Modal */}
+      <OrderStatusModal
+        orderId={orderId}
+        isOpen={isOrderModalOpen}
+        onClose={() => setIsOrderModalOpen(false)}
+        onSucceededClose={onNavigateToMenu}
+      />
+    </div>
+  );
 };
 
 export default Checkout;

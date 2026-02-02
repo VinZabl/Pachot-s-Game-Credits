@@ -1,9 +1,9 @@
 import React from 'react';
 import { MenuItem, OrderStatus } from '../types';
 import { useCategories } from '../hooks/useCategories';
+import { useSiteSettings } from '../hooks/useSiteSettings';
 import MenuItemCard from './MenuItemCard';
-import { useOrders } from '../hooks/useOrders';
-import OrderStatusModal from './OrderStatusModal';
+import Hero from './Hero';
 
 // Preload images for better performance
 const preloadImages = (items: MenuItem[]) => {
@@ -23,7 +23,7 @@ interface MenuProps {
 
 const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = '' }) => {
   const { categories } = useCategories();
-  const { fetchOrderById } = useOrders();
+  const { siteSettings } = useSiteSettings();
   const [activeCategory, setActiveCategory] = React.useState(selectedCategory === 'popular' ? 'popular' : 'hot-coffee');
   const [processingOrderId, setProcessingOrderId] = React.useState<string | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = React.useState(false);
@@ -58,21 +58,21 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
 
   // Preload images when menu items change
   React.useEffect(() => {
-    if (menuItems.length > 0) {
+    if (menuItemsSafe.length > 0) {
       // Preload images for visible category first
       let visibleItems: MenuItem[];
       if (selectedCategory === 'popular') {
-        visibleItems = menuItems.filter(item => Boolean(item.popular) === true);
+        visibleItems = menuItemsSafe.filter(item => Boolean(item.popular) === true);
       } else if (selectedCategory === 'all') {
-        visibleItems = menuItems;
+        visibleItems = menuItemsSafe;
       } else {
-        visibleItems = menuItems.filter(item => item.category === activeCategory);
+        visibleItems = menuItemsSafe.filter(item => item.category === activeCategory);
       }
       preloadImages(visibleItems);
       
       // Then preload other images after a short delay
       setTimeout(() => {
-        const otherItems = menuItems.filter(item => {
+        const otherItems = menuItemsSafe.filter(item => {
           if (selectedCategory === 'popular') {
             return item.popular !== true;
           } else if (selectedCategory === 'all') {
@@ -84,15 +84,14 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
         preloadImages(otherItems);
       }, 1000);
     }
-  }, [menuItems, activeCategory, selectedCategory]);
+  }, [menuItemsSafe, activeCategory, selectedCategory]);
 
   const handleCategoryClick = (categoryId: string) => {
     setActiveCategory(categoryId);
     const element = document.getElementById(categoryId);
     if (element) {
-      const headerHeight = 64; // Header height
-      const subNavHeight = 60; // SubNav height
-      const offset = headerHeight + subNavHeight + 20; // Extra padding
+      const combinedBarHeight = 100; // Header + search + category nav (one sticky bar)
+      const offset = combinedBarHeight + 16; // Extra padding
       const elementPosition = element.offsetTop - offset;
       
       window.scrollTo({
@@ -109,10 +108,11 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
       return;
     }
     
-    if (categories.length > 0) {
+    const list = Array.isArray(categories) ? categories : [];
+    if (list.length > 0) {
       // Set default to dim-sum if it exists, otherwise first category
-      const defaultCategory = categories.find(cat => cat.id === 'dim-sum') || categories[0];
-      if (!categories.find(cat => cat.id === activeCategory) && selectedCategory !== 'popular') {
+      const defaultCategory = list.find(cat => cat.id === 'dim-sum') || list[0];
+      if (defaultCategory && !list.find(cat => cat.id === activeCategory) && selectedCategory !== 'popular') {
         setActiveCategory(defaultCategory.id);
       }
     }
@@ -158,14 +158,15 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
       return;
     }
 
+    const list = Array.isArray(categories) ? categories : [];
     const handleScroll = () => {
-      const sections = categories.map(cat => document.getElementById(cat.id)).filter(Boolean);
+      const sections = list.map(cat => document.getElementById(cat.id)).filter(Boolean);
       const scrollPosition = window.scrollY + 200;
 
       for (let i = sections.length - 1; i >= 0; i--) {
         const section = sections[i];
-        if (section && section.offsetTop <= scrollPosition) {
-          setActiveCategory(categories[i].id);
+        if (section && section.offsetTop <= scrollPosition && list[i]) {
+          setActiveCategory(list[i].id);
           break;
         }
       }
@@ -175,6 +176,17 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
     return () => window.removeEventListener('scroll', handleScroll);
   }, [categories, selectedCategory]);
 
+  // Get hero images for slideshow (only show on "All" category) – must run before any early return (hooks order)
+  const heroImages = React.useMemo(() => {
+    if (!siteSettings || selectedCategory !== 'all') return [];
+    return [
+      siteSettings.hero_image_1,
+      siteSettings.hero_image_2,
+      siteSettings.hero_image_3,
+      siteSettings.hero_image_4,
+      siteSettings.hero_image_5,
+    ].filter((img): img is string => typeof img === 'string' && img.trim() !== '');
+  }, [siteSettings, selectedCategory]);
 
   // Helper function to render menu items
   const renderMenuItems = (items: MenuItem[]) => {
@@ -243,7 +255,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
 
   // If there's a search query, show search results
   if (searchQuery.trim() !== '') {
-    if (menuItems.length === 0) {
+    if (menuItemsSafe.length === 0) {
       return (
         <>
           <OrderStatusBanner />
@@ -305,8 +317,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
   // If showing popular items, display them in a single section
   // Note: menuItems prop is already filtered by App.tsx when selectedCategory === 'popular'
   if (selectedCategory === 'popular') {
-    // menuItems is already filtered to only popular items from App.tsx
-    if (menuItems.length === 0) {
+    if (menuItemsSafe.length === 0) {
       return (
         <>
           <OrderStatusBanner />
@@ -364,13 +375,31 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
 
   // Otherwise, display items grouped by category
   // If viewing "All", also show Popular section at the top (only when not searching)
-  const popularItems = menuItems.filter(item => Boolean(item.popular) === true);
+  const popularItems = menuItemsSafe.filter(item => Boolean(item?.popular) === true);
   const showPopularSection = selectedCategory === 'all' && popularItems.length > 0 && searchQuery.trim() === '';
 
   return (
     <>
-      <OrderStatusBanner />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-6 pb-4 md:pb-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-5 pb-4 md:pb-6">
+        {/* Welcome message for logged-in members */}
+        {/* Welcome back card - Mobile only */}
+        {currentMember && (
+          <div className="mb-4 md:hidden flex justify-center">
+            <div className="glass-card rounded-lg px-3 py-2 inline-block">
+              <div className="flex items-center justify-center">
+                <p className="text-sm text-cafe-text">
+                  <span className="text-cafe-textMuted">Welcome back,</span> <span className="font-semibold ml-2">{currentMember.username}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Hero Slideshow - Only show on "All" category */}
+        {selectedCategory === 'all' && heroImages.length > 0 && (
+          <Hero images={heroImages} />
+        )}
+        
         {/* Show Popular section when viewing "All" */}
         {showPopularSection && (
           <section id="popular" className="mb-8 md:mb-12">
@@ -378,15 +407,15 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
               <h3 className="text-3xl font-medium text-white">Popular</h3>
             </div>
             
-            <div className="grid grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-3">
               {renderMenuItems(popularItems)}
             </div>
           </section>
         )}
 
         {/* Regular category sections */}
-        {categories.map((category) => {
-          const categoryItems = menuItems.filter(item => item.category === category.id);
+        {(Array.isArray(categories) ? categories : []).map((category) => {
+          const categoryItems = menuItemsSafe.filter(item => item.category === category.id);
           
           if (categoryItems.length === 0) return null;
           
@@ -396,7 +425,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
               <h3 className="text-3xl font-medium text-white">{category.name}</h3>
             </div>
               
-              <div className="grid grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
+              <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-3">
                 {renderMenuItems(categoryItems)}
               </div>
             </section>

@@ -1,24 +1,35 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+// Support both variable names (anon key is sometimes called publishable key)
+const supabaseAnonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ||
+  '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  const missing = [];
-  if (!supabaseUrl) missing.push('VITE_SUPABASE_URL');
-  if (!supabaseAnonKey) missing.push('VITE_SUPABASE_ANON_KEY');
-  
-  const errorMsg = `Missing Supabase environment variables: ${missing.join(', ')}\n\n` +
-    `Please ensure your .env file contains:\n` +
-    `VITE_SUPABASE_URL=your-project-url\n` +
-    `VITE_SUPABASE_ANON_KEY=your-anon-key\n\n` +
-    `Make sure to restart the dev server after adding/updating .env file.`;
-  
-  console.error(errorMsg);
-  throw new Error(errorMsg);
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+
+if (!isSupabaseConfigured) {
+  console.warn(
+    'Missing Supabase env vars. On Vercel: Project Settings → Environment Variables → add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY (or VITE_SUPABASE_ANON_KEY).'
+  );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Use placeholder so app doesn't crash when env is missing (e.g. on Vercel before env is set)
+const url = supabaseUrl || 'https://placeholder.supabase.co';
+const key = supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder';
+
+export const supabase = createClient(url, key, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+  global: {
+    headers: {
+      'x-client-info': 'amber-web',
+    },
+  },
+});
 
 export type Database = {
   public: {

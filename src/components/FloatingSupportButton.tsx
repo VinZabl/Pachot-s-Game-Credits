@@ -3,24 +3,22 @@ import { MessageCircle } from 'lucide-react';
 import { useSiteSettings } from '../hooks/useSiteSettings';
 
 const FloatingSupportButton: React.FC = () => {
-  const { siteSettings, loading } = useSiteSettings();
-  const supportLink = siteSettings?.footer_support_url || '#'; // Customer support link, default to # if not set
+  const { siteSettings } = useSiteSettings();
+  const supportLink = siteSettings?.footer_support_url;
   const [bottomPosition, setBottomPosition] = useState(24); // 6 * 4 = 24px (bottom-6)
+  const lastScrollY = useRef(0);
   const isLocked = useRef(false);
 
   useEffect(() => {
     const handleScroll = () => {
       // Find the footer separator line by ID
       const separator = document.getElementById('footer-separator');
-      if (!separator) {
-        // If footer separator not found, use default position
-        setBottomPosition(24);
-        return;
-      }
+      if (!separator) return;
 
       const separatorRect = separator.getBoundingClientRect();
       const separatorTop = separatorRect.top;
       const viewportHeight = window.innerHeight;
+      const buttonHeight = 56; // w-14 h-14 = 56px
       const defaultBottom = 24; // bottom-6 = 24px
       const minSpacing = 16; // Minimum spacing above separator
 
@@ -43,28 +41,13 @@ const FloatingSupportButton: React.FC = () => {
       }
     };
 
-    // Wait a bit for DOM to be ready, then set up scroll handler
-    const timeoutId = setTimeout(() => {
-      handleScroll(); // Initial call
-      window.addEventListener('scroll', handleScroll, { passive: true });
-    }, 100);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Initial call
 
-    return () => {
-      clearTimeout(timeoutId);
-      window.removeEventListener('scroll', handleScroll);
-    };
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Don't show while loading site settings
-  if (loading) return null;
-
-  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    // If no support URL is configured, prevent navigation and show alert
-    if (!siteSettings?.footer_support_url || siteSettings.footer_support_url.trim() === '' || supportLink === '#') {
-      e.preventDefault();
-      alert('Support URL is not configured. Please contact the administrator.');
-    }
-  };
+  if (!supportLink) return null;
 
   return (
     <a

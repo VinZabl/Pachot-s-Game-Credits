@@ -1,159 +1,49 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save, X, ArrowLeft, TrendingUp, Package, Users, Lock, FolderOpen, CreditCard, Settings, ArrowUpDown, ChevronDown, ChevronUp, ShoppingBag, CheckCircle, Star, Activity, FilePlus, List, FolderTree, Wallet, Cog } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Edit, Trash2, Save, X, ArrowLeft, TrendingUp, Package, Users, Lock, FolderOpen, CreditCard, Settings, ArrowUpDown, ChevronDown, ChevronUp, ShoppingBag, CheckCircle, Star, Activity, FilePlus, List, FolderTree, Wallet, Cog, Trophy, DollarSign, Clock, Gamepad2, Copy } from 'lucide-react';
 import { MenuItem, Variation, CustomField } from '../types';
 import { useMenu } from '../hooks/useMenu';
 import { useCategories } from '../hooks/useCategories';
-import { useOrders } from '../hooks/useOrders';
-import { useSiteSettings } from '../hooks/useSiteSettings';
 import ImageUpload from './ImageUpload';
 import CategoryManager from './CategoryManager';
 import PaymentMethodManager from './PaymentMethodManager';
 import SiteSettingsManager from './SiteSettingsManager';
 import OrderManager from './OrderManager';
+import MemberManager from './MemberManager';
 import { supabase } from '../lib/supabase';
+import { useSiteSettings } from '../hooks/useSiteSettings';
 
 const AdminDashboard: React.FC = () => {
+  const { siteSettings } = useSiteSettings();
+  const orderOption = siteSettings?.order_option || 'order_via_messenger';
+
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('beracah_admin_auth') === 'true';
   });
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
-  const [adminPassword, setAdminPassword] = useState<string>('AmberKin@Admin!2025'); // Default fallback
-  const { menuItems, loading, addMenuItem, updateMenuItem, deleteMenuItem } = useMenu();
+  const [adminPassword, setAdminPassword] = useState<string>('Diginix@Admin!2025'); // Default fallback
+  const { menuItems, loading, addMenuItem, updateMenuItem, deleteMenuItem, duplicateMenuItem } = useMenu();
   const { categories } = useCategories();
-  const { orders } = useOrders();
-  const { siteSettings } = useSiteSettings();
-  const [currentView, setCurrentView] = useState<'dashboard' | 'items' | 'add' | 'edit' | 'categories' | 'payments' | 'settings' | 'orders'>('dashboard');
-  
-  // Track viewed order IDs (stored in sessionStorage)
-  const [viewedOrderIds, setViewedOrderIds] = useState<Set<string>>(() => {
-    const stored = sessionStorage.getItem('viewed_order_ids');
-    return stored ? new Set(JSON.parse(stored)) : new Set();
+  type AdminView = 'dashboard' | 'items' | 'add' | 'edit' | 'categories' | 'payments' | 'settings' | 'orders' | 'members';
+  const [currentView, setCurrentViewState] = useState<AdminView>(() => {
+    const saved = localStorage.getItem('beracah_admin_currentView');
+    if (saved && saved !== 'add' && saved !== 'edit') return saved as AdminView;
+    return 'dashboard';
   });
-
-  // Save viewed order IDs to sessionStorage whenever it changes
-  useEffect(() => {
-    sessionStorage.setItem('viewed_order_ids', JSON.stringify(Array.from(viewedOrderIds)));
-  }, [viewedOrderIds]);
-
-  // Mark all current orders as viewed when entering orders view
-  useEffect(() => {
-    if (currentView === 'orders') {
-      const currentOrderIds = new Set(orders.map(order => order.id));
-      setViewedOrderIds(prev => {
-        const updated = new Set([...prev, ...currentOrderIds]);
-        return updated;
-      });
+  const setCurrentView = (view: AdminView) => {
+    setCurrentViewState(view);
+    if (view !== 'add' && view !== 'edit') {
+      localStorage.setItem('beracah_admin_currentView', view);
     }
-  }, [currentView, orders]);
+  };
+  const [pendingOrders, setPendingOrders] = useState<number>(0);
+  const [lastSeenPendingCount, setLastSeenPendingCount] = useState<number>(0);
+  const notificationVolumeRef = useRef<number>(0.5);
 
-  // Count new orders (pending or processing) that haven't been viewed
-  const newOrdersCount = orders.filter(order => 
-    (order.status === 'pending' || order.status === 'processing') && 
-    !viewedOrderIds.has(order.id)
-  ).length;
-  
-  // Track previous order count to detect new orders
-  const [previousOrderCount, setPreviousOrderCount] = useState<number | null>(null);
-  const [audioUnlocked, setAudioUnlocked] = useState(false);
-  const audioRef = React.useRef<HTMLAudioElement | null>(null);
-
-  // Debug: Log orders and newOrdersCount when they change
+  // When user opens Orders view, mark current pending count as "seen" so badge clears until new orders arrive
   useEffect(() => {
-    console.log('📦 Orders updated:', orders.length, 'orders | New orders:', newOrdersCount);
-  }, [orders, newOrdersCount]);
-
-  // Unlock audio on first user interaction
-  useEffect(() => {
-    const unlockAudio = async () => {
-      if (audioUnlocked) return;
-      
-      try {
-        // Use the actual notification sound file but at very low volume for unlocking
-        if (!audioRef.current) {
-          audioRef.current = new Audio('/notifSound.mp3');
-          audioRef.current.volume = 0.001; // Very quiet for unlocking
-          audioRef.current.preload = 'auto';
-        }
-        
-        // Try to play the audio to unlock the context
-        const playPromise = audioRef.current.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            // Immediately pause it
-            audioRef.current?.pause();
-            audioRef.current.currentTime = 0;
-            setAudioUnlocked(true);
-            console.log('🔓 Audio unlocked successfully');
-          }).catch(() => {
-            // Audio unlock failed, will try again on next interaction
-            console.log('⚠️ Audio unlock failed, will retry on next interaction');
-          });
-        }
-      } catch (err) {
-        // Audio unlock failed, will try again on next interaction
-        console.log('⚠️ Audio unlock error:', err);
-      }
-    };
-
-    // Try to unlock on any user interaction
-    const events = ['click', 'touchstart', 'keydown'];
-    const unlockHandlers = events.map(event => {
-      const handler = () => unlockAudio();
-      document.addEventListener(event, handler, { once: true });
-      return { event, handler };
-    });
-
-    return () => {
-      unlockHandlers.forEach(({ event, handler }) => {
-        document.removeEventListener(event, handler);
-      });
-    };
-  }, [audioUnlocked]);
-
-  // Preload notification audio
-  useEffect(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio('/notifSound.mp3');
-      audioRef.current.volume = siteSettings?.notification_volume ?? 0.5;
-      audioRef.current.preload = 'auto';
-    }
-  }, [siteSettings?.notification_volume]);
-
-  // Play notification sound when a new order arrives (works from anywhere in admin)
-  useEffect(() => {
-    // Initialize previousOrderCount on first load
-    if (previousOrderCount === null) {
-      console.log('🔔 Initializing order count:', newOrdersCount);
-      setPreviousOrderCount(newOrdersCount);
-      return;
-    }
-    
-    // Check if a new order has arrived (count increased)
-    if (newOrdersCount > previousOrderCount) {
-      console.log('🆕 New order detected! Count:', previousOrderCount, '→', newOrdersCount);
-      
-      // Play sound notification (even if audio not unlocked, try anyway)
-      if (audioRef.current) {
-        audioRef.current.volume = Math.max(0, Math.min(1, siteSettings?.notification_volume ?? 0.5));
-        audioRef.current.currentTime = 0; // Reset to start
-        audioRef.current.play().catch(err => {
-          console.warn('⚠️ Could not play notification sound:', err.message);
-          // If audio isn't unlocked yet, try to unlock and play
-          if (!audioUnlocked) {
-            console.log('🔓 Audio not unlocked, trying to unlock now...');
-            // The unlock will happen on next user interaction
-            // For now, just log that we need user interaction
-            console.log('ℹ️ Audio requires user interaction. Sound will play after first click/tap.');
-          }
-        });
-      }
-    } else if (newOrdersCount < previousOrderCount) {
-      console.log('📉 Order count decreased:', previousOrderCount, '→', newOrdersCount);
-    }
-    
-    setPreviousOrderCount(newOrdersCount);
-  }, [newOrdersCount, previousOrderCount, audioUnlocked, siteSettings?.notification_volume]);
+    if (currentView === 'orders') setLastSeenPendingCount(pendingOrders);
+  }, [currentView, pendingOrders]);
 
   // Fetch admin password from database on mount
   useEffect(() => {
@@ -176,6 +66,96 @@ const AdminDashboard: React.FC = () => {
 
     fetchAdminPassword();
   }, []);
+
+  // Fetch notification volume for new-order sound (used when order_option is place_order)
+  useEffect(() => {
+    const fetchVolume = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('site_settings')
+          .select('value')
+          .eq('id', 'notification_volume')
+          .single();
+        if (!error && data?.value) {
+          const v = parseFloat(data.value);
+          if (!isNaN(v) && v >= 0 && v <= 1) notificationVolumeRef.current = v;
+        }
+      } catch (err) {
+        console.error('Error fetching notification volume:', err);
+      }
+    };
+    fetchVolume();
+  }, []);
+
+  // Pending orders count: initial fetch + Supabase Realtime (no polling – efficient on egress)
+  // Play notification sound when a new pending order arrives (works from any admin page)
+  useEffect(() => {
+    if (orderOption !== 'place_order') {
+      setPendingOrders(0);
+      return;
+    }
+
+    const isPlaceOrderPending = (row: { status?: string; order_option?: string | null }) =>
+      row.status === 'pending' && (row.order_option ?? 'place_order') === 'place_order';
+
+    const playNewOrderSound = () => {
+      try {
+        const audio = new Audio('/notifSound.mp3');
+        audio.volume = notificationVolumeRef.current;
+        audio.play().catch((err) => console.error('Error playing notification sound:', err));
+      } catch (err) {
+        console.error('Error creating audio element:', err);
+      }
+    };
+
+    const fetchPendingCount = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('id, order_option')
+          .eq('status', 'pending');
+
+        if (error) throw error;
+        const count = (data ?? []).filter((o) => (o.order_option ?? 'place_order') === 'place_order').length;
+        setPendingOrders(count);
+      } catch (err) {
+        console.error('Error fetching pending orders count:', err);
+      }
+    };
+
+    fetchPendingCount();
+
+    const channel = supabase
+      .channel('admin-pending-orders')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const row = payload.new as { status?: string; order_option?: string | null };
+            if (isPlaceOrderPending(row)) {
+              setPendingOrders((n) => n + 1);
+              playNewOrderSound();
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            const oldRow = payload.old as { status?: string; order_option?: string | null };
+            const newRow = payload.new as { status?: string; order_option?: string | null };
+            const wasPending = isPlaceOrderPending(oldRow);
+            const isPending = isPlaceOrderPending(newRow);
+            if (wasPending && !isPending) setPendingOrders((n) => Math.max(0, n - 1));
+            else if (!wasPending && isPending) setPendingOrders((n) => n + 1);
+          } else if (payload.eventType === 'DELETE') {
+            const row = payload.old as { status?: string; order_option?: string | null };
+            if (isPlaceOrderPending(row)) setPendingOrders((n) => Math.max(0, n - 1));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orderOption]);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -187,6 +167,9 @@ const AdminDashboard: React.FC = () => {
   });
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
+  const [priceDiscount, setPriceDiscount] = useState<number | undefined>(undefined);
+  const [memberDiscount, setMemberDiscount] = useState<number | undefined>(undefined);
+  const [resellerDiscount, setResellerDiscount] = useState<number | undefined>(undefined);
   const [formData, setFormData] = useState<Partial<MenuItem>>({
     name: '',
     basePrice: 0,
@@ -207,6 +190,9 @@ const AdminDashboard: React.FC = () => {
   const handleAddItem = () => {
     setCurrentView('add');
     const defaultCategory = categories.length > 0 ? categories[0].id : 'dim-sum';
+    setPriceDiscount(undefined);
+    setMemberDiscount(undefined);
+    setResellerDiscount(undefined);
     setFormData({
       name: '',
       basePrice: 0,
@@ -221,6 +207,24 @@ const AdminDashboard: React.FC = () => {
   const handleEditItem = (item: MenuItem) => {
     setEditingItem(item);
     setFormData(item);
+    // Restore discount values from localStorage if they exist
+    const savedDiscounts = localStorage.getItem(`amber_discounts_${item.id}`);
+    if (savedDiscounts) {
+      try {
+        const discounts = JSON.parse(savedDiscounts);
+        setPriceDiscount(discounts.priceDiscount);
+        setMemberDiscount(discounts.memberDiscount);
+        setResellerDiscount(discounts.resellerDiscount);
+      } catch (e) {
+        setPriceDiscount(undefined);
+        setMemberDiscount(undefined);
+        setResellerDiscount(undefined);
+      }
+    } else {
+      setPriceDiscount(undefined);
+      setMemberDiscount(undefined);
+      setResellerDiscount(undefined);
+    }
     setCurrentView('edit');
   };
 
@@ -234,6 +238,17 @@ const AdminDashboard: React.FC = () => {
       } finally {
         setIsProcessing(false);
       }
+    }
+  };
+
+  const handleDuplicateItem = async (id: string) => {
+    try {
+      setIsProcessing(true);
+      await duplicateMenuItem(id);
+    } catch (error) {
+      alert('Failed to duplicate item. Please try again.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -272,10 +287,10 @@ const AdminDashboard: React.FC = () => {
       return;
     }
 
-    // Validate discount percentage if enabled
+    // Validate discount decimal if enabled
     if (formData.discountActive && formData.discountPercentage !== undefined) {
-      if (formData.discountPercentage < 0 || formData.discountPercentage > 100) {
-        alert('Discount percentage must be between 0 and 100');
+      if (formData.discountPercentage < 0 || formData.discountPercentage > 1) {
+        alert('Discount must be between 0 and 1 (e.g., 0.10 for 10%)');
         return;
       }
     }
@@ -300,8 +315,24 @@ const AdminDashboard: React.FC = () => {
 
       if (editingItem) {
         await updateMenuItem(editingItem.id, itemData);
+        // Save discount values to localStorage
+        const discounts = {
+          priceDiscount,
+          memberDiscount,
+          resellerDiscount
+        };
+        localStorage.setItem(`amber_discounts_${editingItem.id}`, JSON.stringify(discounts));
       } else {
-        await addMenuItem(itemData as Omit<MenuItem, 'id'>);
+        const newItem = await addMenuItem(itemData as Omit<MenuItem, 'id'>);
+        // Save discount values to localStorage for new item
+        if (newItem && newItem.id) {
+          const discounts = {
+            priceDiscount,
+            memberDiscount,
+            resellerDiscount
+          };
+          localStorage.setItem(`amber_discounts_${newItem.id}`, JSON.stringify(discounts));
+        }
       }
       setCurrentView('items');
       setEditingItem(null);
@@ -456,7 +487,8 @@ const AdminDashboard: React.FC = () => {
   // Dashboard Stats
   const totalItems = menuItems.length;
   const popularItems = menuItems.filter(item => item.popular).length;
-  const availableItems = menuItems.filter(item => item.available).length;
+  const availableItems = pendingOrders;
+  const doneOrders = 'Online';
   const categoryCounts = categories.map(cat => ({
     ...cat,
     count: menuItems.filter(item => item.category === cat.id).length
@@ -514,13 +546,13 @@ const AdminDashboard: React.FC = () => {
             <div className="mx-auto w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mb-4">
               <Lock className="h-8 w-8 text-white" />
             </div>
-            <h1 className="text-2xl font-playfair font-semibold text-black">Admin Access</h1>
+            <h1 className="text-black">Admin Access</h1>
             <p className="text-gray-600 mt-2">Enter password to access the admin dashboard</p>
           </div>
           
           <form onSubmit={handleLogin}>
             <div className="mb-6">
-              <label className="block text-sm font-medium text-black mb-2">Password</label>
+              <label className="block text-xs font-medium text-black mb-2">Password</label>
               <input
                 type="password"
                 value={password}
@@ -530,7 +562,7 @@ const AdminDashboard: React.FC = () => {
                 required
               />
               {loginError && (
-                <p className="text-red-500 text-sm mt-2">{loginError}</p>
+                <p className="text-red-500 text-xs mt-2">{loginError}</p>
               )}
             </div>
             
@@ -562,32 +594,33 @@ const AdminDashboard: React.FC = () => {
     return (
       <React.Fragment>
       <div className="min-h-screen bg-gray-50">
-        <div className="bg-white shadow-sm border-b">
+        <div className="sticky top-0 z-40 bg-white shadow-sm border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center space-x-4">
                 <button
                   onClick={handleCancel}
-                  className="flex items-center space-x-2 text-gray-600 hover:text-black transition-colors duration-200"
+                  className="text-gray-600 hover:text-black transition-colors duration-200"
+                  aria-label="Back"
                 >
                   <ArrowLeft className="h-5 w-5" />
-                  <span>Back</span>
                 </button>
-                <h1 className="text-lg md:text-2xl font-playfair font-semibold text-black">
+                <h1 className="text-black">
                   {currentView === 'add' ? 'Add New Item' : 'Edit Item'}
                 </h1>
               </div>
               <div className="flex space-x-3">
                 <button
                   onClick={handleCancel}
-                  className="px-3 py-1.5 md:px-4 md:py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2 text-sm md:text-base"
+                  className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 flex items-center justify-center text-xs"
+                  aria-label="Cancel"
+                  title="Cancel"
                 >
                   <X className="h-4 w-4" />
-                  <span>Cancel</span>
                 </button>
                 <button
                   onClick={handleSaveItem}
-                  className="px-3 py-1.5 md:px-4 md:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2 text-sm md:text-base"
+                  className="px-3 py-1.5 md:px-4 md:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2 text-xs"
                 >
                   <Save className="h-4 w-4" />
                   <span>Save</span>
@@ -605,7 +638,7 @@ const AdminDashboard: React.FC = () => {
                 onClick={() => toggleSection('customization')}
                 className="w-full flex items-center justify-between text-left mb-4 hover:opacity-80 transition-opacity"
               >
-                <h3 className="text-lg md:text-xl font-playfair font-semibold text-black">Item Customization</h3>
+                <h3 className="text-xs font-semibold text-black">Item Customization</h3>
                 {collapsedSections.customization ? (
                   <ChevronDown className="h-5 w-5 text-gray-600" />
                 ) : (
@@ -617,7 +650,9 @@ const AdminDashboard: React.FC = () => {
                 <div className="space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                      <label className="block text-sm font-medium text-black mb-2">Item Name (Game Name) *</label>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <label className="block text-xs font-medium text-black mb-2">Item Name (Game Name) *</label>
                 <input
                   type="text"
                   value={formData.name || ''}
@@ -625,10 +660,24 @@ const AdminDashboard: React.FC = () => {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
                         placeholder="Enter game name (e.g., Wild Rift, Mobile Legends)"
                 />
+                        </div>
+                        <div className="w-24 sm:w-32 flex-shrink-0">
+                          <label className="block text-xs font-medium text-black mb-2">Sort</label>
+                          <input
+                            type="number"
+                            value={formData.sort_order !== undefined ? formData.sort_order : ''}
+                            onChange={(e) => setFormData({ ...formData, sort_order: e.target.value === '' ? undefined : parseInt(e.target.value) || 0 })}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            placeholder="Sort"
+                            min="0"
+                            step="1"
+                          />
+                        </div>
+                      </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-black mb-2">Category *</label>
+                <label className="block text-xs font-medium text-black mb-2">Category *</label>
                 <select
                   value={formData.category || ''}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
@@ -648,7 +697,7 @@ const AdminDashboard: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, popular: e.target.checked })}
                     className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                   />
-                  <span className="text-sm font-medium text-black">Mark as Popular</span>
+                  <span className="text-xs font-medium text-black">Mark as Popular</span>
                 </label>
               </div>
 
@@ -660,14 +709,14 @@ const AdminDashboard: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, available: e.target.checked })}
                     className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                   />
-                  <span className="text-sm font-medium text-black">Available for Order</span>
+                  <span className="text-xs font-medium text-black">Available for Order</span>
                 </label>
               </div>
             </div>
 
                   {/* Description Field */}
                   <div>
-                    <label className="block text-sm font-medium text-black mb-2">Description</label>
+                    <label className="block text-xs font-medium text-black mb-2">Description</label>
                     <textarea
                       value={formData.description || ''}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -680,7 +729,7 @@ const AdminDashboard: React.FC = () => {
 
                   {/* Custom Subtitle Field */}
                   <div>
-                    <label className="block text-sm font-medium text-black mb-2">Custom Text Below Title</label>
+                    <label className="block text-xs font-medium text-black mb-2">Custom Text Below Title</label>
                     <input
                       type="text"
                       value={formData.subtitle || ''}
@@ -693,14 +742,14 @@ const AdminDashboard: React.FC = () => {
 
             {/* Discount Pricing Section */}
                   <div>
-                    <h4 className="text-base md:text-lg font-playfair font-medium text-black mb-4">Discount (Percentage)</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <h4 className="text-xs font-playfair font-medium text-black mb-4">Discount</h4>
+              <div className="grid grid-cols-3 gap-4">
                 <div>
-                        <label className="block text-sm font-medium text-black mb-2">Discount Percentage (%)</label>
+                        <label className="block text-xs font-medium text-black mb-2">Price</label>
                   <input
                     type="number"
                           min="0"
-                          max="100"
+                          max="1"
                           step="0.01"
                           value={formData.discountPercentage || ''}
                           onChange={(e) => setFormData({ ...formData, discountPercentage: Number(e.target.value) || undefined })}
@@ -708,30 +757,61 @@ const AdminDashboard: React.FC = () => {
                           placeholder="Enter discount percentage (e.g., 10 for 10%)"
                   />
                         <p className="text-xs text-gray-500 mt-1">
-                          This percentage will be applied to all currency packages for this item.
+                          Applies discount to all Price fields
                         </p>
                 </div>
 
-                <div className="flex items-center">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={formData.discountActive || false}
-                      onChange={(e) => setFormData({ ...formData, discountActive: e.target.checked })}
-                      className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                    />
-                    <span className="text-sm font-medium text-black">Enable Discount</span>
-                  </label>
+                <div>
+                        <label className="block text-xs font-medium text-black mb-2">Member</label>
+                  <input
+                    type="number"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={memberDiscount !== undefined ? memberDiscount : ''}
+                          onChange={(e) => {
+                            const discount = e.target.value !== '' ? Number(e.target.value) : undefined;
+                            setMemberDiscount(discount);
+                            // Save to localStorage
+                            if (editingItem) {
+                              const savedDiscounts = localStorage.getItem(`amber_discounts_${editingItem.id}`);
+                              const discounts = savedDiscounts ? JSON.parse(savedDiscounts) : {};
+                              discounts.memberDiscount = discount;
+                              localStorage.setItem(`amber_discounts_${editingItem.id}`, JSON.stringify(discounts));
+                            }
+                            // Calculate and apply discounted member price to all member fields
+                            // Use the current price value (original price) to calculate member price
+                            if (discount !== undefined && formData.variations) {
+                              const updatedVariations = formData.variations.map(v => {
+                                // Use the current price as the base for member discount calculation
+                                const basePrice = v.price || 0;
+                                return {
+                                  ...v,
+                                  member_price: basePrice * (1 - discount)
+                                };
+                              });
+                              setFormData({ ...formData, variations: updatedVariations });
+                            }
+                          }}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          placeholder="0.10"
+                  />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Calculates discounted member price from original price
+                        </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-black mb-2">Discount Start Date</label>
+                        <label className="block text-xs font-medium text-black mb-2">Reseller</label>
                   <input
                     type="datetime-local"
                     value={formData.discountStartDate || ''}
                     onChange={(e) => setFormData({ ...formData, discountStartDate: e.target.value || undefined })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
                   />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Calculates discounted reseller price from original price
+                        </p>
                 </div>
 
                 <div>
@@ -743,10 +823,6 @@ const AdminDashboard: React.FC = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
                   />
                 </div>
-              </div>
-              <p className="text-sm text-gray-500 mt-2">
-                      Leave dates empty for indefinite discount period. Discount will only be active if "Enable Discount" is checked and current time is within the date range. The percentage discount will be applied to all currency package prices.
-              </p>
             </div>
 
                   {/* QR Code Upload */}
@@ -769,8 +845,8 @@ const AdminDashboard: React.FC = () => {
                   className="flex-1 flex items-center justify-between text-left hover:opacity-80 transition-opacity"
                 >
                   <div className="flex-1">
-                    <h3 className="text-lg md:text-xl font-playfair font-semibold text-black">In-Game Currency Packages</h3>
-                    <p className="text-sm text-gray-500 mt-1">Add currency packages that will be shown when customers click on this item</p>
+                    <h3 className="text-xs font-semibold text-black">Packages</h3>
+                    <p className="text-xs text-gray-500 mt-1">Add currency packages that will be shown when customers click on this item</p>
                   </div>
                   {collapsedSections.packages ? (
                     <ChevronDown className="h-5 w-5 text-gray-600 ml-4 flex-shrink-0" />
@@ -786,7 +862,7 @@ const AdminDashboard: React.FC = () => {
                     {formData.variations && formData.variations.length > 1 && (
                       <button
                         onClick={sortVariationsByPrice}
-                        className="flex items-center justify-center space-x-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm sm:text-base"
+                        className="flex items-center justify-center space-x-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-xs"
                         title="Sort packages by price (lowest to highest)"
                       >
                         <ArrowUpDown className="h-4 w-4" />
@@ -814,7 +890,7 @@ const AdminDashboard: React.FC = () => {
                         const newVariation: Variation = {
                           id: `var-${Date.now()}-${Math.random()}`,
                           name: '',
-                          price: 0,
+                          price: undefined,
                           description: '',
                           sort_order: 0,
                           category: categoryName,
@@ -827,7 +903,7 @@ const AdminDashboard: React.FC = () => {
                         // Expand the new category
                         setCollapsedCategories(prev => ({ ...prev, [categoryName]: false }));
                       }}
-                      className="flex items-center justify-center space-x-2 px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors duration-200 text-sm sm:text-base"
+                      className="flex items-center justify-center space-x-2 px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors duration-200 text-xs"
                 >
                   <Plus className="h-4 w-4" />
                       <span className="whitespace-nowrap">Add Category</span>
@@ -936,8 +1012,9 @@ const AdminDashboard: React.FC = () => {
                                     )}
                                   </button>
                                   <div className="flex-1 min-w-0">
-                                    <label className="block text-xs font-medium text-gray-500 mb-1">Category Name</label>
                                     <div className="flex items-center gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">Category Name</label>
                   <input
                     type="text"
                                         value={displayCategoryName}
@@ -976,25 +1053,8 @@ const AdminDashboard: React.FC = () => {
                                         className="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm font-semibold disabled:bg-gray-100 disabled:cursor-not-allowed text-black"
                                         placeholder="Category name (e.g., Category 1)"
                                       />
-                                      {!isReadOnly && (
-                                        <button
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            console.log('Delete category clicked:', category);
-                                            setCategoryToDelete(category);
-                                          }}
-                                          className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200 flex-shrink-0"
-                                          aria-label="Delete category"
-                                          title="Delete category"
-                                          type="button"
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </button>
-                                      )}
                                     </div>
-                                  </div>
-                                  <div className="w-full sm:w-32 flex-shrink-0">
+                                      <div className="w-24 sm:w-32 flex-shrink-0">
                                     <label className="block text-xs font-medium text-gray-500 mb-1">Category Sort</label>
                                     <input
                                       type="number"
@@ -1016,6 +1076,24 @@ const AdminDashboard: React.FC = () => {
                                       min="0"
                                       step="1"
                                     />
+                                      </div>
+                                      {!isReadOnly && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            console.log('Delete category clicked:', category);
+                                            setCategoryToDelete(category);
+                                          }}
+                                          className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200 flex-shrink-0 self-end mb-1"
+                                          aria-label="Delete category"
+                                          title="Delete category"
+                                          type="button"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
 
@@ -1026,7 +1104,9 @@ const AdminDashboard: React.FC = () => {
                                     const index = formData.variations!.findIndex(v => v.id === variation.id);
                                     return (
                                       <div key={variation.id} className="p-3 bg-gray-50 rounded-lg space-y-3 border border-gray-200">
-                                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                                        {/* Product Name Row */}
+                                        <div className="flex items-center gap-2">
+                                          <label className="text-xs font-medium text-gray-700 whitespace-nowrap flex-shrink-0">Product Name</label>
                                           <input
                                             type="text"
                                             value={variation.name || ''}
@@ -1037,47 +1117,37 @@ const AdminDashboard: React.FC = () => {
                                           <div className="flex items-center gap-2">
                   <input
                     type="number"
-                                              value={variation.price !== undefined && variation.price !== null && variation.price !== 0 ? variation.price : (variation.price === '' ? '' : '')}
+                                              value={variation.price !== undefined && variation.price !== null && variation.price !== 0 ? variation.price : ''}
                                               onChange={(e) => {
-                                                const value = e.target.value;
-                                                // Allow empty string while typing to enable deletion of zeros
-                                                if (value === '') {
-                                                  // Store as empty string temporarily to allow deletion
-                                                  updateVariation(index, 'price', '');
-                                                } else {
-                                                  // Remove leading zeros except for decimal numbers (0.5 is valid)
-                                                  let cleanedValue = value;
-                                                  // Only remove leading zeros if it's not a decimal
-                                                  if (cleanedValue.length > 1 && cleanedValue.startsWith('0') && cleanedValue[1] !== '.' && cleanedValue[1] !== ',') {
-                                                    cleanedValue = cleanedValue.replace(/^0+/, '') || '0';
-                                                  }
-                                                  const numValue = parseFloat(cleanedValue);
-                                                  if (!isNaN(numValue)) {
-                                                    updateVariation(index, 'price', numValue);
-                                                  }
-                                                }
+                                                const value = e.target.value === '' ? undefined : Number(e.target.value);
+                                                updateVariation(index, 'price', value);
                                               }}
-                                              onBlur={(e) => {
-                                                // When user leaves the field, convert empty to 0 for validation
-                                                const currentPrice = variation.price;
-                                                if (currentPrice === '' || currentPrice === null || currentPrice === undefined) {
-                                                  updateVariation(index, 'price', 0);
-                                                }
+                                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                              placeholder="0"
+                                              min="0"
+                                              step="0.01"
+                                            />
+                                          </div>
+
+                                          {/* Member Price */}
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Member</label>
+                                            <input
+                                              type="number"
+                                              value={variation.member_price !== undefined && variation.member_price !== null ? variation.member_price : ''}
+                                              onChange={(e) => {
+                                                const value = e.target.value === '' ? undefined : Number(e.target.value);
+                                                updateVariation(index, 'member_price', value);
                                               }}
                                               className="flex-1 sm:w-32 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-black"
                                               placeholder="Price (₱)"
                                               min="0"
                                               step="0.01"
                   />
-                  <button
-                    onClick={() => removeVariation(index)}
-                                              className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200 flex-shrink-0"
-                                              aria-label="Remove package"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
                 </div>
             </div>
+
+                                        {/* Description (optional) */}
                                         <textarea
                                           value={variation.description || ''}
                                           onChange={(e) => updateVariation(index, 'description', e.target.value)}
@@ -1106,7 +1176,10 @@ const AdminDashboard: React.FC = () => {
                                       const newVariation: Variation = {
                                         id: `var-${Date.now()}-${Math.random()}`,
                                         name: '',
-                                        price: 0,
+                                        price: undefined,
+                                        member_price: undefined,
+                                        reseller_price: undefined,
+                                        credits_amount: undefined,
                                         description: '',
                                         sort_order: categoryVariations.length,
                                         category: categoryValue
@@ -1116,7 +1189,7 @@ const AdminDashboard: React.FC = () => {
                                         variations: [...(formData.variations || []), newVariation]
                                       });
                                     }}
-                                    className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-sm border-2 border-dashed border-gray-300"
+                                    className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-xs border-2 border-dashed border-gray-300"
                                   >
                                     <Plus className="h-4 w-4" />
                                     <span>Add Package to {displayCategoryName || 'Category'}</span>
@@ -1132,7 +1205,7 @@ const AdminDashboard: React.FC = () => {
                   ) : (
                     <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                       <p className="text-gray-500">No currency packages added yet</p>
-                      <p className="text-sm text-gray-400 mt-1">Click "Add Category" to create a category and add packages</p>
+                      <p className="text-xs text-gray-400 mt-1">Click "Add Category" to create a category and add packages</p>
                     </div>
                   )}
                 </div>
@@ -1147,8 +1220,8 @@ const AdminDashboard: React.FC = () => {
                   className="flex-1 flex items-center justify-between text-left hover:opacity-80 transition-opacity"
                 >
                   <div className="flex-1">
-                    <h3 className="text-lg md:text-xl font-playfair font-semibold text-black">Customer Information Fields</h3>
-                    <p className="text-sm text-gray-500 mt-1">Define custom fields that will appear in the customer information section during checkout for this game</p>
+                    <h3 className="text-xs font-semibold text-black">Customer Information Fields</h3>
+                    <p className="text-xs text-gray-500 mt-1">Define custom fields that will appear in the customer information section during checkout for this game</p>
                   </div>
                   {collapsedSections.customFields ? (
                     <ChevronDown className="h-5 w-5 text-gray-600 ml-4 flex-shrink-0" />
@@ -1174,7 +1247,7 @@ const AdminDashboard: React.FC = () => {
                     formData.customFields.map((customField, index) => (
                       <div key={index} className="mb-3 p-4 bg-gray-50 rounded-lg space-y-3">
                         <div>
-                          <label className="block text-sm font-medium text-black mb-1">Field Label *</label>
+                          <label className="block text-xs font-medium text-black mb-1">Field Label *</label>
                   <input
                     type="text"
                             value={customField.label || ''}
@@ -1184,7 +1257,7 @@ const AdminDashboard: React.FC = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-black mb-1">Placeholder Text</label>
+                          <label className="block text-xs font-medium text-black mb-1">Placeholder Text</label>
                   <input
                             type="text"
                             value={customField.placeholder || ''}
@@ -1201,7 +1274,7 @@ const AdminDashboard: React.FC = () => {
                               onChange={(e) => updateCustomField(index, 'required', e.target.checked)}
                               className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                             />
-                            <span className="text-sm font-medium text-black">Required Field</span>
+                            <span className="text-xs font-medium text-black">Required Field</span>
                           </label>
                   <button
                             onClick={() => removeCustomField(index)}
@@ -1215,7 +1288,7 @@ const AdminDashboard: React.FC = () => {
                   ) : (
                     <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                       <p className="text-gray-500">No custom fields added yet</p>
-                      <p className="text-sm text-gray-400 mt-1">Click "Add Field" to create custom customer information fields</p>
+                      <p className="text-xs text-gray-400 mt-1">Click "Add Field" to create custom customer information fields</p>
           </div>
                   )}
         </div>
@@ -1237,14 +1310,14 @@ const AdminDashboard: React.FC = () => {
             className="bg-white rounded-lg p-4 md:p-6 max-w-md w-full mx-4 shadow-xl" 
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-2">Delete Category</h3>
-            <p className="text-sm text-gray-600 mb-6">
+            <h3 className="text-xs font-semibold text-gray-900 mb-2">Delete Category</h3>
+            <p className="text-xs text-gray-600 mb-6">
               Are you sure you want to delete this category? All packages in this category will be moved to "Unnamed Category".
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setCategoryToDelete(null)}
-                className="px-3 py-1.5 md:px-4 md:py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition-colors duration-200"
+                className="px-3 py-1.5 md:px-4 md:py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition-colors duration-200"
               >
                 Cancel
               </button>
@@ -1278,7 +1351,7 @@ const AdminDashboard: React.FC = () => {
                     setCategoryToDelete(null);
                   }
                 }}
-                className="px-3 py-1.5 md:px-4 md:py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded transition-colors duration-200"
+                className="px-3 py-1.5 md:px-4 md:py-2 text-xs font-medium text-white bg-red-500 hover:bg-red-600 rounded transition-colors duration-200"
               >
                 Delete Category
               </button>
@@ -1294,28 +1367,28 @@ const AdminDashboard: React.FC = () => {
   if (currentView === 'items') {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="bg-white shadow-sm border-b">
+        <div className="sticky top-0 z-40 bg-white shadow-sm border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center space-x-4">
                 <button
                   onClick={() => setCurrentView('dashboard')}
-                  className="flex items-center space-x-2 text-gray-600 hover:text-black transition-colors duration-200"
+                  className="text-gray-600 hover:text-black transition-colors duration-200"
+                  aria-label="Back to dashboard"
                 >
                   <ArrowLeft className="h-5 w-5" />
-                  <span>Dashboard</span>
                 </button>
-                <h1 className="text-lg md:text-2xl font-playfair font-semibold text-black">Manage Game Items</h1>
+                <h1 className="text-black">Manage Game Items</h1>
               </div>
               <div className="flex items-center space-x-2 md:space-x-3">
                 {showBulkActions && (
                   <div className="hidden md:flex items-center space-x-2">
-                    <span className="text-sm text-gray-600">
+                    <span className="text-xs text-gray-600">
                       {selectedItems.length} item(s) selected
                     </span>
                     <button
                       onClick={() => setShowBulkActions(!showBulkActions)}
-                      className="flex items-center space-x-2 bg-blue-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm md:text-base"
+                      className="flex items-center space-x-2 bg-blue-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-xs"
                     >
                       <span>Bulk Actions</span>
                     </button>
@@ -1323,7 +1396,7 @@ const AdminDashboard: React.FC = () => {
                 )}
                 <button
                   onClick={handleAddItem}
-                  className="flex items-center space-x-1 md:space-x-2 bg-green-600 text-white px-2 py-1.5 md:px-3 md:py-1.5 lg:px-4 lg:py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 text-xs md:text-sm lg:text-base"
+                  className="flex items-center space-x-1 md:space-x-2 bg-green-600 text-white px-2 py-1.5 md:px-3 md:py-1.5 lg:px-4 lg:py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 text-xs lg:text-xs"
                 >
                   <Plus className="h-3 w-3 md:h-4 md:w-4" />
                   <span className="hidden sm:inline">Add New Item</span>
@@ -1341,8 +1414,8 @@ const AdminDashboard: React.FC = () => {
               <div className="flex flex-col gap-3 md:gap-4">
                 <div className="flex items-center justify-between">
                 <div>
-                    <h3 className="text-sm md:text-base lg:text-lg font-medium text-black">Bulk Actions</h3>
-                    <p className="text-xs md:text-sm text-gray-600">{selectedItems.length} item(s) selected</p>
+                    <h3 className="text-xs lg:text-xs font-medium text-black">Bulk Actions</h3>
+                    <p className="text-xs text-gray-600">{selectedItems.length} item(s) selected</p>
                   </div>
                   <button
                     onClick={() => setShowBulkActions(false)}
@@ -1355,7 +1428,7 @@ const AdminDashboard: React.FC = () => {
                 <div className="flex flex-col gap-2 md:gap-3">
                   {/* Change Category */}
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <label className="text-xs md:text-sm font-medium text-gray-700 whitespace-nowrap">Change Category:</label>
+                    <label className="text-xs font-medium text-gray-700 whitespace-nowrap">Change Category:</label>
                     <select
                       onChange={(e) => {
                         if (e.target.value) {
@@ -1378,7 +1451,7 @@ const AdminDashboard: React.FC = () => {
                   <button
                     onClick={handleBulkRemove}
                     disabled={isProcessing}
-                      className="flex-1 flex items-center justify-center space-x-2 bg-red-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-xs md:text-sm"
+                      className="flex-1 flex items-center justify-center space-x-2 bg-red-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
                   >
                       <Trash2 className="h-3 w-3 md:h-4 md:w-4" />
                     <span>{isProcessing ? 'Removing...' : 'Remove Selected'}</span>
@@ -1390,7 +1463,7 @@ const AdminDashboard: React.FC = () => {
                       setSelectedItems([]);
                       setShowBulkActions(false);
                     }}
-                      className="flex-1 flex items-center justify-center space-x-2 bg-gray-500 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg hover:bg-gray-600 transition-colors duration-200 text-xs md:text-sm"
+                      className="flex-1 flex items-center justify-center space-x-2 bg-gray-500 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg hover:bg-gray-600 transition-colors duration-200 text-xs"
                   >
                       <X className="h-3 w-3 md:h-4 md:w-4" />
                     <span>Clear Selection</span>
@@ -1414,14 +1487,14 @@ const AdminDashboard: React.FC = () => {
                         onChange={handleSelectAll}
                         className="rounded border-gray-300 text-green-600 focus:ring-green-500 w-4 h-4 md:w-5 md:h-5"
                       />
-                      <span className="text-xs md:text-sm font-medium text-gray-700">
+                      <span className="text-xs font-medium text-gray-700">
                         Select All ({menuItems.length} items)
                       </span>
                     </label>
                   </div>
                   {selectedItems.length > 0 && (
                     <div className="flex items-center justify-between sm:justify-end space-x-3">
-                      <span className="text-xs md:text-sm text-gray-600">
+                      <span className="text-xs text-gray-600">
                         {selectedItems.length} item(s) selected
                       </span>
                       <button
@@ -1439,7 +1512,7 @@ const AdminDashboard: React.FC = () => {
                       </button>
                       <button
                         onClick={() => setSelectedItems([])}
-                        className="hidden md:block text-xs md:text-sm text-gray-500 hover:text-gray-700 transition-colors duration-200"
+                        className="hidden md:block text-xs text-gray-500 hover:text-gray-700 transition-colors duration-200"
                       >
                         Clear Selection
                       </button>
@@ -1482,7 +1555,7 @@ const AdminDashboard: React.FC = () => {
                           className="bg-gray-100 px-6 py-3 border-b border-gray-200 flex items-center justify-between cursor-pointer hover:bg-gray-200 transition-colors"
                           onClick={() => setCollapsedCategories(prev => ({ ...prev, [category.id]: !prev[category.id] }))}
                         >
-                          <h3 className="text-lg font-semibold text-gray-900">{category.name}</h3>
+                          <h3 className="text-xs font-semibold text-gray-900">{category.name}</h3>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1501,13 +1574,12 @@ const AdminDashboard: React.FC = () => {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                              <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">Select</th>
-                              <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">Sort</th>
-                              <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">Name</th>
-                              <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">Price</th>
-                              <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">Currency Packages</th>
-                              <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">Status</th>
-                              <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">Actions</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-900">Select</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-900">Sort</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-900">Name</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-900">Packages</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-900">Status</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-900">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -1536,19 +1608,7 @@ const AdminDashboard: React.FC = () => {
                                 <td className="px-6 py-4">
                           <div className="font-medium text-gray-900">{item.name}</div>
                                 </td>
-                                <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                  <div className="flex flex-col">
-                                    {item.isOnDiscount && item.discountPrice ? (
-                                      <>
-                                        <span className="text-red-600 font-semibold">₱{item.discountPrice}</span>
-                                        <span className="text-gray-500 line-through text-xs">₱{item.basePrice}</span>
-                                      </>
-                                    ) : (
-                                      <span>₱{item.basePrice}</span>
-                                    )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-6 py-4 text-xs text-gray-500">
                                   {item.variations?.length || 0} package{item.variations?.length !== 1 ? 's' : ''}
                                 </td>
                                 <td className="px-6 py-4">
@@ -1573,13 +1633,23 @@ const AdminDashboard: React.FC = () => {
                                       onClick={() => handleEditItem(item)}
                                       disabled={isProcessing}
                                       className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors duration-200"
+                                      title="Edit"
                                     >
                                       <Edit className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDuplicateItem(item.id)}
+                                      disabled={isProcessing}
+                                      className="p-2 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors duration-200"
+                                      title="Duplicate Game Item"
+                                    >
+                                      <Copy className="h-4 w-4" />
                                     </button>
                                     <button
                                       onClick={() => handleDeleteItem(item.id)}
                                       disabled={isProcessing}
                                       className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200"
+                                      title="Delete"
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </button>
@@ -1603,7 +1673,7 @@ const AdminDashboard: React.FC = () => {
                           className="bg-gray-100 px-6 py-3 border-b border-gray-200 flex items-center justify-between cursor-pointer hover:bg-gray-200 transition-colors"
                           onClick={() => setCollapsedCategories(prev => ({ ...prev, '__uncategorized__': !prev['__uncategorized__'] }))}
                         >
-                          <h3 className="text-lg font-semibold text-gray-900">Uncategorized</h3>
+                          <h3 className="text-xs font-semibold text-gray-900">Uncategorized</h3>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1622,13 +1692,12 @@ const AdminDashboard: React.FC = () => {
                         <table className="w-full">
                           <thead className="bg-gray-50">
                             <tr>
-                              <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">Select</th>
-                              <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">Sort</th>
-                              <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">Name</th>
-                              <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">Price</th>
-                              <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">Currency Packages</th>
-                              <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">Status</th>
-                              <th className="px-6 py-3 text-left text-sm font-medium text-gray-900">Actions</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-900">Select</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-900">Sort</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-900">Name</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-900">Packages</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-900">Status</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-900">Actions</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-200">
@@ -1657,19 +1726,7 @@ const AdminDashboard: React.FC = () => {
                                 <td className="px-6 py-4">
                                   <div className="font-medium text-gray-900">{item.name}</div>
                       </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        <div className="flex flex-col">
-                          {item.isOnDiscount && item.discountPrice ? (
-                            <>
-                              <span className="text-red-600 font-semibold">₱{item.discountPrice}</span>
-                              <span className="text-gray-500 line-through text-xs">₱{item.basePrice}</span>
-                            </>
-                          ) : (
-                            <span>₱{item.basePrice}</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-6 py-4 text-xs text-gray-500">
                                   {item.variations?.length || 0} package{item.variations?.length !== 1 ? 's' : ''}
                       </td>
                       <td className="px-6 py-4">
@@ -1694,13 +1751,23 @@ const AdminDashboard: React.FC = () => {
                             onClick={() => handleEditItem(item)}
                             disabled={isProcessing}
                             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors duration-200"
+                            title="Edit"
                           >
                             <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDuplicateItem(item.id)}
+                            disabled={isProcessing}
+                            className="p-2 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors duration-200"
+                            title="Duplicate Game Item"
+                          >
+                            <Copy className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteItem(item.id)}
                             disabled={isProcessing}
                             className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200"
+                            title="Delete"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -1752,7 +1819,7 @@ const AdminDashboard: React.FC = () => {
                           className="bg-gray-100 px-4 py-2 border-b border-gray-200 flex items-center justify-between cursor-pointer hover:bg-gray-200 transition-colors"
                           onClick={() => setCollapsedCategories(prev => ({ ...prev, [category.id]: !prev[category.id] }))}
                         >
-                          <h3 className="text-base font-semibold text-gray-900">{category.name}</h3>
+                          <h3 className="text-xs font-semibold text-gray-900">{category.name}</h3>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1777,20 +1844,30 @@ const AdminDashboard: React.FC = () => {
                         onChange={() => handleSelectItem(item.id)}
                         className="rounded border-gray-300 text-green-600 focus:ring-green-500 w-4 h-4 md:w-5 md:h-5"
                       />
-                      <span className="text-xs md:text-sm text-gray-600">Select</span>
+                      <span className="text-xs text-gray-600">Select</span>
                     </label>
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => handleEditItem(item)}
                         disabled={isProcessing}
                         className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors duration-200"
+                        title="Edit"
                       >
                         <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDuplicateItem(item.id)}
+                        disabled={isProcessing}
+                        className="p-2 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors duration-200"
+                        title="Duplicate Game Item"
+                      >
+                        <Copy className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteItem(item.id)}
                         disabled={isProcessing}
                         className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200"
+                        title="Delete"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -1812,11 +1889,8 @@ const AdminDashboard: React.FC = () => {
                   
                   <div className="flex items-start justify-between mb-2 md:mb-3">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm md:text-base font-medium text-gray-900 truncate">{item.name}</h3>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 md:gap-4 text-xs md:text-sm">
+                      <h3 className="text-xs font-medium text-gray-900 truncate">{item.name}</h3>
+                      <div className="mt-1 text-xs space-y-1">
                     <div>
                       <span className="text-gray-500">Category:</span>
                       <span className="ml-1 text-gray-900">
@@ -1824,21 +1898,23 @@ const AdminDashboard: React.FC = () => {
                       </span>
                     </div>
                     <div>
-                      <span className="text-gray-500">Price:</span>
-                      <span className="ml-1 font-medium text-gray-900">
-                        {item.isOnDiscount && item.discountPrice ? (
-                          <span className="text-red-600">₱{item.discountPrice}</span>
-                        ) : (
-                          `₱${item.basePrice}`
-                        )}
-                        {item.isOnDiscount && item.discountPrice && (
-                          <span className="text-gray-500 line-through text-xs ml-1">₱{item.basePrice}</span>
-                        )}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Currency Packages:</span>
+                          <span className="text-gray-500">Packages:</span>
                       <span className="ml-1 text-gray-900">{item.variations?.length || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                      <label className="text-xs text-gray-600">Sort:</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={item.sort_order || 0}
+                        onChange={async (e) => {
+                          const newSortOrder = parseInt(e.target.value) || 0;
+                          await updateMenuItem(item.id, { ...item, sort_order: newSortOrder });
+                        }}
+                        className="w-16 md:w-20 px-2 py-1 border border-gray-300 rounded text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
                     </div>
                     </div>
                   
@@ -1873,7 +1949,7 @@ const AdminDashboard: React.FC = () => {
                           className="bg-gray-100 px-4 py-2 border-b border-gray-200 flex items-center justify-between cursor-pointer hover:bg-gray-200 transition-colors"
                           onClick={() => setCollapsedCategories(prev => ({ ...prev, '__uncategorized__': !prev['__uncategorized__'] }))}
                         >
-                          <h3 className="text-base font-semibold text-gray-900">Uncategorized</h3>
+                          <h3 className="text-xs font-semibold text-gray-900">Uncategorized</h3>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1898,27 +1974,53 @@ const AdminDashboard: React.FC = () => {
                                   onChange={() => handleSelectItem(item.id)}
                                   className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                                 />
-                                <span className="text-sm text-gray-600">Select</span>
+                                <span className="text-xs text-gray-600">Select</span>
                               </label>
                               <div className="flex items-center space-x-2">
                                 <button
                                   onClick={() => handleEditItem(item)}
                                   disabled={isProcessing}
                                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors duration-200"
+                                  title="Edit"
                                 >
                                   <Edit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDuplicateItem(item.id)}
+                                  disabled={isProcessing}
+                                  className="p-2 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors duration-200"
+                                  title="Duplicate Game Item"
+                                >
+                                  <Copy className="h-4 w-4" />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteItem(item.id)}
                                   disabled={isProcessing}
                                   className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200"
+                                  title="Delete"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </button>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <label className="text-sm text-gray-600">Sort:</label>
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-medium text-gray-900 truncate">{item.name}</h3>
+                                <div className="mt-1 text-xs space-y-1">
+                                  <div>
+                                    <span className="text-gray-500">Category:</span>
+                                    <span className="ml-1 text-gray-900">
+                                      {categories.find(cat => cat.id === item.category)?.name}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Packages:</span>
+                                    <span className="ml-1 text-gray-900">{item.variations?.length || 0}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                                <label className="text-xs text-gray-600">Sort:</label>
                               <input
                                 type="number"
                                 min="0"
@@ -1927,31 +2029,8 @@ const AdminDashboard: React.FC = () => {
                                   const newSortOrder = parseInt(e.target.value) || 0;
                                   await updateMenuItem(item.id, { ...item, sort_order: newSortOrder });
                                 }}
-                                className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                              />
-                            </div>
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex-1 min-w-0">
-                                <h3 className="font-medium text-gray-900 truncate">{item.name}</h3>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <span className="text-gray-500">Price:</span>
-                                <span className="ml-1 font-medium text-gray-900">
-                                  {item.isOnDiscount && item.discountPrice ? (
-                                    <>
-                                      <span className="text-red-600">₱{item.discountPrice}</span>
-                                      <span className="text-gray-500 line-through text-xs ml-1">₱{item.basePrice}</span>
-                                    </>
-                                  ) : (
-                                    `₱${item.basePrice}`
-                                  )}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-gray-500">Currency Packages:</span>
-                                <span className="ml-1 text-gray-900">{item.variations?.length || 0}</span>
+                                  className="w-20 px-2 py-1 border border-gray-300 rounded text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
                               </div>
                             </div>
                   <div className="flex items-center justify-between mt-3">
@@ -1990,55 +2069,32 @@ const AdminDashboard: React.FC = () => {
     return <CategoryManager onBack={() => setCurrentView('dashboard')} />;
   }
 
+  // Members View
+  if (currentView === 'members') {
+    return <MemberManager onBack={() => setCurrentView('dashboard')} />;
+  }
+
   // Payment Methods View
   if (currentView === 'payments') {
     return <PaymentMethodManager onBack={() => setCurrentView('dashboard')} />;
-  }
-
-  // Orders View
-  if (currentView === 'orders') {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => setCurrentView('dashboard')}
-                  className="flex items-center space-x-2 text-gray-600 hover:text-black transition-colors duration-200"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                  <span>Dashboard</span>
-                </button>
-                <h1 className="text-lg md:text-2xl font-playfair font-semibold text-black">Orders</h1>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <OrderManager />
-        </div>
-      </div>
-    );
   }
 
   // Site Settings View
   if (currentView === 'settings') {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="bg-white shadow-sm border-b">
+        <div className="sticky top-0 z-40 bg-white shadow-sm border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center space-x-4">
                 <button
                   onClick={() => setCurrentView('dashboard')}
-                  className="flex items-center space-x-2 text-gray-600 hover:text-black transition-colors duration-200"
+                  className="text-gray-600 hover:text-black transition-colors duration-200"
+                  aria-label="Back to dashboard"
                 >
                   <ArrowLeft className="h-5 w-5" />
-                  <span>Dashboard</span>
                 </button>
-                <h1 className="text-lg md:text-2xl font-playfair font-semibold text-black">Site Settings</h1>
+                <h1 className="text-black">Site Settings</h1>
               </div>
             </div>
           </div>
@@ -2051,14 +2107,43 @@ const AdminDashboard: React.FC = () => {
     );
   }
 
+  // Orders View
+  if (currentView === 'orders') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="sticky top-0 z-40 bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setCurrentView('dashboard')}
+                  className="text-gray-600 hover:text-black transition-colors duration-200"
+                  aria-label="Back to dashboard"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <h1 className="text-black">Orders</h1>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <OrderManager />
+        </div>
+      </div>
+    );
+  }
+
+
   // Dashboard View
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow-sm border-b">
+      <div className="sticky top-0 z-40 bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
-              <h1 className="text-lg md:text-2xl font-noto font-semibold text-black">Admin</h1>
+              <h1 className="text-black">Admin</h1>
             </div>
             <div className="flex items-center space-x-4">
               <a
@@ -2084,11 +2169,11 @@ const AdminDashboard: React.FC = () => {
           <div className="bg-white rounded-xl shadow-sm p-4 md:p-6">
             <div className="flex flex-col md:flex-row md:items-center">
               <div className="mb-2 md:mb-0">
-                <ShoppingBag className="h-6 w-6 md:h-8 md:w-8 text-blue-600" />
+                <Gamepad2 className="h-6 w-6 md:h-8 md:w-8 text-blue-600" />
               </div>
               <div className="md:ml-4">
-                <p className="text-xs md:text-sm font-medium text-gray-600">Total Items</p>
-                <p className="text-xl md:text-2xl font-semibold text-gray-900">{totalItems}</p>
+                <p className="text-xs font-medium text-gray-600">Total Games</p>
+                <p className="text-xs font-semibold text-gray-900">{totalItems}</p>
               </div>
             </div>
           </div>
@@ -2096,11 +2181,11 @@ const AdminDashboard: React.FC = () => {
           <div className="bg-white rounded-xl shadow-sm p-4 md:p-6">
             <div className="flex flex-col md:flex-row md:items-center">
               <div className="mb-2 md:mb-0">
-                <CheckCircle className="h-6 w-6 md:h-8 md:w-8 text-emerald-600" />
+                  <Clock className="h-6 w-6 md:h-8 md:w-8 text-emerald-600" />
               </div>
               <div className="md:ml-4">
-                <p className="text-xs md:text-sm font-medium text-gray-600">Available Items</p>
-                <p className="text-xl md:text-2xl font-semibold text-gray-900">{availableItems}</p>
+                <p className="text-xs font-medium text-gray-600">Pending Orders</p>
+                <p className="text-xs font-semibold text-gray-900">{availableItems}</p>
               </div>
             </div>
           </div>
@@ -2108,11 +2193,11 @@ const AdminDashboard: React.FC = () => {
           <div className="bg-white rounded-xl shadow-sm p-4 md:p-6">
             <div className="flex flex-col md:flex-row md:items-center">
               <div className="mb-2 md:mb-0">
-                <Star className="h-6 w-6 md:h-8 md:w-8 text-amber-500" />
+                  <Star className="h-6 w-6 md:h-8 md:w-8 text-amber-500" />
               </div>
               <div className="md:ml-4">
-                <p className="text-xs md:text-sm font-medium text-gray-600">Popular Items</p>
-                <p className="text-xl md:text-2xl font-semibold text-gray-900">{popularItems}</p>
+                <p className="text-xs font-medium text-gray-600">Popular Items</p>
+                <p className="text-xs font-semibold text-gray-900">{popularItems}</p>
               </div>
             </div>
           </div>
@@ -2120,11 +2205,11 @@ const AdminDashboard: React.FC = () => {
           <div className="bg-white rounded-xl shadow-sm p-4 md:p-6">
             <div className="flex flex-col md:flex-row md:items-center">
               <div className="mb-2 md:mb-0">
-                <Activity className="h-6 w-6 md:h-8 md:w-8 text-indigo-600" />
+                  <Activity className="h-6 w-6 md:h-8 md:w-8 text-indigo-600" />
               </div>
               <div className="md:ml-4">
-                <p className="text-xs md:text-sm font-medium text-gray-600">Active</p>
-                <p className="text-xl md:text-2xl font-semibold text-gray-900">Online</p>
+                <p className="text-xs font-medium text-gray-600">Active</p>
+                <p className="text-xs font-semibold text-gray-900">Online</p>
               </div>
             </div>
           </div>
@@ -2139,60 +2224,70 @@ const AdminDashboard: React.FC = () => {
                 className="w-full flex items-center space-x-3 p-2 md:p-3 text-left hover:bg-gray-50 rounded-lg transition-colors duration-200"
               >
                 <FilePlus className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
-                <span className="text-sm md:text-base font-medium text-gray-900">Add New Game Item</span>
+                <span className="text-xs font-medium text-gray-900">Add New Game Item</span>
               </button>
               <button
                 onClick={() => setCurrentView('items')}
                 className="w-full flex items-center space-x-3 p-2 md:p-3 text-left hover:bg-gray-50 rounded-lg transition-colors duration-200"
               >
                 <List className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
-                <span className="text-sm md:text-base font-medium text-gray-900">Manage Game Items</span>
+                <span className="text-xs font-medium text-gray-900">Manage Game Items</span>
               </button>
               <button
                 onClick={() => setCurrentView('categories')}
                 className="w-full flex items-center space-x-3 p-2 md:p-3 text-left hover:bg-gray-50 rounded-lg transition-colors duration-200"
               >
                 <FolderTree className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
-                <span className="text-sm md:text-base font-medium text-gray-900">Manage Categories</span>
+                <span className="text-xs font-medium text-gray-900">Manage Categories</span>
+              </button>
+              <button
+                onClick={() => setCurrentView('members')}
+                className="w-full flex items-center space-x-3 p-2 md:p-3 text-left hover:bg-gray-50 rounded-lg transition-colors duration-200"
+              >
+                <Users className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
+                <span className="text-xs font-medium text-gray-900">Manage Members</span>
               </button>
               <button
                 onClick={() => setCurrentView('payments')}
                 className="w-full flex items-center space-x-3 p-2 md:p-3 text-left hover:bg-gray-50 rounded-lg transition-colors duration-200"
               >
                 <Wallet className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
-                <span className="text-sm md:text-base font-medium text-gray-900">Payment Methods</span>
+                <span className="text-xs font-medium text-gray-900">Payment Methods</span>
               </button>
               <button
                 onClick={() => setCurrentView('orders')}
                 className="w-full flex items-center space-x-3 p-2 md:p-3 text-left hover:bg-gray-50 rounded-lg transition-colors duration-200 relative"
               >
                 <ShoppingBag className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
-                <span className="text-sm md:text-base font-medium text-gray-900">Orders</span>
-                {newOrdersCount > 0 && (
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 md:h-6 md:w-6 flex items-center justify-center min-w-[20px] md:min-w-[24px] px-1 animate-pulse">
-                    {newOrdersCount > 99 ? '99+' : newOrdersCount}
-                  </span>
-                )}
+                <span className="text-xs font-medium text-gray-900">Orders</span>
+                {orderOption === 'place_order' && (() => {
+                  const unread = Math.max(0, pendingOrders - lastSeenPendingCount);
+                  return unread > 0 ? (
+                    <span className="ml-auto flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-semibold flex items-center justify-center">
+                      {unread > 99 ? '99+' : unread}
+                    </span>
+                  ) : null;
+                })()}
               </button>
               <button
                 onClick={() => setCurrentView('settings')}
                 className="w-full flex items-center space-x-3 p-2 md:p-3 text-left hover:bg-gray-50 rounded-lg transition-colors duration-200"
               >
                 <Cog className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
-                <span className="text-sm md:text-base font-medium text-gray-900">Site Settings</span>
+                <span className="text-xs font-medium text-gray-900">Site Settings</span>
               </button>
             </div>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm p-4 md:p-6">
-            <h3 className="text-base md:text-lg font-playfair font-medium text-black mb-4">Categories Overview</h3>
+            <h3 className="text-xs font-playfair font-medium text-black mb-4">Categories Overview</h3>
             <div className="space-y-3">
               {categoryCounts.map((category) => (
                 <div key={category.id} className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <span className="font-medium text-gray-900">{category.name}</span>
                   </div>
-                  <span className="text-sm text-gray-500">{category.count} items</span>
+                  <span className="text-xs text-gray-500">{category.count} items</span>
                 </div>
               ))}
             </div>

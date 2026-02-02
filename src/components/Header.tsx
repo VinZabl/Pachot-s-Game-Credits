@@ -1,6 +1,7 @@
 import React from 'react';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, Coins } from 'lucide-react';
 import { useSiteSettings } from '../hooks/useSiteSettings';
+import { Member } from '../types';
 
 interface HeaderProps {
   cartItemsCount?: number;
@@ -19,8 +20,8 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount = 0, onCartClick, onMenu
       WebkitBackdropFilter: 'blur(20px)',
       borderBottom: '1px solid rgba(255, 105, 180, 0.2)'
     }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 md:py-3">
-        <div className="flex items-center justify-between min-h-12 md:min-h-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 md:py-2">
+        <div className="flex items-center justify-between min-h-10 md:min-h-12">
           <button 
             onClick={onMenuClick ?? (() => {})}
             className="text-white hover:opacity-80 transition-colors duration-200 flex items-center gap-3"
@@ -30,7 +31,9 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount = 0, onCartClick, onMenu
               alt="Pachot's Game Credits Logo"
               className="h-10 sm:h-12 md:h-16 w-auto object-contain"
               onError={(e) => {
-                e.currentTarget.style.display = 'none';
+                if (e.currentTarget.src !== '/logo.png') {
+                  e.currentTarget.src = '/logo.png';
+                }
               }}
             />
             <span className="text-base sm:text-lg md:text-xl font-bold text-white whitespace-nowrap">

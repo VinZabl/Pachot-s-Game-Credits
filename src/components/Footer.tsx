@@ -1,11 +1,10 @@
 import React from 'react';
-import { Facebook, Instagram, Twitter, Youtube, Linkedin, Globe } from 'lucide-react';
+import { Facebook, Instagram, Twitter, Youtube } from 'lucide-react';
 import { useSiteSettings } from '../hooks/useSiteSettings';
 
 const Footer: React.FC = () => {
   const { siteSettings } = useSiteSettings();
 
-  // Social media links configuration
   const socialLinks = [
     { icon: Facebook, url: siteSettings?.footer_social_1, label: 'Facebook' },
     { icon: Instagram, url: siteSettings?.footer_social_2, label: 'Instagram' },
@@ -25,7 +24,7 @@ const Footer: React.FC = () => {
       title: 'SUPPORT',
       links: [
         { label: 'FAQ', url: '#' },
-        { label: 'Contact Us', url: '#' },
+        { label: 'Contact Us', url: siteSettings?.footer_support_url || '#' },
         { label: 'Submit a Ticket', url: '#' },
       ]
     },
@@ -83,7 +82,7 @@ const Footer: React.FC = () => {
         {/* Separator Line */}
         <div id="footer-separator" className="border-t border-pink-500/30 my-8"></div>
 
-        {/* Bottom Section - Social Media Icons & Copyright */}
+        {/* Bottom Section - Social Media & Copyright */}
         <div className="flex flex-col items-center gap-6">
           {/* Social Media Icons - Centered */}
           {socialLinks.length > 0 && (

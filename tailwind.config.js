@@ -5,25 +5,28 @@ export default {
     extend: {
       colors: {
         cafe: {
-          accent: '#E74694', // Pink accent
-          dark: '#0A0A0A', // Off-black background
+          // Trish Devion theme: red accents, off-black background
+          accent: '#B91C1C',
+          accent2: '#DC2626',
+          dark: '#0A0A0A',
           cream: '#F5F5F5',
           beige: '#E5E5E5',
           latte: '#D5D5D5',
-          espresso: '#E74694',
-          light: '#1A1A1A',
-          // Kitty Galore theme colors
-          primary: '#E74694', // Pink primary
-          secondary: '#F05BA8', // Slightly lighter pink
-          darkBg: '#FFF5F5', // Off-light pink main background
-          darkCard: '#FFF9F9', // Slightly darker card background
-          glass: 'rgba(231, 70, 148, 0.1)', // Glass effect with accent color
-          text: '#2D1B2E', // Dark text for light background
-          textMuted: '#5A4A5B' // Muted text
+          espresso: '#DC2626',
+          light: '#141414',
+          primary: '#B91C1C',   // Crimson red accent
+          secondary: '#DC2626', // Brighter red for gradients/hover
+          darkBg: '#0A0A0A',    // Off-black main background
+          darkCard: '#141414',  // Slightly lighter card background
+          glass: 'rgba(185, 28, 28, 0.1)',
+          text: '#FFFFFF',
+          textMuted: '#B0B0B0'
         }
       },
       fontFamily: {
-        'sans': ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        'sans': ['Poppins', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        'anton': ['Anton', 'sans-serif'],
+        'montserrat': ['Montserrat', 'sans-serif'],
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in-out',

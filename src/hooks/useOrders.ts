@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Order, CreateOrderData, OrderStatus } from '../types';
+import { useSiteSettings } from './useSiteSettings';
 
 const ORDERS_PER_PAGE = 20; // Number of orders to fetch per page
 
@@ -52,16 +53,15 @@ export const useOrders = () => {
       setCurrentPage(page);
       setError(null);
     } catch (err) {
-      console.error('Error fetching orders:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch orders');
+      console.error('Error fetching orders:', err);
     } finally {
-      if (showLoading) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
-  }, []);
+  };
 
-  const fetchOrderById = useCallback(async (orderId: string): Promise<Order | null> => {
+  // Fetch a single order by ID
+  const fetchOrderById = async (orderId: string): Promise<Order | null> => {
     try {
       const { data, error: fetchError } = await supabase
         .from('orders')
@@ -70,7 +70,6 @@ export const useOrders = () => {
         .single();
 
       if (fetchError) throw fetchError;
-      if (!data) return null;
 
       return {
         id: data.id,
@@ -88,11 +87,12 @@ export const useOrders = () => {
       console.error('Error fetching order:', err);
       return null;
     }
-  }, []);
+  };
 
-  const createOrder = useCallback(async (orderData: CreateOrderData): Promise<Order | null> => {
+  // Create a new order
+  const createOrder = async (orderData: CreateOrderData): Promise<Order | null> => {
     try {
-      const { data, error: insertError } = await supabase
+      const { data, error: createError } = await supabase
         .from('orders')
         .insert({
           order_items: orderData.order_items,
@@ -100,31 +100,35 @@ export const useOrders = () => {
           payment_method_id: orderData.payment_method_id,
           receipt_url: orderData.receipt_url,
           total_price: orderData.total_price,
+          member_id: orderData.member_id || null,
+          order_option: orderData.order_option || 'place_order',
+          invoice_number: orderData.invoice_number || null,
           status: 'pending',
         })
         .select()
         .single();
 
-      if (insertError) throw insertError;
+      if (createError) throw createError;
 
-      const newOrder: Order = {
-        id: data.id,
-        order_items: data.order_items || [],
-        customer_info: data.customer_info || {},
-        payment_method_id: data.payment_method_id || '',
-        receipt_url: data.receipt_url || '',
-        total_price: data.total_price || 0,
-        status: data.status as OrderStatus,
-        created_at: data.created_at,
-        updated_at: data.updated_at || data.created_at,
-      };
+      // Add new order to the list if we're in admin view
+      if (orders.length > 0 && data) {
+        setOrders(prev => {
+          const updated = [data as Order, ...prev];
+          // Keep only the most recent 100
+          return updated.slice(0, 100);
+        });
+      } else if (orders.length === 0) {
+        // If no orders loaded, fetch initial set
+        await fetchOrders(100);
+      }
 
       // Refresh orders list only on admin (customer doesn't have access to orders list)
       if (isAdminRoute) await fetchOrders(currentPage, false);
       return newOrder;
     } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create order');
       console.error('Error creating order:', err);
-      throw err;
+      return null;
     }
   }, [fetchOrders, currentPage, isAdminRoute]);
 
@@ -151,7 +155,8 @@ export const useOrders = () => {
       await fetchOrders(currentPage, false);
       return true;
     } catch (err) {
-      console.error('Error updating order status:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update order');
+      console.error('Error updating order:', err);
       return false;
     }
   }, [fetchOrders, currentPage]);
@@ -160,8 +165,7 @@ export const useOrders = () => {
   const fetchOrdersRef = useRef(fetchOrders);
   const lastFetchRef = useRef<number>(0);
   useEffect(() => {
-    fetchOrdersRef.current = fetchOrders;
-  }, [fetchOrders]);
+    if (orderOption !== 'place_order') return;
 
   useEffect(() => {
     if (isAdminRoute) fetchOrders(1);

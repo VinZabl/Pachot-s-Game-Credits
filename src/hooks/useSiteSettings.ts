@@ -24,7 +24,7 @@ export const useSiteSettings = () => {
       const settings: SiteSettings = {
         site_name: data.find(s => s.id === 'site_name')?.value || "Pachot's Game Credits",
         site_logo: data.find(s => s.id === 'site_logo')?.value || '/logo.png',
-        site_description: data.find(s => s.id === 'site_description')?.value || '',
+        site_description: data.find(s => s.id === 'site_description')?.value || 'Welcome to Diginix — Your perfect game credits destination',
         currency: data.find(s => s.id === 'currency')?.value || '₱',
         currency_code: data.find(s => s.id === 'currency_code')?.value || 'PHP',
         footer_social_1: data.find(s => s.id === 'footer_social_1')?.value || '',
@@ -33,7 +33,11 @@ export const useSiteSettings = () => {
         footer_social_4: data.find(s => s.id === 'footer_social_4')?.value || '',
         footer_support_url: data.find(s => s.id === 'footer_support_url')?.value || '',
         order_option: (orderOptionValue === 'place_order' ? 'place_order' : 'order_via_messenger') as 'order_via_messenger' | 'place_order',
-        notification_volume: parseFloat(data.find(s => s.id === 'notification_volume')?.value || '0.5')
+        hero_image_1: data.find(s => s.id === 'hero_image_1')?.value || '',
+        hero_image_2: data.find(s => s.id === 'hero_image_2')?.value || '',
+        hero_image_3: data.find(s => s.id === 'hero_image_3')?.value || '',
+        hero_image_4: data.find(s => s.id === 'hero_image_4')?.value || '',
+        hero_image_5: data.find(s => s.id === 'hero_image_5')?.value || '',
       };
 
       setSiteSettings(settings);
@@ -72,7 +76,7 @@ export const useSiteSettings = () => {
       const updatePromises = Object.entries(updates).map(([key, value]) =>
         supabase
           .from('site_settings')
-          .update({ value: typeof value === 'number' ? value.toString() : value })
+          .update({ value })
           .eq('id', key)
       );
 

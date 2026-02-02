@@ -12,6 +12,7 @@ export interface PaymentMethod {
   active: boolean;
   sort_order: number;
   admin_name?: string | null;
+  max_order_amount?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -190,7 +191,8 @@ export const usePaymentMethods = () => {
           icon_url: method.icon_url || null,
           active: method.active,
           sort_order: method.sort_order,
-          admin_name: method.admin_name || null
+          admin_name: method.admin_name || null,
+          max_order_amount: method.max_order_amount !== undefined ? method.max_order_amount : null
         })
         .select()
         .single();
@@ -217,7 +219,8 @@ export const usePaymentMethods = () => {
           icon_url: updates.icon_url !== undefined ? updates.icon_url : undefined,
           active: updates.active,
           sort_order: updates.sort_order,
-          admin_name: updates.admin_name !== undefined ? updates.admin_name : undefined
+          admin_name: updates.admin_name !== undefined ? updates.admin_name : undefined,
+          max_order_amount: updates.max_order_amount !== undefined ? updates.max_order_amount : undefined
         })
         .eq('uuid_id', uuidId);
 

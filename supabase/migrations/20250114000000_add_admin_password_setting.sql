@@ -1,6 +1,6 @@
 -- Add admin_password to site_settings if it doesn't exist
 INSERT INTO site_settings (id, value, type, description)
-VALUES ('admin_password', 'AmberKin@Admin!2025', 'text', 'Admin dashboard password')
+VALUES ('admin_password', 'Diginix@Admin!2025', 'text', 'Admin dashboard password')
 ON CONFLICT (id) DO NOTHING;
 
 -- Update RLS policy to allow public read/write for admin_password
