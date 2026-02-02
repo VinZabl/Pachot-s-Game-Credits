@@ -240,7 +240,7 @@ const MemberManager: React.FC<MemberManagerProps> = ({ onBack }) => {
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  Resellers
+                  VIPs
                 </button>
               </div>
             </div>
@@ -296,7 +296,7 @@ const MemberManager: React.FC<MemberManagerProps> = ({ onBack }) => {
                   {/* Username row with total cost */}
                   <div className="flex items-center justify-between mb-1">
                     <h4 className="font-semibold text-gray-900 truncate text-xs flex-1 min-w-0">
-                      {member.username} <span className="text-gray-400">/ {member.user_type === 'end_user' ? 'Member' : 'Reseller'}</span>
+                      {member.username} <span className="text-gray-400">/ {member.user_type === 'end_user' ? 'Member' : 'VIP'}</span>
                     </h4>
                     <div className="flex items-center gap-1 ml-2 flex-shrink-0">
                       <span className="font-semibold text-gray-900 text-xs">₱{(memberTotalCosts[member.id] || 0).toFixed(2)}</span>
@@ -354,7 +354,7 @@ const MemberManager: React.FC<MemberManagerProps> = ({ onBack }) => {
                         </span>
                       </td>
                       <td className="p-3 text-gray-900 text-xs capitalize">
-                        {member.user_type === 'end_user' ? 'Member' : 'Reseller'}
+                        {member.user_type === 'end_user' ? 'Member' : 'VIP'}
                       </td>
                       <td className="p-3">
                         <div className="flex space-x-2">
@@ -425,7 +425,7 @@ const MemberManager: React.FC<MemberManagerProps> = ({ onBack }) => {
                       className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-900 text-xs"
                     >
                       <option value="end_user">Member</option>
-                      <option value="reseller">Reseller</option>
+                      <option value="reseller">VIP</option>
                     </select>
                   </div>
 

@@ -115,36 +115,6 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, currentMember }) => {
             ) : null}
           </div>
         </div>
-        
-        {/* Game Title and Subtitle - compact padding */}
-        <div className="w-full px-2 py-1.5">
-          <h4 
-            ref={nameRef}
-            className={`text-white font-bold text-center text-xs sm:text-sm mb-0 ${
-              shouldScroll ? 'animate-scroll-text' : ''
-            }`}
-            style={shouldScroll ? {
-              display: 'inline-block',
-            } : {}}
-          >
-            {shouldScroll ? (
-              <>
-                <span>{item.name}</span>
-                <span className="mx-4">•</span>
-                <span>{item.name}</span>
-              </>
-            ) : (
-              item.name
-            )}
-          </h4>
-          
-          {/* Subtitle */}
-          {item.subtitle && (
-            <p className="text-xs text-gray-400 text-center mt-0.5">
-              {item.subtitle}
-            </p>
-          )}
-        </div>
       </div>
 
       <GameItemOrderModal

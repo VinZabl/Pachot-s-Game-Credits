@@ -77,32 +77,41 @@ const MemberLogin: React.FC<MemberLoginProps> = ({ onBack, onLoginSuccess }) => 
     setError('');
   };
 
+  const inputClass = 'w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 bg-white/10 backdrop-blur-sm border-pink-500/30 text-white placeholder-pink-200/60 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500';
+
   return (
-    <div className="min-h-screen theme-page-bg flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: '#0d0d0d' }}>
+      <div className="fixed inset-0 pointer-events-none opacity-10" style={{ backgroundImage: 'url(/logo.png)', backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} />
+      <div className="w-full max-w-md relative z-10">
         <button
           onClick={onBack}
-          className="mb-6 flex items-center text-cafe-text hover:text-cafe-primary transition-colors"
+          className="mb-6 flex items-center text-white hover:text-pink-400 transition-colors"
         >
           <ArrowLeft className="h-5 w-5 mr-2" />
           Back
         </button>
 
-        <div className="glass-card rounded-xl p-6">
+        <div
+          className="rounded-2xl p-6 shadow-2xl"
+          style={{
+            background: 'linear-gradient(180deg, #2d1b4e 0%, #1a0f2e 100%)',
+            border: '1.5px solid rgba(255, 105, 180, 0.3)',
+          }}
+        >
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-cafe-primary to-cafe-secondary rounded-full mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-pink-500 to-fuchsia-500 rounded-full mb-4">
               <User className="h-8 w-8 text-white" />
             </div>
-            <h2 className="text-2xl font-semibold text-cafe-text mb-2">
+            <h2 className="text-2xl font-semibold text-white mb-2">
               {isLogin ? 'Member Login' : 'Member Registration'}
             </h2>
-            <p className="text-cafe-textMuted">
+            <p className="text-pink-200/80">
               {isLogin ? 'Welcome back!' : 'Create your account'}
             </p>
           </div>
 
           {error && (
-            <div className="mb-4 p-3 glass-strong border border-red-500/30 rounded-lg text-red-200 text-sm">
+            <div className="mb-4 p-3 rounded-lg text-red-200 text-sm bg-red-500/20 border border-red-500/30">
               {error}
             </div>
           )}
@@ -110,16 +119,14 @@ const MemberLogin: React.FC<MemberLoginProps> = ({ onBack, onLoginSuccess }) => 
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div>
-                <label className="block text-sm font-medium text-cafe-text mb-2">
-                  Username
-                </label>
+                <label className="block text-sm font-medium text-white mb-2">Username</label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-cafe-text/50" />
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-pink-300/60" />
                   <input
                     type="text"
                     value={formData.username}
                     onChange={(e) => handleInputChange('username', e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 glass border border-cafe-primary/30 rounded-lg text-cafe-text placeholder-cafe-textMuted focus:outline-none focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary"
+                    className={inputClass}
                     placeholder="Enter username"
                     required
                   />
@@ -128,41 +135,36 @@ const MemberLogin: React.FC<MemberLoginProps> = ({ onBack, onLoginSuccess }) => 
             )}
 
             <div>
-              <label className="block text-sm font-medium text-cafe-text mb-2">
-                Email
-              </label>
+              <label className="block text-sm font-medium text-white mb-2">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-cafe-text/50" />
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 glass border border-cafe-primary/30 rounded-lg text-cafe-text placeholder-cafe-textMuted focus:outline-none focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary"
-                    placeholder="Enter email"
-                    required
-                  />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-pink-300/60" />
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  className={inputClass}
+                  placeholder="Enter email"
+                  required
+                />
               </div>
             </div>
 
-
             <div>
-              <label className="block text-sm font-medium text-cafe-text mb-2">
-                Password
-              </label>
+              <label className="block text-sm font-medium text-white mb-2">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-cafe-text/50" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={formData.password}
-                    onChange={(e) => handleInputChange('password', e.target.value)}
-                    className="w-full pl-10 pr-12 py-3 glass border border-cafe-primary/30 rounded-lg text-cafe-text placeholder-cafe-textMuted focus:outline-none focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary"
-                    placeholder="Enter password"
-                    required
-                  />
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-pink-300/60" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  className={inputClass + ' pr-12'}
+                  placeholder="Enter password"
+                  required
+                />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-cafe-text/50 hover:text-cafe-text"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-pink-300/60 hover:text-white"
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -171,16 +173,14 @@ const MemberLogin: React.FC<MemberLoginProps> = ({ onBack, onLoginSuccess }) => 
 
             {!isLogin && (
               <div>
-                <label className="block text-sm font-medium text-cafe-text mb-2">
-                  Confirm Password
-                </label>
+                <label className="block text-sm font-medium text-white mb-2">Confirm Password</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-cafe-text/50" />
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-pink-300/60" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={formData.confirmPassword}
                     onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 glass border border-cafe-primary/30 rounded-lg text-cafe-text placeholder-cafe-textMuted focus:outline-none focus:ring-2 focus:ring-cafe-primary focus:border-cafe-primary"
+                    className={inputClass}
                     placeholder="Confirm password"
                     required
                   />
@@ -191,7 +191,7 @@ const MemberLogin: React.FC<MemberLoginProps> = ({ onBack, onLoginSuccess }) => 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-cafe-primary to-cafe-secondary text-white rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Processing...' : isLogin ? 'Login' : 'Register'}
             </button>
@@ -202,14 +202,9 @@ const MemberLogin: React.FC<MemberLoginProps> = ({ onBack, onLoginSuccess }) => 
               onClick={() => {
                 setIsLogin(!isLogin);
                 setError('');
-                setFormData({
-                  username: '',
-                  email: '',
-                  password: '',
-                  confirmPassword: ''
-                });
+                setFormData({ username: '', email: '', password: '', confirmPassword: '' });
               }}
-              className="text-cafe-primary hover:text-cafe-secondary transition-colors text-sm"
+              className="text-pink-400 hover:text-pink-300 transition-colors text-sm"
             >
               {isLogin ? "Don't have an account? Register" : 'Already have an account? Login'}
             </button>

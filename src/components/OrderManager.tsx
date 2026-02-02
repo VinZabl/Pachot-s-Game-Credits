@@ -415,7 +415,7 @@ const OrderManager: React.FC = () => {
                   <div className="flex items-center gap-2 text-xs">
                     <span className="font-semibold text-gray-900">{memberMap[order.member_id].username}</span>
                     <span className="text-gray-500">
-                      / {memberMap[order.member_id].user_type === 'reseller' ? 'Reseller' : 'Member'}
+                      / {memberMap[order.member_id].user_type === 'reseller' ? 'VIP' : 'Member'}
                     </span>
                   </div>
                 </div>
@@ -585,7 +585,7 @@ const OrderManager: React.FC = () => {
                   <div className="space-y-1.5 md:space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-gray-900">
-                        {memberMap[selectedOrder.member_id].username} / {memberMap[selectedOrder.member_id].user_type === 'reseller' ? 'Reseller' : 'Member'}
+                        {memberMap[selectedOrder.member_id].username} / {memberMap[selectedOrder.member_id].user_type === 'reseller' ? 'VIP' : 'Member'}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">

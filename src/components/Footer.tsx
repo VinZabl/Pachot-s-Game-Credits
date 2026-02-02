@@ -17,7 +17,7 @@ const Footer: React.FC = () => {
     {
       title: siteSettings?.site_name || "Pachot's Game Credits",
       links: [
-        { label: siteSettings?.site_description || 'Your Perfect Game Credits Destination', url: '#' },
+        { label: siteSettings?.site_description || 'Welcome to PGCSHOP — Your perfect game credits destination', url: '#' },
       ]
     },
     {

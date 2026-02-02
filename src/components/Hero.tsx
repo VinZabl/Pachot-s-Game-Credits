@@ -59,7 +59,7 @@ const Hero: React.FC<HeroProps> = ({ images }) => {
   return (
     <div className="relative w-full mb-4 md:mb-6 rounded-xl overflow-hidden select-none">
       <div
-        className="relative w-full aspect-[21/9] md:aspect-[3/1] bg-cafe-darkCard cursor-default"
+        className="relative w-full aspect-[21/9] md:aspect-[3/1] bg-gray-900 cursor-default"
         onClick={onContainerClick}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
@@ -101,7 +101,7 @@ const Hero: React.FC<HeroProps> = ({ images }) => {
                 key={index}
                 className={`inline-block transition-all duration-300 rounded-full ${
                   index === currentIndex
-                    ? 'w-8 md:w-10 h-2 bg-cafe-primary'
+                    ? 'w-8 md:w-10 h-2 bg-pink-500'
                     : 'w-2 h-2 bg-white/50'
                 }`}
                 aria-hidden

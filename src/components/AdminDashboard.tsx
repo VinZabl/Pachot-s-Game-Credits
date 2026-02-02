@@ -207,7 +207,6 @@ const AdminDashboard: React.FC = () => {
   const handleEditItem = (item: MenuItem) => {
     setEditingItem(item);
     setFormData(item);
-    // Restore discount values from localStorage if they exist
     const savedDiscounts = localStorage.getItem(`amber_discounts_${item.id}`);
     if (savedDiscounts) {
       try {
@@ -215,7 +214,7 @@ const AdminDashboard: React.FC = () => {
         setPriceDiscount(discounts.priceDiscount);
         setMemberDiscount(discounts.memberDiscount);
         setResellerDiscount(discounts.resellerDiscount);
-      } catch (e) {
+      } catch {
         setPriceDiscount(undefined);
         setMemberDiscount(undefined);
         setResellerDiscount(undefined);
@@ -315,22 +314,12 @@ const AdminDashboard: React.FC = () => {
 
       if (editingItem) {
         await updateMenuItem(editingItem.id, itemData);
-        // Save discount values to localStorage
-        const discounts = {
-          priceDiscount,
-          memberDiscount,
-          resellerDiscount
-        };
+        const discounts = { priceDiscount, memberDiscount, resellerDiscount };
         localStorage.setItem(`amber_discounts_${editingItem.id}`, JSON.stringify(discounts));
       } else {
         const newItem = await addMenuItem(itemData as Omit<MenuItem, 'id'>);
-        // Save discount values to localStorage for new item
-        if (newItem && newItem.id) {
-          const discounts = {
-            priceDiscount,
-            memberDiscount,
-            resellerDiscount
-          };
+        if (newItem?.id) {
+          const discounts = { priceDiscount, memberDiscount, resellerDiscount };
           localStorage.setItem(`amber_discounts_${newItem.id}`, JSON.stringify(discounts));
         }
       }
@@ -667,7 +656,7 @@ const AdminDashboard: React.FC = () => {
                             type="number"
                             value={formData.sort_order !== undefined ? formData.sort_order : ''}
                             onChange={(e) => setFormData({ ...formData, sort_order: e.target.value === '' ? undefined : parseInt(e.target.value) || 0 })}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-xs"
                             placeholder="Sort"
                             min="0"
                             step="1"
@@ -738,92 +727,104 @@ const AdminDashboard: React.FC = () => {
                       placeholder="Enter custom text to display below the game title (optional)"
                     />
                     <p className="text-xs text-gray-500 mt-1">This text will appear below the game title on the customer side. Leave empty to show no text.</p>
-            </div>
+                  </div>
 
-            {/* Discount Pricing Section */}
+                  {/* Discount Pricing Section - trish-devion style */}
                   <div>
                     <h4 className="text-xs font-playfair font-medium text-black mb-4">Discount</h4>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
                         <label className="block text-xs font-medium text-black mb-2">Price</label>
-                  <input
-                    type="number"
+                        <input
+                          type="number"
                           min="0"
                           max="1"
                           step="0.01"
-                          value={formData.discountPercentage || ''}
-                          onChange={(e) => setFormData({ ...formData, discountPercentage: Number(e.target.value) || undefined })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
-                          placeholder="Enter discount percentage (e.g., 10 for 10%)"
-                  />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Applies discount to all Price fields
-                        </p>
-                </div>
-
-                <div>
+                          value={priceDiscount ?? ''}
+                          onChange={(e) => {
+                            const discount = e.target.value !== '' ? Number(e.target.value) : undefined;
+                            setPriceDiscount(discount);
+                            if (editingItem) {
+                              const saved = localStorage.getItem(`amber_discounts_${editingItem.id}`);
+                              const d = saved ? JSON.parse(saved) : {};
+                              d.priceDiscount = discount;
+                              localStorage.setItem(`amber_discounts_${editingItem.id}`, JSON.stringify(d));
+                            }
+                            if (discount !== undefined && formData.variations) {
+                              const updated = formData.variations.map(v => {
+                                const base = typeof v.price === 'number' ? v.price : (parseFloat(String(v.price)) || 0);
+                                return { ...v, price: base * (1 - discount) };
+                              });
+                              setFormData({ ...formData, variations: updated });
+                            }
+                          }}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-xs text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          placeholder="0.10"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Applies discount to all Price fields</p>
+                      </div>
+                      <div>
                         <label className="block text-xs font-medium text-black mb-2">Member</label>
-                  <input
-                    type="number"
+                        <input
+                          type="number"
                           min="0"
                           max="1"
                           step="0.01"
-                          value={memberDiscount !== undefined ? memberDiscount : ''}
+                          value={memberDiscount ?? ''}
                           onChange={(e) => {
                             const discount = e.target.value !== '' ? Number(e.target.value) : undefined;
                             setMemberDiscount(discount);
-                            // Save to localStorage
                             if (editingItem) {
-                              const savedDiscounts = localStorage.getItem(`amber_discounts_${editingItem.id}`);
-                              const discounts = savedDiscounts ? JSON.parse(savedDiscounts) : {};
-                              discounts.memberDiscount = discount;
-                              localStorage.setItem(`amber_discounts_${editingItem.id}`, JSON.stringify(discounts));
+                              const saved = localStorage.getItem(`amber_discounts_${editingItem.id}`);
+                              const d = saved ? JSON.parse(saved) : {};
+                              d.memberDiscount = discount;
+                              localStorage.setItem(`amber_discounts_${editingItem.id}`, JSON.stringify(d));
                             }
-                            // Calculate and apply discounted member price to all member fields
-                            // Use the current price value (original price) to calculate member price
                             if (discount !== undefined && formData.variations) {
-                              const updatedVariations = formData.variations.map(v => {
-                                // Use the current price as the base for member discount calculation
-                                const basePrice = v.price || 0;
-                                return {
-                                  ...v,
-                                  member_price: basePrice * (1 - discount)
-                                };
+                              const updated = formData.variations.map(v => {
+                                const base = typeof v.price === 'number' ? v.price : (parseFloat(String(v.price)) || 0);
+                                return { ...v, member_price: base * (1 - discount) };
                               });
-                              setFormData({ ...formData, variations: updatedVariations });
+                              setFormData({ ...formData, variations: updated });
                             }
                           }}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-xs text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           placeholder="0.10"
-                  />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Calculates discounted member price from original price
-                        </p>
-                </div>
-
-                <div>
-                        <label className="block text-xs font-medium text-black mb-2">Reseller</label>
-                  <input
-                    type="datetime-local"
-                    value={formData.discountStartDate || ''}
-                    onChange={(e) => setFormData({ ...formData, discountStartDate: e.target.value || undefined })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
-                  />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Calculates discounted reseller price from original price
-                        </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-black mb-2">Discount End Date</label>
-                  <input
-                    type="datetime-local"
-                    value={formData.discountEndDate || ''}
-                    onChange={(e) => setFormData({ ...formData, discountEndDate: e.target.value || undefined })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
-                  />
-                </div>
-            </div>
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Calculates discounted member price from original price</p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-black mb-2">VIP</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={resellerDiscount ?? ''}
+                          onChange={(e) => {
+                            const discount = e.target.value !== '' ? Number(e.target.value) : undefined;
+                            setResellerDiscount(discount);
+                            if (editingItem) {
+                              const saved = localStorage.getItem(`amber_discounts_${editingItem.id}`);
+                              const d = saved ? JSON.parse(saved) : {};
+                              d.resellerDiscount = discount;
+                              localStorage.setItem(`amber_discounts_${editingItem.id}`, JSON.stringify(d));
+                            }
+                            if (discount !== undefined && formData.variations) {
+                              const updated = formData.variations.map(v => {
+                                const base = typeof v.price === 'number' ? v.price : (parseFloat(String(v.price)) || 0);
+                                return { ...v, reseller_price: base * (1 - discount) };
+                              });
+                              setFormData({ ...formData, variations: updated });
+                            }
+                          }}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-xs text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          placeholder="0.10"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Calculates discounted VIP price from original price</p>
+                      </div>
+                    </div>
+                  </div>
 
                   {/* QR Code Upload */}
                   <div>
@@ -834,7 +835,6 @@ const AdminDashboard: React.FC = () => {
                     />
                   </div>
                 </div>
-              </div>
               )}
             </div>
 
@@ -845,21 +845,23 @@ const AdminDashboard: React.FC = () => {
                   onClick={() => toggleSection('packages')}
                   className="flex-1 flex items-center justify-between text-left hover:opacity-80 transition-opacity"
                 >
-                  <div className="flex-1">
-                    <h3 className="text-xs font-semibold text-black">Packages</h3>
-                    <p className="text-xs text-gray-500 mt-1">Add currency packages that will be shown when customers click on this item</p>
-                  </div>
-                  {collapsedSections.packages ? (
-                    <ChevronDown className="h-5 w-5 text-gray-600 ml-4 flex-shrink-0" />
-                  ) : (
-                    <ChevronUp className="h-5 w-5 text-gray-600 ml-4 flex-shrink-0" />
-                  )}
+                  <>
+                    <div className="flex-1">
+                      <h3 className="text-xs font-semibold text-black">Packages</h3>
+                      <p className="text-xs text-gray-500 mt-1">Add currency packages that will be shown when customers click on this item</p>
+                    </div>
+                    {collapsedSections.packages ? (
+                      <ChevronDown className="h-5 w-5 text-gray-600 ml-4 flex-shrink-0" />
+                    ) : (
+                      <ChevronUp className="h-5 w-5 text-gray-600 ml-4 flex-shrink-0" />
+                    )}
+                  </>
                 </button>
               </div>
 
               {!collapsedSections.packages && (
                 <div className="space-y-6">
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-2 sm:gap-0">
+                  <div className="flex flex-row flex-wrap items-center gap-2">
                     {formData.variations && formData.variations.length > 1 && (
                       <button
                         onClick={sortVariationsByPrice}
@@ -1013,13 +1015,13 @@ const AdminDashboard: React.FC = () => {
                                     )}
                                   </button>
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <div className="flex-1 min-w-0">
+                                    <div className="flex flex-row items-center gap-2">
+                                      <div className="w-40 sm:w-48 flex-shrink-0">
                                         <label className="block text-xs font-medium text-gray-500 mb-1">Category Name</label>
-                  <input
-                    type="text"
-                                        value={displayCategoryName}
-                                        onChange={(e) => {
+                                        <input
+                                          type="text"
+                                          value={displayCategoryName}
+                                          onChange={(e) => {
                                           // Allow editing all categories including "Unnamed Category"
                                           if (isReadOnly) {
                                             return;
@@ -1051,32 +1053,32 @@ const AdminDashboard: React.FC = () => {
                                           setFormData({ ...formData, variations: updatedVariations });
                                         }}
                                         disabled={isReadOnly}
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm font-semibold disabled:bg-gray-100 disabled:cursor-not-allowed text-black"
+                                        className="w-full min-w-0 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs font-semibold disabled:bg-gray-100 disabled:cursor-not-allowed text-black"
                                         placeholder="Category name (e.g., Category 1)"
                                       />
-                                    </div>
-                                      <div className="w-24 sm:w-32 flex-shrink-0">
-                                    <label className="block text-xs font-medium text-gray-500 mb-1">Category Sort</label>
-                                    <input
-                                      type="number"
-                                      value={categorySort !== 999 ? categorySort : ''}
-                                      onChange={(e) => {
-                                        const value = e.target.value === '' ? 999 : parseInt(e.target.value) || 999;
-                                        // Update sort for all variations in this category using variation IDs
-                                        const categoryVariationIds = new Set(categoryVariations.map(v => v.id));
-                                        const updatedVariations = formData.variations!.map(v => {
-                                          if (categoryVariationIds.has(v.id)) {
-                                            return { ...v, sort: value !== 999 ? value : null };
-                                          }
-                                          return v;
-                                        });
-                                        setFormData({ ...formData, variations: updatedVariations });
-                                      }}
-                                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-black"
-                                      placeholder="Sort"
-                                      min="0"
-                                      step="1"
-                                    />
+                                      </div>
+                                      <div className="w-16 sm:w-24 flex-shrink-0">
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">Sort</label>
+                                        <input
+                                          type="number"
+                                          value={categorySort !== 999 ? categorySort : ''}
+                                          onChange={(e) => {
+                                            const value = e.target.value === '' ? 999 : parseInt(e.target.value) || 999;
+                                            // Update sort for all variations in this category using variation IDs
+                                            const categoryVariationIds = new Set(categoryVariations.map(v => v.id));
+                                            const updatedVariations = formData.variations!.map(v => {
+                                              if (categoryVariationIds.has(v.id)) {
+                                                return { ...v, sort: value !== 999 ? value : null };
+                                              }
+                                              return v;
+                                            });
+                                            setFormData({ ...formData, variations: updatedVariations });
+                                          }}
+                                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                          placeholder="Sort"
+                                          min="0"
+                                          step="1"
+                                        />
                                       </div>
                                       {!isReadOnly && (
                                         <button
@@ -1111,19 +1113,32 @@ const AdminDashboard: React.FC = () => {
                                           <input
                                             type="text"
                                             value={variation.name || ''}
-                    onChange={(e) => updateVariation(index, 'name', e.target.value)}
-                                            className="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-black"
-                                            placeholder="Package name (e.g., 5 Diamonds)"
-                  />
-                                          <div className="flex items-center gap-2">
-                  <input
-                    type="number"
+                                            onChange={(e) => updateVariation(index, 'name', e.target.value)}
+                                            className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
+                                            placeholder="e.g., Weekly Diamond Pass"
+                                          />
+                                          <button
+                                            onClick={() => removeVariation(index)}
+                                            className="p-2 text-orange-500 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors duration-200 flex-shrink-0"
+                                            aria-label="Remove package"
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </button>
+                                        </div>
+
+                                        {/* Pricing Row - All in one row (Price, Member, VIP) */}
+                                        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                                          {/* Price (default price for customers) */}
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Price</label>
+                                            <input
+                                              type="number"
                                               value={variation.price !== undefined && variation.price !== null && variation.price !== 0 ? variation.price : ''}
                                               onChange={(e) => {
                                                 const value = e.target.value === '' ? undefined : Number(e.target.value);
                                                 updateVariation(index, 'price', value);
                                               }}
-                                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                               placeholder="0"
                                               min="0"
                                               step="0.01"
@@ -1140,19 +1155,36 @@ const AdminDashboard: React.FC = () => {
                                                 const value = e.target.value === '' ? undefined : Number(e.target.value);
                                                 updateVariation(index, 'member_price', value);
                                               }}
-                                              className="flex-1 sm:w-32 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-black"
-                                              placeholder="Price (₱)"
+                                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                              placeholder="0"
                                               min="0"
                                               step="0.01"
-                  />
-                </div>
-            </div>
+                                            />
+                                          </div>
+
+                                          {/* VIP Price */}
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">VIP</label>
+                                            <input
+                                              type="number"
+                                              value={variation.reseller_price !== undefined && variation.reseller_price !== null ? variation.reseller_price : ''}
+                                              onChange={(e) => {
+                                                const value = e.target.value === '' ? undefined : Number(e.target.value);
+                                                updateVariation(index, 'reseller_price', value);
+                                              }}
+                                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                              placeholder="0"
+                                              min="0"
+                                              step="0.01"
+                                            />
+                                          </div>
+                                        </div>
 
                                         {/* Description (optional) */}
                                         <textarea
                                           value={variation.description || ''}
                                           onChange={(e) => updateVariation(index, 'description', e.target.value)}
-                                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm resize-y text-black"
+                                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs resize-y text-black"
                                           placeholder="Package description (optional)"
                                           rows={2}
                                         />
@@ -1914,7 +1946,7 @@ const AdminDashboard: React.FC = () => {
                           const newSortOrder = parseInt(e.target.value) || 0;
                           await updateMenuItem(item.id, { ...item, sort_order: newSortOrder });
                         }}
-                        className="w-16 md:w-20 px-2 py-1 border border-gray-300 rounded text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-16 md:w-20 px-2 py-1 border border-gray-300 rounded text-xs "
                       />
                     </div>
                     </div>
@@ -2030,7 +2062,7 @@ const AdminDashboard: React.FC = () => {
                                   const newSortOrder = parseInt(e.target.value) || 0;
                                   await updateMenuItem(item.id, { ...item, sort_order: newSortOrder });
                                 }}
-                                  className="w-20 px-2 py-1 border border-gray-300 rounded text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  className="w-20 px-2 py-1 border border-gray-300 rounded text-xs "
                                 />
                               </div>
                             </div>

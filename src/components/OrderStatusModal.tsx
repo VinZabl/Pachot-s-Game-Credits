@@ -184,7 +184,7 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
               {order.status === 'rejected' && order.rejection_message && (
                 <div className="mt-2 w-full max-w-md rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-center">
                   <p className="text-sm font-medium text-red-400">Message from store:</p>
-                  <p className="text-sm text-cafe-text mt-1">{order.rejection_message}</p>
+                  <p className="text-sm text-white mt-1">{order.rejection_message}</p>
                 </div>
               )}
             </div>

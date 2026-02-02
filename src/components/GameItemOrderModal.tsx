@@ -152,7 +152,8 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       if (!isReseller && currentMember.user_type === 'end_user' && variation.member_price !== undefined) return variation.member_price;
     }
     if (item.isOnDiscount && item.discountPercentage !== undefined) {
-      return basePrice - (basePrice * item.discountPercentage) / 100;
+      // discountPercentage is stored as decimal 0-1 (e.g. 0.10 = 10% off)
+      return basePrice * (1 - item.discountPercentage);
     }
     return basePrice;
   };

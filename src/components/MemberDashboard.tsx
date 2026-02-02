@@ -173,9 +173,9 @@ const MemberDashboard: React.FC = () => {
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <span className="font-medium text-gray-900">Resellers</span>
+                <span className="font-medium text-gray-900">VIPs</span>
               </div>
-              <span className="text-sm text-gray-500">{members.filter(m => m.user_type === 'reseller').length} resellers</span>
+              <span className="text-sm text-gray-500">{members.filter(m => m.user_type === 'reseller').length} VIPs</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -312,7 +312,7 @@ const MemberDashboard: React.FC = () => {
                         : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                     }`}
                   >
-                    Resellers
+                    VIPs
                   </button>
             </div>
               </div>
@@ -377,7 +377,7 @@ const MemberDashboard: React.FC = () => {
                           className="flex-1 bg-white border border-gray-300 rounded px-3 py-2 text-gray-900 text-sm"
                         >
                           <option value="end_user">End User</option>
-                          <option value="reseller">Reseller</option>
+                          <option value="reseller">VIP</option>
                         </select>
                         <button
                           onClick={(e) => {
@@ -458,7 +458,7 @@ const MemberDashboard: React.FC = () => {
                             className="bg-white border border-gray-300 rounded px-2 py-1 text-gray-900 text-sm"
                           >
                             <option value="end_user">End User</option>
-                            <option value="reseller">Reseller</option>
+                            <option value="reseller">VIP</option>
                           </select>
                         </td>
                         <td className="p-3">

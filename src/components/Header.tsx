@@ -50,7 +50,7 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount = 0, onCartClick, onMenu
                 className="p-2 text-white hover:opacity-80 hover:bg-white/10 rounded-full transition-all duration-200"
                 title={currentMember ? currentMember.username : 'Member Login'}
               >
-                <Coins className="h-6 w-6" />
+                <Coins className={`h-6 w-6 ${currentMember?.user_type === 'reseller' ? 'text-amber-400' : 'text-white'}`} />
               </button>
             )}
             {showCart && (

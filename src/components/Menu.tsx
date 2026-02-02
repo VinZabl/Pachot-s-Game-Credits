@@ -5,6 +5,7 @@ import { useSiteSettings } from '../hooks/useSiteSettings';
 import { useOrders } from '../hooks/useOrders';
 import MenuItemCard from './MenuItemCard';
 import Hero from './Hero';
+import OrderStatusModal from './OrderStatusModal';
 
 // Preload images for better performance
 const preloadImages = (items: MenuItem[]) => {
@@ -389,10 +390,10 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
         {/* Welcome back card - Mobile only */}
         {currentMember && (
           <div className="mb-4 md:hidden flex justify-center">
-            <div className="glass-card rounded-lg px-3 py-2 inline-block">
+            <div className="rounded-lg px-3 py-2 inline-block border border-pink-500/30 bg-white/5">
               <div className="flex items-center justify-center">
-                <p className="text-sm text-cafe-text">
-                  <span className="text-cafe-textMuted">Welcome back,</span> <span className="font-semibold ml-2">{currentMember.username}</span>
+                <p className="text-sm text-white">
+                  <span className="text-pink-200/80">Welcome back,</span> <span className="font-semibold ml-2">{currentMember.username}</span>
                 </p>
               </div>
             </div>

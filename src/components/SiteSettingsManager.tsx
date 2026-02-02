@@ -59,6 +59,7 @@ const SiteSettingsManager: React.FC = () => {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isEditing, setIsEditing] = useState(true);
 
   React.useEffect(() => {
     if (siteSettings) {
@@ -188,6 +189,20 @@ const SiteSettingsManager: React.FC = () => {
         footer_support_url: siteSettings.footer_support_url || ''
       });
       setLogoPreview(siteSettings.site_logo);
+      setHeroImages({
+        hero_image_1: siteSettings.hero_image_1 || '',
+        hero_image_2: siteSettings.hero_image_2 || '',
+        hero_image_3: siteSettings.hero_image_3 || '',
+        hero_image_4: siteSettings.hero_image_4 || '',
+        hero_image_5: siteSettings.hero_image_5 || '',
+      });
+      setHeroFiles({
+        hero_image_1: null,
+        hero_image_2: null,
+        hero_image_3: null,
+        hero_image_4: null,
+        hero_image_5: null,
+      });
     }
     setLogoFile(null);
   };
@@ -543,6 +558,62 @@ const SiteSettingsManager: React.FC = () => {
         </div>
 
         {/* Hero Slideshow Images */}
+        <div className="border-t border-gray-200 pt-6 mt-6">
+          <h3 className="text-lg font-semibold text-black mb-2">Hero Slideshow Images</h3>
+          <p className="text-xs text-gray-600 mb-4">
+            Upload up to 5 images for the hero slideshow on the customer page (shown when viewing &quot;All&quot; category). Images are stored in Supabase storage.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {(['hero_image_1', 'hero_image_2', 'hero_image_3', 'hero_image_4', 'hero_image_5'] as const).map((key) => (
+              <div key={key} className="space-y-2">
+                <label className="block text-xs font-medium text-gray-700">
+                  {key.replace('hero_image_', 'Image ')}
+                </label>
+                <div className="flex items-start gap-2">
+                  <div className="w-20 h-14 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center">
+                    {heroImages[key] ? (
+                      <img
+                        src={heroImages[key]}
+                        alt={key}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col gap-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleHeroImageChange(key, e)}
+                      className="hidden"
+                      id={`hero-${key}`}
+                    />
+                    <label
+                      htmlFor={`hero-${key}`}
+                      className="bg-gray-100 text-gray-700 px-2 py-1.5 rounded text-xs hover:bg-gray-200 transition-colors cursor-pointer flex items-center justify-center gap-1"
+                    >
+                      <Upload className="h-3 w-3" />
+                      Upload
+                    </label>
+                    {heroImages[key] && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveHeroImage(key)}
+                        className="text-red-600 hover:text-red-700 text-xs flex items-center justify-center gap-1"
+                      >
+                        <X className="h-3 w-3" />
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Notification Settings */}
         <div className="border-t border-gray-200 pt-6 mt-6">
           <h3 className="text-lg font-semibold text-black mb-4">Notification Settings</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

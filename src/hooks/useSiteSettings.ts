@@ -24,7 +24,7 @@ export const useSiteSettings = () => {
       const settings: SiteSettings = {
         site_name: data.find(s => s.id === 'site_name')?.value || "Pachot's Game Credits",
         site_logo: data.find(s => s.id === 'site_logo')?.value || '/logo.png',
-        site_description: data.find(s => s.id === 'site_description')?.value || 'Welcome to Diginix — Your perfect game credits destination',
+        site_description: data.find(s => s.id === 'site_description')?.value || 'Welcome to PGCSHOP — Your perfect game credits destination',
         currency: data.find(s => s.id === 'currency')?.value || '₱',
         currency_code: data.find(s => s.id === 'currency_code')?.value || 'PHP',
         footer_social_1: data.find(s => s.id === 'footer_social_1')?.value || '',
