@@ -1,7 +1,8 @@
 import React from 'react';
-import { MenuItem, OrderStatus } from '../types';
+import { MenuItem, OrderStatus, Member } from '../types';
 import { useCategories } from '../hooks/useCategories';
 import { useSiteSettings } from '../hooks/useSiteSettings';
+import { useOrders } from '../hooks/useOrders';
 import MenuItemCard from './MenuItemCard';
 import Hero from './Hero';
 
@@ -19,11 +20,14 @@ interface MenuProps {
   menuItems: MenuItem[];
   selectedCategory: string;
   searchQuery?: string;
+  currentMember?: Member | null;
 }
 
-const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = '' }) => {
+const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = '', currentMember }) => {
   const { categories } = useCategories();
   const { siteSettings } = useSiteSettings();
+  const { fetchOrderById } = useOrders();
+  const menuItemsSafe = Array.isArray(menuItems) ? menuItems : [];
   const [activeCategory, setActiveCategory] = React.useState(selectedCategory === 'popular' ? 'popular' : 'hot-coffee');
   const [processingOrderId, setProcessingOrderId] = React.useState<string | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = React.useState(false);
@@ -191,7 +195,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
   // Helper function to render menu items
   const renderMenuItems = (items: MenuItem[]) => {
     return items.map((item) => (
-      <MenuItemCard key={item.id} item={item} />
+      <MenuItemCard key={item.id} item={item} currentMember={currentMember} />
     ));
   };
 

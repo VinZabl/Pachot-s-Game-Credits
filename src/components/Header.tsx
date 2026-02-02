@@ -7,9 +7,11 @@ interface HeaderProps {
   cartItemsCount?: number;
   onCartClick?: () => void;
   onMenuClick?: () => void;
+  onMemberClick?: () => void;
+  currentMember?: Member | null;
 }
 
-const Header: React.FC<HeaderProps> = ({ cartItemsCount = 0, onCartClick, onMenuClick }) => {
+const Header: React.FC<HeaderProps> = ({ cartItemsCount = 0, onCartClick, onMenuClick, onMemberClick, currentMember }) => {
   const showCart = onCartClick != null;
 
   return (
@@ -41,8 +43,17 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount = 0, onCartClick, onMenu
             </span>
           </button>
 
-          {showCart && (
-            <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2">
+            {onMemberClick && (
+              <button
+                onClick={onMemberClick}
+                className="p-2 text-white hover:opacity-80 hover:bg-white/10 rounded-full transition-all duration-200"
+                title={currentMember ? currentMember.username : 'Member Login'}
+              >
+                <Coins className="h-6 w-6" />
+              </button>
+            )}
+            {showCart && (
               <button 
                 onClick={onCartClick}
                 className="relative p-2 text-white hover:opacity-80 hover:bg-white/10 rounded-full transition-all duration-200"
@@ -54,8 +65,8 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount = 0, onCartClick, onMenu
                   </span>
                 )}
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </header>

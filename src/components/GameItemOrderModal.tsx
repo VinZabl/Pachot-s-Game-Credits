@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { X, Upload, HelpCircle, Copy, Download, Plus, Trash2 } from 'lucide-react';
-import { MenuItem, Variation, CartItem } from '../types';
+import { MenuItem, Variation, CartItem, Member } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { useOrders } from '../hooks/useOrders';
@@ -11,6 +11,7 @@ interface GameItemOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOrderPlaced?: () => void;
+  currentMember?: Member | null;
 }
 
 const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
@@ -18,6 +19,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   isOpen,
   onClose,
   onOrderPlaced,
+  currentMember,
 }) => {
   const { paymentMethods } = usePaymentMethods();
   const { uploadImage, uploading: uploadingReceipt } = useImageUpload();
@@ -143,7 +145,12 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
     }
   }, [paymentMethodId]);
 
-  const getDiscountedPrice = (basePrice: number): number => {
+  const getDiscountedPrice = (basePrice: number, variation?: Variation): number => {
+    if (currentMember && variation) {
+      const isReseller = currentMember.user_type === 'reseller';
+      if (isReseller && variation.reseller_price !== undefined) return variation.reseller_price;
+      if (!isReseller && currentMember.user_type === 'end_user' && variation.member_price !== undefined) return variation.member_price;
+    }
     if (item.isOnDiscount && item.discountPercentage !== undefined) {
       return basePrice - (basePrice * item.discountPercentage) / 100;
     }
@@ -152,20 +159,20 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
   const unitPrice = useMemo(() => {
     if (!selectedVariation) return 0;
-    return getDiscountedPrice(selectedVariation.price);
-  }, [selectedVariation, item.isOnDiscount, item.discountPercentage]);
+    return getDiscountedPrice(selectedVariation.price, selectedVariation);
+  }, [selectedVariation, item.isOnDiscount, item.discountPercentage, currentMember]);
 
   const totalPrice = useMemo(() => {
     if (accounts.length === 1) {
       if (!selectedVariation) return 0;
-      const up = getDiscountedPrice(selectedVariation.price);
+      const up = getDiscountedPrice(selectedVariation.price, selectedVariation);
       return up * quantity;
     }
     return Object.entries(userSelections).reduce((sum, [, sel]) => {
-      const up = getDiscountedPrice(sel.variation.price);
+      const up = getDiscountedPrice(sel.variation.price, sel.variation);
       return sum + up * sel.quantity;
     }, 0);
-  }, [accounts.length, selectedVariation, quantity, userSelections, item.isOnDiscount, item.discountPercentage]);
+  }, [accounts.length, selectedVariation, quantity, userSelections, item.isOnDiscount, item.discountPercentage, currentMember]);
 
   const isFormValid = useMemo(() => {
     if (!paymentMethodId || !receiptImageUrl) return false;
@@ -230,7 +237,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       if (accounts.length === 1) {
         const acc = accounts[0];
         const variation = selectedVariation!;
-        const unitP = getDiscountedPrice(variation.price);
+        const unitP = getDiscountedPrice(variation.price, variation);
         const fields: Record<string, string> = {};
         if (hasCustomFields && item.customFields) {
           item.customFields.forEach((field) => {
@@ -257,7 +264,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
           const accIdx = parseInt(accIdxStr, 10);
           const acc = accounts[accIdx];
           if (!acc || !sel.variation) continue;
-          const unitP = getDiscountedPrice(sel.variation.price);
+          const unitP = getDiscountedPrice(sel.variation.price, sel.variation);
           const fields: Record<string, string> = {};
           if (hasCustomFields && item.customFields) {
             item.customFields.forEach((field) => {
@@ -551,7 +558,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
               {item.variations && item.variations.length > 0 ? (
                 <div ref={packageGridRef} className="grid grid-cols-2 gap-2 sm:gap-3">
                   {item.variations.map((v) => {
-                    const price = getDiscountedPrice(v.price);
+                    const price = getDiscountedPrice(v.price, v);
                     const isSelected = selectedVariation?.id === v.id;
                     return (
                       <button
@@ -640,7 +647,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                                 {firstFieldLabel} #{idx + 1}
                                 {sel ? (
                                   <span className="ml-2 font-normal text-gray-700">
-                                    {sel.variation.name} (₱{(getDiscountedPrice(sel.variation.price) * sel.quantity).toFixed(0)})
+                                    {sel.variation.name} (₱{(getDiscountedPrice(sel.variation.price, sel.variation) * sel.quantity).toFixed(0)})
                                   </span>
                                 ) : (
                                   <span className="ml-2 font-normal text-gray-500 italic">← Select package above</span>

@@ -827,13 +827,14 @@ const AdminDashboard: React.FC = () => {
 
                   {/* QR Code Upload */}
                   <div>
-              <ImageUpload
-                label="QR Code Upload"
-                currentImage={formData.image}
-                onImageChange={(imageUrl) => setFormData({ ...formData, image: imageUrl })}
-              />
+                    <ImageUpload
+                      label="QR Code Upload"
+                      currentImage={formData.image}
+                      onImageChange={(imageUrl) => setFormData({ ...formData, image: imageUrl })}
+                    />
                   </div>
                 </div>
+              </div>
               )}
             </div>
 

@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Order, CreateOrderData, OrderStatus } from '../types';
-import { useSiteSettings } from './useSiteSettings';
-
 const ORDERS_PER_PAGE = 20; // Number of orders to fetch per page
 
 export const useOrders = () => {
@@ -58,7 +56,7 @@ export const useOrders = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Fetch a single order by ID
   const fetchOrderById = async (orderId: string): Promise<Order | null> => {
@@ -124,13 +122,24 @@ export const useOrders = () => {
 
       // Refresh orders list only on admin (customer doesn't have access to orders list)
       if (isAdminRoute) await fetchOrders(currentPage, false);
-      return newOrder;
+      return {
+        id: data.id,
+        order_items: data.order_items || [],
+        customer_info: data.customer_info || {},
+        payment_method_id: data.payment_method_id || '',
+        receipt_url: data.receipt_url || '',
+        total_price: data.total_price || 0,
+        status: data.status as OrderStatus,
+        rejection_reason: data.rejection_reason || undefined,
+        created_at: data.created_at,
+        updated_at: data.updated_at || data.created_at,
+      };
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create order');
       console.error('Error creating order:', err);
       return null;
     }
-  }, [fetchOrders, currentPage, isAdminRoute]);
+  };
 
   const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, rejectionReason?: string): Promise<boolean> => {
     try {
@@ -161,11 +170,11 @@ export const useOrders = () => {
     }
   }, [fetchOrders, currentPage]);
 
-  // Use ref to store the latest fetchOrders function
   const fetchOrdersRef = useRef(fetchOrders);
   const lastFetchRef = useRef<number>(0);
   useEffect(() => {
-    if (orderOption !== 'place_order') return;
+    fetchOrdersRef.current = fetchOrders;
+  }, [fetchOrders]);
 
   useEffect(() => {
     if (isAdminRoute) fetchOrders(1);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { CheckCircle, XCircle, Loader2, Eye, Download, X, Copy, Search, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Order, OrderStatus } from '../types';
+import { Order, OrderStatus, Member } from '../types';
 import { useOrders } from '../hooks/useOrders';
 import { usePaymentMethods, PaymentMethod } from '../hooks/usePaymentMethods';
 import { supabase } from '../lib/supabase';
@@ -38,6 +38,8 @@ const OrderManager: React.FC = () => {
   const [selectedRejectionReason, setSelectedRejectionReason] = useState<string>('');
   const [customRejectionText, setCustomRejectionText] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [orderFilter, setOrderFilter] = useState<'place_order' | 'order_via_messenger'>('place_order');
+  const [memberMap, setMemberMap] = useState<Record<string, Member>>({});
 
   // Calculate pagination info (must be before useEffects that use it)
   const totalPages = useMemo(() => Math.ceil(totalCount / ordersPerPage), [totalCount, ordersPerPage]);
@@ -176,15 +178,23 @@ const OrderManager: React.FC = () => {
     setCustomRejectionText('');
   };
 
-  // Filter orders based on search query
+  // Filter orders based on search query and order filter (place_order vs order_via_messenger)
   const filteredOrders = useMemo(() => {
+    let result = orders;
+
+    // Filter by order option
+    result = result.filter(order => {
+      const orderOption = order.order_option || 'place_order';
+      return orderOption === orderFilter;
+    });
+
+    // Filter by search query
     if (!searchQuery.trim()) {
-      return orders;
+      return result;
     }
 
     const query = searchQuery.toLowerCase().trim();
-    
-    return orders.filter(order => {
+    return result.filter(order => {
       // Search by order ID (full or partial)
       if (order.id.toLowerCase().includes(query)) {
         return true;
@@ -231,7 +241,7 @@ const OrderManager: React.FC = () => {
 
       return false;
     });
-  }, [orders, searchQuery]);
+  }, [orders, searchQuery, orderFilter]);
 
   const handleRefresh = () => {
     fetchOrders(currentPage);
@@ -320,12 +330,6 @@ const OrderManager: React.FC = () => {
       </div>
     );
   }
-
-  // Filter orders based on selected filter
-  const filteredOrders = orders.filter(order => {
-    const orderOption = order.order_option || 'place_order';
-    return orderOption === orderFilter;
-  });
 
   return (
     <div className="space-y-3 md:space-y-6">
