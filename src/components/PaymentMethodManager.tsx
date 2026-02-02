@@ -49,6 +49,7 @@ const PaymentMethodManager: React.FC<PaymentMethodManagerProps> = ({ onBack }) =
     account_number: '',
     account_name: '',
     qr_code_url: '',
+    icon_url: '',
     active: true,
     sort_order: 0,
     admin_name: ''
@@ -151,6 +152,7 @@ const PaymentMethodManager: React.FC<PaymentMethodManagerProps> = ({ onBack }) =
       account_number: '',
       account_name: '',
       qr_code_url: '',
+      icon_url: '',
       active: true,
       sort_order: nextSortOrder,
       admin_name: adminName || ''
@@ -166,6 +168,7 @@ const PaymentMethodManager: React.FC<PaymentMethodManagerProps> = ({ onBack }) =
       account_number: method.account_number,
       account_name: method.account_name,
       qr_code_url: method.qr_code_url,
+      icon_url: method.icon_url || '',
       active: method.active,
       sort_order: method.sort_order,
       admin_name: method.admin_name || ''
@@ -369,9 +372,19 @@ const PaymentMethodManager: React.FC<PaymentMethodManagerProps> = ({ onBack }) =
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-black mb-2">QR Code</label>
                 <ImageUpload
                   currentImage={formData.qr_code_url}
                   onImageChange={(imageUrl) => setFormData({ ...formData, qr_code_url: imageUrl || '' })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-black mb-2">Payment Method Icon (shown when customer chooses payment)</label>
+                <p className="text-xs text-gray-500 mb-2">Optional. Square icon (e.g. GCash, Maya logo) displayed in the payment option grid.</p>
+                <ImageUpload
+                  currentImage={formData.icon_url}
+                  onImageChange={(imageUrl) => setFormData({ ...formData, icon_url: imageUrl || '' })}
                 />
               </div>
 

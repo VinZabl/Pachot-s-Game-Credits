@@ -1,5 +1,5 @@
 import React from 'react';
-import { MenuItem, CartItem, OrderStatus } from '../types';
+import { MenuItem, OrderStatus } from '../types';
 import { useCategories } from '../hooks/useCategories';
 import MenuItemCard from './MenuItemCard';
 import { useOrders } from '../hooks/useOrders';
@@ -17,15 +17,11 @@ const preloadImages = (items: MenuItem[]) => {
 
 interface MenuProps {
   menuItems: MenuItem[];
-  addToCart: (item: MenuItem, quantity?: number, variation?: any, addOns?: any[]) => void;
-  cartItems: CartItem[];
-  updateQuantity: (id: string, quantity: number) => void;
   selectedCategory: string;
   searchQuery?: string;
-  onItemAdded?: () => void; // Callback when item is added from modal
 }
 
-const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuantity, selectedCategory, searchQuery = '', onItemAdded }) => {
+const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = '' }) => {
   const { categories } = useCategories();
   const { fetchOrderById } = useOrders();
   const [activeCategory, setActiveCategory] = React.useState(selectedCategory === 'popular' ? 'popular' : 'hot-coffee');
@@ -182,45 +178,9 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
 
   // Helper function to render menu items
   const renderMenuItems = (items: MenuItem[]) => {
-    return items.map((item) => {
-      // Find cart items that match this menu item (by extracting menu item id from cart item id)
-      // For simple items without variations/add-ons, sum all matching cart items
-      const matchingCartItems = cartItems.filter(cartItem => {
-        // Extract original menu item id (format: "menuItemId:::CART:::timestamp-random" or old format)
-        const parts = cartItem.id.split(':::CART:::');
-        const originalMenuItemId = parts.length > 1 ? parts[0] : cartItem.id.split('-')[0];
-        return originalMenuItemId === item.id && 
-               !cartItem.selectedVariation && 
-               (!cartItem.selectedAddOns || cartItem.selectedAddOns.length === 0);
-      });
-      
-      // Sum quantities of all matching simple items (for items without variations/add-ons)
-      const quantity = matchingCartItems.reduce((sum, cartItem) => sum + cartItem.quantity, 0);
-      
-      // Get the first matching cart item for updateQuantity (if any)
-      const primaryCartItem = matchingCartItems[0];
-      
-      return (
-        <MenuItemCard
-          key={item.id}
-          item={item}
-          onAddToCart={addToCart}
-          quantity={quantity}
-          onUpdateQuantity={(id, qty) => {
-            // If we have a cart item, update it by its cart id
-            if (primaryCartItem) {
-              updateQuantity(primaryCartItem.id, qty);
-            } else {
-              // Otherwise, treat as adding a new item
-              if (qty > 0) {
-                addToCart(item, qty);
-              }
-            }
-          }}
-          onItemAdded={onItemAdded}
-        />
-      );
-    });
+    return items.map((item) => (
+      <MenuItemCard key={item.id} item={item} />
+    ));
   };
 
   // Order Status Banner Component

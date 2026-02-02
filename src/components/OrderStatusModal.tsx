@@ -93,15 +93,15 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
   const getStatusDisplay = (status: OrderStatus) => {
     switch (status) {
       case 'pending':
-        return { text: 'Processing', icon: Loader2, color: '#FF69B4' };
+        return { text: 'Order Submitted', icon: CheckCircle, color: '#22c55e' };
       case 'processing':
-        return { text: 'Processing', icon: Loader2, color: '#FF69B4' };
+        return { text: 'Order Submitted', icon: CheckCircle, color: '#22c55e' };
       case 'approved':
-        return { text: 'Succeeded', icon: CheckCircle, color: '#FF69B4' };
+        return { text: 'Accepted', icon: CheckCircle, color: '#22c55e' };
       case 'rejected':
         return { text: 'Rejected', icon: XCircle, color: '#FF00FF' };
       default:
-        return { text: 'Processing', icon: Loader2, color: '#FF69B4' };
+        return { text: 'Order Submitted', icon: CheckCircle, color: '#22c55e' };
     }
   };
 
@@ -123,7 +123,7 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
       >
         {/* Header Section */}
         <div 
-          className="flex-shrink-0 p-6 flex items-center justify-between rounded-t-2xl" 
+          className="flex-shrink-0 p-3 sm:p-6 flex items-center justify-between rounded-t-2xl" 
           style={{ 
             background: 'rgba(13, 13, 13, 0.9)',
             backdropFilter: 'blur(24px)',
@@ -134,14 +134,9 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
           }}
         >
           <div className="flex-1 min-w-0">
-            {order && (order.status === 'pending' || order.status === 'processing') && (
-              <p className="text-xs text-pink-300 mb-2 font-light">
-                Please do not exit this website while your order is being processed
-              </p>
-            )}
-            <h2 className="text-2xl font-semibold text-white">Order Status</h2>
+            <h2 className="text-base sm:text-2xl font-semibold text-white">Order Status</h2>
             {order && (
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-xs sm:text-sm text-gray-400 mt-0.5 sm:mt-1">
                 Order #{order.id.slice(0, 8)}
               </p>
             )}
@@ -155,9 +150,9 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                 onClose();
               }
             }}
-            className="p-2 hover:bg-pink-500/20 rounded-full transition-colors duration-200 flex-shrink-0 ml-2"
+            className="p-1.5 sm:p-2 hover:bg-pink-500/20 rounded-full transition-colors duration-200 flex-shrink-0 ml-2"
           >
-            <X className="h-5 w-5 text-white" />
+            <X className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
           </button>
         </div>
 
@@ -182,30 +177,35 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
             }}
           />
           
-          <div className="p-6 pt-4">
+          <div className="p-3 sm:p-6 pt-2 sm:pt-4">
 
         {loading && !order ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-pink-500" />
+          <div className="flex items-center justify-center py-8 sm:py-12">
+            <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-pink-500" />
           </div>
         ) : order ? (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Status Display */}
-            <div className="flex flex-col items-center gap-3 py-4">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-2 sm:gap-3 py-3 sm:py-4">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <StatusIcon 
-                  className={`h-8 w-8 ${order.status === 'processing' || order.status === 'pending' ? 'animate-spin' : ''}`}
+                  className="h-6 w-6 sm:h-8 sm:w-8"
                   style={{ color: statusDisplay?.color }}
                 />
                 <span 
-                  className="text-2xl font-semibold"
+                  className="text-lg sm:text-2xl font-semibold"
                   style={{ color: statusDisplay?.color }}
                 >
                   {statusDisplay?.text}
                 </span>
               </div>
+              {(order.status === 'pending' || order.status === 'processing') && (
+                <p className="text-xs sm:text-sm text-gray-400 text-center">
+                  Your orders are now being processed
+                </p>
+              )}
               {order.created_at && (
-                <p className="text-sm text-gray-400">
+                <p className="text-xs sm:text-sm text-gray-400">
                   {new Date(order.created_at).toLocaleString()}
                 </p>
               )}
@@ -213,12 +213,12 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
 
             {/* Rejection Reason */}
             {order.status === 'rejected' && order.rejection_reason && (
-              <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-4">
-                <h3 className="font-medium text-red-300 mb-2 flex items-center gap-2">
-                  <XCircle className="h-5 w-5" />
+              <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-3 sm:p-4">
+                <h3 className="text-sm sm:text-base font-medium text-red-300 mb-1.5 sm:mb-2 flex items-center gap-2">
+                  <XCircle className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
                   Rejection Reason
                 </h3>
-                <p className="text-sm text-red-200 whitespace-pre-wrap leading-relaxed">
+                <p className="text-xs sm:text-sm text-red-200 whitespace-pre-wrap leading-relaxed">
                   {order.rejection_reason}
                 </p>
               </div>
@@ -226,15 +226,15 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
 
             {/* Support Section */}
             {siteSettings?.footer_support_url && (
-              <div className="mb-6">
+              <div className="mb-4 sm:mb-6">
                 <a
                   href={siteSettings.footer_support_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 p-3 rounded-lg bg-gray-900/50 hover:bg-gray-900/70 border border-pink-500/30 hover:border-pink-500/50 transition-all duration-200 group"
+                  className="flex items-center justify-center gap-1.5 sm:gap-2 p-2.5 sm:p-3 rounded-lg bg-gray-900/50 hover:bg-gray-900/70 border border-pink-500/30 hover:border-pink-500/50 transition-all duration-200 group"
                 >
-                  <MessageCircle className="h-5 w-5 text-pink-500 group-hover:scale-110 transition-transform duration-200" />
-                  <span className="text-sm font-medium text-white group-hover:text-pink-500 transition-colors duration-200">
+                  <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 text-pink-500 group-hover:scale-110 transition-transform duration-200 flex-shrink-0" />
+                  <span className="text-xs sm:text-sm font-medium text-white group-hover:text-pink-500 transition-colors duration-200">
                     Having trouble or issues? Tap here to contact us
                   </span>
                 </a>
@@ -242,12 +242,12 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
             )}
 
             {/* Order Details */}
-            <div className="bg-gray-900 rounded-lg p-4 border border-pink-500/30 shadow-md">
-              <h3 className="font-medium text-white mb-4">Order Details</h3>
-              <div className="space-y-3">
+            <div>
+              <h3 className="text-sm sm:text-base font-medium text-white mb-3 sm:mb-4">Order Details</h3>
+              <div className="space-y-2 sm:space-y-3">
                 {order.order_items.map((item, index) => (
-                  <div key={index} className="flex items-start gap-4 py-2 border-b border-pink-500/20 last:border-b-0">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg">
+                  <div key={index} className="flex items-start gap-2 sm:gap-4 py-1.5 sm:py-2 border-b border-pink-500/20 last:border-b-0">
+                    <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg">
                       {item.image ? (
                         <img
                           src={item.image}
@@ -256,17 +256,17 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <div className="text-xl opacity-20 text-gray-400">🎮</div>
+                          <div className="text-base sm:text-xl opacity-20 text-gray-400">🎮</div>
                         </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-white">{item.name}</h4>
+                      <h4 className="text-sm sm:text-base font-medium text-white">{item.name}</h4>
                       {item.selectedVariation && (
-                        <p className="text-sm text-gray-400">Package: {item.selectedVariation.name}</p>
+                        <p className="text-xs sm:text-sm text-gray-400">Package: {item.selectedVariation.name}</p>
                       )}
                       {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                        <p className="text-sm text-gray-400">
+                        <p className="text-xs sm:text-sm text-gray-400">
                           Add-ons: {item.selectedAddOns.map(addOn => 
                             addOn.quantity && addOn.quantity > 1 
                               ? `${addOn.name} x${addOn.quantity}`
@@ -274,16 +274,16 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                           ).join(', ')}
                         </p>
                       )}
-                      <p className="text-sm text-gray-400">₱{item.totalPrice} × {item.quantity}</p>
+                      <p className="text-xs sm:text-sm text-gray-400">₱{item.totalPrice} × {item.quantity}</p>
                     </div>
                     <div className="flex-shrink-0">
-                      <span className="font-semibold text-white">₱{item.totalPrice * item.quantity}</span>
+                      <span className="text-sm sm:text-base font-semibold text-white">₱{item.totalPrice * item.quantity}</span>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 pt-4 border-t border-pink-500/30">
-                <div className="flex items-center justify-between text-xl font-semibold text-white">
+              <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-pink-500/30">
+                <div className="flex items-center justify-between text-base sm:text-xl font-semibold text-white">
                   <span>Total:</span>
                   <span className="text-white">₱{order.total_price}</span>
                 </div>
@@ -291,8 +291,8 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
             </div>
 
             {/* Customer Information */}
-            <div className="bg-gray-900 rounded-lg p-4 border border-pink-500/30 shadow-md">
-              <h3 className="font-medium text-white mb-4">Customer Information</h3>
+            <div>
+              <h3 className="text-sm sm:text-base font-medium text-white mb-3 sm:mb-4">Customer Information</h3>
               {(() => {
                 const info = order.customer_info || {};
                 const multipleAccounts = Array.isArray(info['Multiple Accounts']) ? info['Multiple Accounts'] : null;
@@ -302,18 +302,18 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
 
                 if (hasMultipleAccounts) {
                   return (
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                       {multipleAccounts.map((account: { game?: string; package?: string; fields?: Record<string, string> }, accountIndex: number) => (
-                        <div key={accountIndex} className="pb-4 border-b border-pink-500/20 last:border-b-0 last:pb-0">
-                          <div className="mb-2">
-                            <p className="text-sm font-semibold text-white">{account.game || 'Item'}</p>
+                        <div key={accountIndex} className="pb-3 sm:pb-4 border-b border-pink-500/20 last:border-b-0 last:pb-0">
+                          <div className="mb-1.5 sm:mb-2">
+                            <p className="text-xs sm:text-sm font-semibold text-white">{account.game || 'Item'}</p>
                             {account.package && (
-                              <p className="text-xs text-gray-400">Package: {account.package}</p>
+                              <p className="text-[10px] sm:text-xs text-gray-400">Package: {account.package}</p>
                             )}
                           </div>
-                          <div className="space-y-2 mt-2">
+                          <div className="space-y-1 sm:space-y-2 mt-1.5 sm:mt-2">
                             {account.fields && Object.entries(account.fields).map(([key, value]) => (
-                              <p key={key} className="text-sm text-gray-400">
+                              <p key={key} className="text-xs sm:text-sm text-gray-400">
                                 {key}: {String(value)}
                               </p>
                             ))}
@@ -321,41 +321,46 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                         </div>
                       ))}
                       {info['Payment Method'] && (
-                        <div className="pt-2 border-t border-pink-500/20">
-                          <p className="text-sm text-gray-400">
-                            Payment Method: {String(info['Payment Method'])}
-                          </p>
-                        </div>
+                        <p className="text-xs sm:text-sm text-gray-400 mt-1.5 sm:mt-2">
+                          Payment Method: {String(info['Payment Method'])}
+                        </p>
                       )}
                     </div>
                   );
                 }
                 if (hasSingleEntries) {
+                  const customFieldEntries = singleEntries.filter(([key]) => key !== 'Payment Method');
+                  const paymentMethod = info['Payment Method'];
                   return (
-                    <div className="space-y-2">
-                      {singleEntries.map(([key, value]) => (
-                        <p key={key} className="text-sm text-gray-400">
+                    <div className="space-y-1.5 sm:space-y-2">
+                      {customFieldEntries.map(([key, value]) => (
+                        <p key={key} className="text-xs sm:text-sm text-gray-400">
                           {key}: {String(value)}
                         </p>
                       ))}
+                      {paymentMethod && (
+                        <p key="payment-method" className="text-xs sm:text-sm text-gray-400">
+                          Payment Method: {String(paymentMethod)}
+                        </p>
+                      )}
                     </div>
                   );
                 }
                 return (
-                  <p className="text-sm text-gray-500 italic">No customer information recorded for this order.</p>
+                  <p className="text-xs sm:text-sm text-gray-500 italic">No customer information recorded for this order.</p>
                 );
               })()}
             </div>
           </div>
         ) : (
-          <div className="text-center py-12">
-            <p className="text-gray-400">Order not found</p>
+          <div className="text-center py-8 sm:py-12">
+            <p className="text-sm sm:text-base text-gray-400">Order not found</p>
           </div>
         )}
 
             {/* Footer */}
-            <div className="mt-6 pt-4 border-t border-pink-500/20">
-              <p className="text-xs text-gray-400 text-center">
+            <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-pink-500/20">
+              <p className="text-[10px] sm:text-xs text-gray-400 text-center">
                 by Pachot's Game Credits
               </p>
             </div>

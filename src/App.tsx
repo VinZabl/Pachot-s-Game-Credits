@@ -1,11 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { useCart } from './hooks/useCart';
 import Header from './components/Header';
 import SubNav from './components/SubNav';
 import Menu from './components/Menu';
-import Cart from './components/Cart';
-import Checkout from './components/Checkout';
 import FloatingSupportButton from './components/FloatingSupportButton';
 import Footer from './components/Footer';
 import AdminDashboard from './components/AdminDashboard';
@@ -14,22 +11,7 @@ import { useMenu } from './hooks/useMenu';
 const APP_STATE_STORAGE_KEY = 'pachot_app_state';
 
 function MainApp() {
-  const cart = useCart();
   const { menuItems } = useMenu();
-  
-  // Load app state from localStorage on mount
-  const [currentView, setCurrentView] = React.useState<'menu' | 'cart' | 'checkout'>(() => {
-    try {
-      const stored = localStorage.getItem(APP_STATE_STORAGE_KEY);
-      if (stored) {
-        const state = JSON.parse(stored);
-        return state.currentView || 'menu';
-      }
-    } catch (error) {
-      console.error('Error loading app state from localStorage:', error);
-    }
-    return 'menu';
-  });
   
   const [selectedCategory, setSelectedCategory] = React.useState<string>(() => {
     try {
@@ -61,18 +43,13 @@ function MainApp() {
   React.useEffect(() => {
     try {
       localStorage.setItem(APP_STATE_STORAGE_KEY, JSON.stringify({
-        currentView,
         selectedCategory,
         searchQuery
       }));
     } catch (error) {
       console.error('Error saving app state to localStorage:', error);
     }
-  }, [currentView, selectedCategory, searchQuery]);
-
-  const handleViewChange = (view: 'menu' | 'cart' | 'checkout') => {
-    setCurrentView(view);
-  };
+  }, [selectedCategory, searchQuery]);
 
   const handleCategoryClick = (categoryId: string) => {
     setSelectedCategory(categoryId);
@@ -87,12 +64,6 @@ function MainApp() {
       setSelectedCategory('all');
     }
   };
-
-  // Handler for when item is added from package selection modal
-  const handleItemAdded = React.useCallback(() => {
-    // Redirect to cart view after adding item from modal
-    setCurrentView('cart');
-  }, []);
 
   // Check if there are any popular items
   const hasPopularItems = React.useMemo(() => {
@@ -142,56 +113,20 @@ function MainApp() {
         }}
       />
       
-      <Header 
-        cartItemsCount={cart.getTotalItems()}
-        onCartClick={() => handleViewChange('cart')}
-        onMenuClick={() => handleViewChange('menu')}
-      />
-      {currentView === 'menu' && (
-        <SubNav 
+      <Header onMenuClick={() => {}} />
+      <SubNav 
           selectedCategory={selectedCategory} 
           onCategoryClick={handleCategoryClick}
           searchQuery={searchQuery}
           onSearchChange={handleSearchChange}
           hasPopularItems={hasPopularItems}
         />
-      )}
       
-      {currentView === 'menu' && (
-        <Menu 
-          menuItems={filteredMenuItems}
-          addToCart={cart.addToCart}
-          cartItems={cart.cartItems}
-          updateQuantity={cart.updateQuantity}
-          selectedCategory={selectedCategory}
-          searchQuery={searchQuery}
-          onItemAdded={handleItemAdded}
-        />
-      )}
-      
-      {currentView === 'cart' && (
-        <Cart 
-          cartItems={cart.cartItems}
-          updateQuantity={cart.updateQuantity}
-          removeFromCart={cart.removeFromCart}
-          clearCart={cart.clearCart}
-          getTotalPrice={cart.getTotalPrice}
-          onContinueShopping={() => handleViewChange('menu')}
-          onCheckout={() => handleViewChange('checkout')}
-        />
-      )}
-      
-      {currentView === 'checkout' && (
-        <Checkout 
-          cartItems={cart.cartItems}
-          totalPrice={cart.getTotalPrice()}
-          onBack={() => handleViewChange('cart')}
-          onNavigateToMenu={() => {
-            cart.clearCart();
-            handleViewChange('menu');
-          }}
-        />
-      )}
+      <Menu 
+        menuItems={filteredMenuItems}
+        selectedCategory={selectedCategory}
+        searchQuery={searchQuery}
+      />
       
       <FloatingSupportButton />
       <Footer />

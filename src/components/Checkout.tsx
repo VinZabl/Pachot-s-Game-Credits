@@ -896,7 +896,7 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
         <div className="glass-card rounded-xl p-6">
           <h2 className="text-2xl font-medium text-white mb-6">Choose Payment Method</h2>
           
-          <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6">
+          <div className="grid grid-cols-5 gap-3 md:gap-4 mb-6">
             {paymentMethods.map((method) => (
               <button
                 key={method.id}
@@ -904,19 +904,19 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
                 onClick={() => {
                   setPaymentMethod(method.id as PaymentMethod);
                 }}
-                className={`p-2 md:p-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center justify-center gap-2 ${
+                title={method.name}
+                className={`w-14 h-14 md:w-16 md:h-16 rounded-xl border-2 transition-all duration-200 flex items-center justify-center p-1.5 ${
                   paymentMethod === method.id
                     ? 'border-transparent text-white'
                     : 'glass border-pink-500/30 text-white hover:border-pink-500 hover:glass-strong'
                 }`}
                 style={paymentMethod === method.id ? { backgroundColor: '#FF69B4' } : {}}
               >
-                {/* Icon on Top */}
-                <div className="relative w-12 h-12 md:w-14 md:h-14 flex-shrink-0 rounded-lg overflow-hidden bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg flex items-center justify-center">
+                {method.icon_url ? (
+                  <img src={method.icon_url} alt={method.name} className="w-full h-full object-contain rounded" />
+                ) : (
                   <span className="text-xl md:text-2xl">💳</span>
-                </div>
-                {/* Text Below */}
-                <span className="font-medium text-xs md:text-sm text-center">{method.name}</span>
+                )}
               </button>
             ))}
           </div>

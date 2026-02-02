@@ -180,6 +180,7 @@ export type Database = {
           account_number: string;
           account_name: string;
           qr_code_url: string;
+          icon_url: string | null;
           active: boolean;
           sort_order: number;
           admin_name: string | null;
@@ -193,6 +194,7 @@ export type Database = {
           account_number: string;
           account_name: string;
           qr_code_url: string;
+          icon_url?: string | null;
           active?: boolean;
           sort_order?: number;
           created_at?: string;
@@ -205,6 +207,7 @@ export type Database = {
           account_number?: string;
           account_name?: string;
           qr_code_url?: string;
+          icon_url?: string | null;
           active?: boolean;
           sort_order?: number;
           admin_name?: string | null;

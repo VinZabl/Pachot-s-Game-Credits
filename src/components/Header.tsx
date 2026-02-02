@@ -3,13 +3,13 @@ import { ShoppingCart } from 'lucide-react';
 import { useSiteSettings } from '../hooks/useSiteSettings';
 
 interface HeaderProps {
-  cartItemsCount: number;
-  onCartClick: () => void;
-  onMenuClick: () => void;
+  cartItemsCount?: number;
+  onCartClick?: () => void;
+  onMenuClick?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ cartItemsCount, onCartClick, onMenuClick }) => {
-  const { siteSettings } = useSiteSettings();
+const Header: React.FC<HeaderProps> = ({ cartItemsCount = 0, onCartClick, onMenuClick }) => {
+  const showCart = onCartClick != null;
 
   return (
     <header className="sticky top-0 z-50 shadow-sm" style={{ 
@@ -22,7 +22,7 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount, onCartClick, onMenuClic
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 md:py-3">
         <div className="flex items-center justify-between min-h-12 md:min-h-16">
           <button 
-            onClick={onMenuClick}
+            onClick={onMenuClick ?? (() => {})}
             className="text-white hover:opacity-80 transition-colors duration-200 flex items-center gap-3"
           >
             <img 
@@ -38,19 +38,21 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount, onCartClick, onMenuClic
             </span>
           </button>
 
-          <div className="flex items-center space-x-2">
-            <button 
-              onClick={onCartClick}
-              className="relative p-2 text-white hover:opacity-80 hover:bg-white/10 rounded-full transition-all duration-200"
-            >
-              <ShoppingCart className="h-6 w-6" />
-              {cartItemsCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-bounce-gentle glow-blue">
-                  {cartItemsCount}
-                </span>
-              )}
-            </button>
-          </div>
+          {showCart && (
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={onCartClick}
+                className="relative p-2 text-white hover:opacity-80 hover:bg-white/10 rounded-full transition-all duration-200"
+              >
+                <ShoppingCart className="h-6 w-6" />
+                {cartItemsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-bounce-gentle glow-blue">
+                    {cartItemsCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>
