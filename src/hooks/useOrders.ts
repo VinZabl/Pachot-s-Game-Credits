@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Order, CreateOrderData, OrderStatus } from '../types';
 
 const ORDERS_PER_PAGE = 20; // Number of orders to fetch per page
 
 export const useOrders = () => {
+  const { pathname } = useLocation();
+  const isAdminRoute = pathname.startsWith('/admin');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -116,14 +119,14 @@ export const useOrders = () => {
         updated_at: data.updated_at || data.created_at,
       };
 
-      // Refresh orders list (stay on current page)
-      await fetchOrders(currentPage, false);
+      // Refresh orders list only on admin (customer doesn't have access to orders list)
+      if (isAdminRoute) await fetchOrders(currentPage, false);
       return newOrder;
     } catch (err) {
       console.error('Error creating order:', err);
       throw err;
     }
-  }, [fetchOrders, currentPage]);
+  }, [fetchOrders, currentPage, isAdminRoute]);
 
   const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, rejectionReason?: string): Promise<boolean> => {
     try {
@@ -161,8 +164,8 @@ export const useOrders = () => {
   }, [fetchOrders]);
 
   useEffect(() => {
-    fetchOrders(1);
-  }, [fetchOrders]);
+    if (isAdminRoute) fetchOrders(1);
+  }, [fetchOrders, isAdminRoute]);
 
   // Set up polling fallback - check every 30s (reduced from 5s for egress efficiency)
   // Real-time subscription is the primary update mechanism
@@ -170,6 +173,7 @@ export const useOrders = () => {
   const MIN_FETCH_INTERVAL_MS = 2000; // Skip poll if we just fetched (e.g. from real-time)
 
   useEffect(() => {
+    if (!isAdminRoute) return;
     const pollInterval = setInterval(() => {
       const now = Date.now();
       if (now - lastFetchRef.current < MIN_FETCH_INTERVAL_MS) return; // Avoid duplicate fetch after real-time
@@ -178,10 +182,12 @@ export const useOrders = () => {
     }, POLL_INTERVAL_MS);
 
     return () => clearInterval(pollInterval);
-  }, [currentPage]);
+  }, [currentPage, isAdminRoute]);
 
-  // Set up real-time subscription (active regardless of current view)
+  // Set up real-time subscription only on admin route (customer side has no access to all orders)
   useEffect(() => {
+    if (!isAdminRoute) return;
+
     let channel: ReturnType<typeof supabase.channel>;
     let reconnectTimeout: NodeJS.Timeout;
 
@@ -232,7 +238,7 @@ export const useOrders = () => {
         supabase.removeChannel(channel);
       }
     };
-  }, [currentPage]); // Include currentPage in dependencies
+  }, [currentPage, isAdminRoute]);
 
   return {
     orders,

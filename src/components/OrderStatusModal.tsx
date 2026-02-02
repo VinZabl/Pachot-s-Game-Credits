@@ -97,7 +97,7 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
       case 'processing':
         return { text: 'Order Submitted', icon: CheckCircle, color: '#22c55e' };
       case 'approved':
-        return { text: 'Accepted', icon: CheckCircle, color: '#22c55e' };
+        return { text: 'Success!', icon: CheckCircle, color: '#22c55e' };
       case 'rejected':
         return { text: 'Rejected', icon: XCircle, color: '#FF00FF' };
       default:

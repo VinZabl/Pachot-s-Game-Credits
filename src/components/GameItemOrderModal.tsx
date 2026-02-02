@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { X, Upload, HelpCircle, Copy, Download } from 'lucide-react';
+import { X, Upload, HelpCircle, Copy, Download, Plus, Trash2 } from 'lucide-react';
 import { MenuItem, Variation, CartItem } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useImageUpload } from '../hooks/useImageUpload';
@@ -23,10 +23,11 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   const { uploadImage, uploading: uploadingReceipt } = useImageUpload();
   const { createOrder, fetchOrderById } = useOrders();
 
-  const [selectedVariation, setSelectedVariation] = useState<Variation | undefined>(
-    item.variations?.[0]
-  );
-  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
+  const [selectedVariation, setSelectedVariation] = useState<Variation | undefined>(undefined);
+  const [accounts, setAccounts] = useState<Record<string, string>[]>([{}]);
+  const [quantity, setQuantity] = useState(1);
+  const [userSelections, setUserSelections] = useState<Record<number, { variation: Variation; quantity: number }>>({});
+  const [activeUserIdx, setActiveUserIdx] = useState<number | null>(null);
   const [paymentMethodId, setPaymentMethodId] = useState<string | null>(null);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptImageUrl, setReceiptImageUrl] = useState<string | null>(null);
@@ -38,6 +39,9 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   const [showIdHelp, setShowIdHelp] = useState(false);
   const [copiedAccountName, setCopiedAccountName] = useState(false);
   const [copiedAccountNumber, setCopiedAccountNumber] = useState(false);
+  const section2Ref = useRef<HTMLDivElement>(null);
+  const packageGridRef = useRef<HTMLDivElement>(null);
+  const quantityApplyToRef = useRef<HTMLDivElement>(null);
   const paymentSectionRef = useRef<HTMLDivElement>(null);
   const paymentDetailsRef = useRef<HTMLDivElement>(null);
   const uploadSectionRef = useRef<HTMLDivElement>(null);
@@ -105,17 +109,27 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   const hasCustomFields = item.customFields && item.customFields.length > 0;
   const selectedPaymentMethod = paymentMethods.find((m) => m.id === paymentMethodId);
 
-  // Auto-scroll to payment section when package is selected
+  // Set activeUserIdx to first unassigned when in multi-account mode (Option B: "Selecting for" flow)
   useEffect(() => {
-    if (selectedVariation && paymentSectionRef.current) {
-      setTimeout(() => {
-        paymentSectionRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-        });
-      }, 100);
+    if (accounts.length <= 1) {
+      setActiveUserIdx(null);
+      return;
     }
-  }, [selectedVariation]);
+    const firstUnassigned = accounts.findIndex((_, idx) => !userSelections[idx]);
+    if (firstUnassigned >= 0) {
+      setActiveUserIdx(firstUnassigned);
+    } else {
+      setActiveUserIdx(null); // All assigned
+    }
+  }, [accounts.length, userSelections]);
+
+  // When user selects a package (single account only): scroll to payment
+  useEffect(() => {
+    if (!selectedVariation || accounts.length > 1) return;
+    setTimeout(() => {
+      paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+  }, [selectedVariation, accounts.length]);
 
   // Auto-scroll to payment details when payment method is selected
   useEffect(() => {
@@ -129,15 +143,6 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
     }
   }, [paymentMethodId]);
 
-  const totalPrice = useMemo(() => {
-    if (!selectedVariation) return 0;
-    const base = selectedVariation.price;
-    if (item.isOnDiscount && item.discountPercentage) {
-      return base - (base * item.discountPercentage) / 100;
-    }
-    return base;
-  }, [selectedVariation, item.isOnDiscount, item.discountPercentage]);
-
   const getDiscountedPrice = (basePrice: number): number => {
     if (item.isOnDiscount && item.discountPercentage !== undefined) {
       return basePrice - (basePrice * item.discountPercentage) / 100;
@@ -145,17 +150,45 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
     return basePrice;
   };
 
-  const isFormValid = useMemo(() => {
-    if (!selectedVariation || !paymentMethodId || !receiptImageUrl) return false;
-    if (hasCustomFields && item.customFields) {
-      return item.customFields.every((field, idx) => {
-        if (!field.required) return true;
-        const key = `0_${idx}_${field.key}`;
-        return !!customFieldValues[key]?.trim();
-      });
+  const unitPrice = useMemo(() => {
+    if (!selectedVariation) return 0;
+    return getDiscountedPrice(selectedVariation.price);
+  }, [selectedVariation, item.isOnDiscount, item.discountPercentage]);
+
+  const totalPrice = useMemo(() => {
+    if (accounts.length === 1) {
+      if (!selectedVariation) return 0;
+      const up = getDiscountedPrice(selectedVariation.price);
+      return up * quantity;
     }
-    return !!customFieldValues['default_ign']?.trim();
-  }, [selectedVariation, paymentMethodId, receiptImageUrl, hasCustomFields, item.customFields, customFieldValues]);
+    return Object.entries(userSelections).reduce((sum, [, sel]) => {
+      const up = getDiscountedPrice(sel.variation.price);
+      return sum + up * sel.quantity;
+    }, 0);
+  }, [accounts.length, selectedVariation, quantity, userSelections, item.isOnDiscount, item.discountPercentage]);
+
+  const isFormValid = useMemo(() => {
+    if (!paymentMethodId || !receiptImageUrl) return false;
+    if (accounts.length === 1) {
+      if (!selectedVariation) return false;
+      const acc = accounts[0];
+      if (hasCustomFields && item.customFields) {
+        if (!item.customFields.every((f) => !f.required || !!acc[f.key]?.trim())) return false;
+      } else if (!acc['default_ign']?.trim()) return false;
+      return true;
+    }
+    const selectionEntries = Object.entries(userSelections);
+    if (selectionEntries.length === 0) return false;
+    return selectionEntries.every(([accIdxStr, sel]) => {
+      const accIdx = parseInt(accIdxStr, 10);
+      const acc = accounts[accIdx];
+      if (!acc || !sel.variation) return false;
+      if (hasCustomFields && item.customFields) {
+        return item.customFields.every((f) => !f.required || !!acc[f.key]?.trim());
+      }
+      return !!acc['default_ign']?.trim();
+    });
+  }, [selectedVariation, paymentMethodId, receiptImageUrl, hasCustomFields, item.customFields, accounts, userSelections]);
 
   const handleReceiptUpload = async (file: File) => {
     try {
@@ -182,7 +215,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   };
 
   const handlePlaceOrder = async () => {
-    if (!selectedVariation || !selectedPaymentMethod || !receiptImageUrl) return;
+    if (!selectedPaymentMethod || !receiptImageUrl) return;
 
     try {
       setIsPlacingOrder(true);
@@ -191,36 +224,72 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       const customerInfo: Record<string, string | unknown> = {};
       customerInfo['Payment Method'] = selectedPaymentMethod.name;
 
-      if (hasCustomFields && item.customFields) {
+      const orderItems: CartItem[] = [];
+      const multipleAccountsData: { game: string; package: string; fields: Record<string, string> }[] = [];
+
+      if (accounts.length === 1) {
+        const acc = accounts[0];
+        const variation = selectedVariation!;
+        const unitP = getDiscountedPrice(variation.price);
         const fields: Record<string, string> = {};
-        item.customFields.forEach((field, idx) => {
-          const key = `0_${idx}_${field.key}`;
-          const val = customFieldValues[key];
-          if (val) fields[field.label] = val;
-        });
+        if (hasCustomFields && item.customFields) {
+          item.customFields.forEach((field) => {
+            const val = acc[field.key];
+            if (val) fields[field.label] = val;
+          });
+        } else if (acc['default_ign']) {
+          fields['IGN'] = acc['default_ign'];
+        }
         if (Object.keys(fields).length > 0) {
-          customerInfo['Multiple Accounts'] = [{
-            game: item.name,
-            package: selectedVariation.name,
-            fields,
-          }];
+          multipleAccountsData.push({ game: item.name, package: variation.name, fields });
+        }
+        for (let q = 0; q < quantity; q++) {
+          orderItems.push({
+            ...item,
+            id: `${item.id}:::CART:::${Date.now()}-0-${q}-${Math.random().toString(36).slice(2)}`,
+            quantity: 1,
+            selectedVariation: variation,
+            totalPrice: unitP,
+          });
         }
       } else {
-        if (customFieldValues['default_ign']) {
-          customerInfo['IGN'] = customFieldValues['default_ign'];
+        for (const [accIdxStr, sel] of Object.entries(userSelections)) {
+          const accIdx = parseInt(accIdxStr, 10);
+          const acc = accounts[accIdx];
+          if (!acc || !sel.variation) continue;
+          const unitP = getDiscountedPrice(sel.variation.price);
+          const fields: Record<string, string> = {};
+          if (hasCustomFields && item.customFields) {
+            item.customFields.forEach((field) => {
+              const val = acc[field.key];
+              if (val) fields[field.label] = val;
+            });
+          } else if (acc['default_ign']) {
+            fields['IGN'] = acc['default_ign'];
+          }
+          if (Object.keys(fields).length > 0) {
+            multipleAccountsData.push({ game: item.name, package: sel.variation.name, fields });
+          }
+          for (let q = 0; q < sel.quantity; q++) {
+            orderItems.push({
+              ...item,
+              id: `${item.id}:::CART:::${Date.now()}-${accIdx}-${q}-${Math.random().toString(36).slice(2)}`,
+              quantity: 1,
+              selectedVariation: sel.variation,
+              totalPrice: unitP,
+            });
+          }
         }
       }
 
-      const cartItem: CartItem = {
-        ...item,
-        id: `${item.id}:::CART:::${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        quantity: 1,
-        selectedVariation,
-        totalPrice,
-      };
+      if (multipleAccountsData.length > 0) {
+        customerInfo['Multiple Accounts'] = multipleAccountsData;
+      } else if (accounts[0]?.['default_ign']) {
+        customerInfo['IGN'] = accounts[0]['default_ign'];
+      }
 
       const newOrder = await createOrder({
-        order_items: [cartItem],
+        order_items: orderItems,
         customer_info: customerInfo as Record<string, string | unknown>,
         payment_method_id: selectedPaymentMethod.id,
         receipt_url: receiptImageUrl,
@@ -243,10 +312,70 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
   const handleClose = () => {
     onClose();
-    setSelectedVariation(item.variations?.[0]);
-    setCustomFieldValues({});
+    setSelectedVariation(undefined);
+    setAccounts([{}]);
+    setQuantity(1);
+    setUserSelections({});
+    setActiveUserIdx(null);
     setPaymentMethodId(null);
     handleReceiptRemove();
+  };
+
+  const firstFieldLabel = hasCustomFields && item.customFields?.[0] ? item.customFields[0].label : 'User ID';
+
+  const addAccount = () => setAccounts((prev) => [...prev, {}]);
+
+  const removeAccount = (idx: number) => {
+    if (accounts.length <= 1) return;
+    setAccounts((prev) => prev.filter((_, i) => i !== idx));
+    setUserSelections((prev) => {
+      const next: Record<number, { variation: Variation; quantity: number }> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const i = parseInt(k, 10);
+        if (i < idx) next[i] = v;
+        else if (i > idx) next[i - 1] = v;
+      });
+      return next;
+    });
+  };
+
+  // Option B: Assign package directly to user (from package click)
+  const assignPackageToUser = (accIdx: number, variation: Variation, qty: number = 1) => {
+    const hasAnotherUnassigned = accounts.some((_, idx) => idx !== accIdx && !userSelections[idx]);
+    setUserSelections((prev) => ({ ...prev, [accIdx]: { variation, quantity: qty } }));
+    // activeUserIdx is updated by useEffect when userSelections changes
+    setTimeout(() => {
+      if (hasAnotherUnassigned) {
+        // Scroll to top of Section 2 so "Select package for User ID #X" banner is visible
+        section2Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (quantityApplyToRef.current) {
+        quantityApplyToRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 150);
+  };
+
+  const handleChangePackageFor = (accIdx: number) => {
+    setActiveUserIdx(accIdx);
+    setTimeout(() => {
+      section2Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
+  const updateUserQuantity = (accIdx: number, newQty: number) => {
+    const clamped = Math.max(1, Math.min(99, newQty));
+    setUserSelections((prev) => {
+      const sel = prev[accIdx];
+      if (!sel) return prev;
+      return { ...prev, [accIdx]: { ...sel, quantity: clamped } };
+    });
+  };
+
+  const updateAccountField = (accIdx: number, key: string, value: string) => {
+    setAccounts((prev) => {
+      const next = [...prev];
+      next[accIdx] = { ...next[accIdx], [key]: value };
+      return next;
+    });
   };
 
   if (!isOpen) return null;
@@ -306,87 +435,121 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                     : 'Enter ID'}
                 </h3>
               </div>
-              {hasCustomFields && item.customFields ? (
-                <div className="space-y-2 sm:space-y-3">
-                  {item.customFields.map((field, idx) => {
-                    const key = `0_${idx}_${field.key}`;
-                    return (
-                      <div key={key}>
+              <div className="space-y-4">
+                {accounts.map((acc, accIdx) => (
+                  <div key={accIdx} className="relative">
+                    {accIdx > 0 && (
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-gray-500">
+                          {firstFieldLabel} #{accIdx + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeAccount(accIdx)}
+                          className="p-1 rounded hover:bg-red-100 text-gray-500 hover:text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+                    {hasCustomFields && item.customFields ? (
+                      <div className="space-y-2 sm:space-y-3">
+                        {item.customFields.map((field) => (
+                          <div key={field.key}>
+                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                              {field.label} {field.required && <span className="text-red-500">*</span>}
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={acc[field.key] || ''}
+                                onChange={(e) => updateAccountField(accIdx, field.key, e.target.value)}
+                                placeholder={field.placeholder || field.label}
+                                className={inputClass}
+                              />
+                              {field.placeholder?.toLowerCase().includes('id') && (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowIdHelp(!showIdHelp)}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-500 hover:text-purple-600"
+                                >
+                                  <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+                                </button>
+                              )}
+                            </div>
+                            {showIdHelp && field.placeholder?.toLowerCase().includes('id') && (
+                              <p className="mt-2 text-xs text-gray-500">
+                                To find your ID, click on the character icon. Your User ID is listed below your character name. Example: '5363266446'.
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div>
                         <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                          {field.label} {field.required && <span className="text-red-500">*</span>}
+                          Enter Player ID <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
                           <input
                             type="text"
-                            value={customFieldValues[key] || ''}
-                            onChange={(e) =>
-                              setCustomFieldValues((prev) => ({ ...prev, [key]: e.target.value }))
-                            }
-                            placeholder={field.placeholder || field.label}
+                            value={acc['default_ign'] || ''}
+                            onChange={(e) => updateAccountField(accIdx, 'default_ign', e.target.value)}
+                            placeholder="e.g. 5363266446"
                             className={inputClass}
                           />
-                          {field.placeholder?.toLowerCase().includes('id') && (
-                            <button
-                              type="button"
-                              onClick={() => setShowIdHelp(!showIdHelp)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-500 hover:text-purple-600"
-                            >
-                              <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setShowIdHelp(!showIdHelp)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-500 hover:text-purple-600"
+                          >
+                            <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+                          </button>
                         </div>
-                        {showIdHelp && field.placeholder?.toLowerCase().includes('id') && (
+                        {showIdHelp && (
                           <p className="mt-2 text-xs text-gray-500">
                             To find your ID, click on the character icon. Your User ID is listed below your character name. Example: '5363266446'.
                           </p>
                         )}
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                    Enter Player ID <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={customFieldValues['default_ign'] || ''}
-                      onChange={(e) =>
-                        setCustomFieldValues((prev) => ({
-                          ...prev,
-                          default_ign: e.target.value,
-                        }))
-                      }
-                      placeholder="e.g. 5363266446"
-                      className={inputClass}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowIdHelp(!showIdHelp)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-500 hover:text-purple-600"
-                    >
-                      <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-                    </button>
+                    )}
                   </div>
-                  {showIdHelp && (
-                    <p className="mt-2 text-xs text-gray-500">
-                      To find your ID, click on the character icon. Your User ID is listed below your character name. Example: '5363266446'.
-                    </p>
-                  )}
-                </div>
-              )}
+                ))}
+                <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={addAccount}
+                  className="inline-flex items-center justify-center gap-2 py-2 px-4 rounded-lg border-2 border-dashed border-purple-300 text-purple-600 hover:bg-purple-50 hover:border-purple-400 text-sm font-medium transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add new {firstFieldLabel}
+                </button>
+              </div>
+              </div>
             </div>
 
             {/* Section 2: Select Recharge / Package */}
-            <div className={stepCardClass}>
+            <div ref={section2Ref} className={stepCardClass}>
               <div className="flex items-center gap-2 mb-2 sm:mb-3">
                 <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>2</div>
                 <h3 className="text-sm sm:text-base font-semibold text-gray-900">Select Recharge</h3>
               </div>
+              {accounts.length > 1 && (
+                <div className="mb-3 p-2.5 rounded-lg bg-purple-50 border border-purple-200">
+                  {activeUserIdx !== null ? (
+                    <p className="text-sm font-medium text-purple-800">
+                      Select package for <span className="font-semibold">{firstFieldLabel} #{activeUserIdx + 1}</span>
+                    </p>
+                  ) : (
+                    <p className="text-sm font-medium text-green-700">✓ All users have packages</p>
+                  )}
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    {Object.keys(userSelections).length} of {accounts.length} assigned
+                  </p>
+                </div>
+              )}
               {item.variations && item.variations.length > 0 ? (
-                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                <div ref={packageGridRef} className="grid grid-cols-2 gap-2 sm:gap-3">
                   {item.variations.map((v) => {
                     const price = getDiscountedPrice(v.price);
                     const isSelected = selectedVariation?.id === v.id;
@@ -394,7 +557,16 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                       <button
                         key={v.id}
                         type="button"
-                        onClick={() => setSelectedVariation(v)}
+                        onClick={() => {
+                          if (accounts.length > 1 && activeUserIdx !== null) {
+                            assignPackageToUser(activeUserIdx, v, userSelections[activeUserIdx]?.quantity ?? 1);
+                          } else {
+                            setSelectedVariation(v);
+                            if (accounts.length === 1 && paymentSectionRef.current) {
+                              setTimeout(() => paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+                            }
+                          }
+                        }}
                         className={`p-2.5 sm:p-4 rounded-lg border-2 text-left transition-all ${
                           isSelected
                             ? 'border-purple-500 bg-purple-50'
@@ -419,6 +591,104 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                 </div>
               ) : (
                 <p className="text-xs sm:text-sm text-gray-500">No packages available</p>
+              )}
+              {(selectedVariation || accounts.length > 1) && (
+                <div ref={quantityApplyToRef} className="mt-4 pt-4 border-t border-gray-200 space-y-3">
+                  {accounts.length === 1 ? (
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                          className="w-9 h-9 rounded-lg border border-gray-200 hover:bg-purple-50 font-medium text-gray-700"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="number"
+                          min={1}
+                          max={99}
+                          value={quantity}
+                          onChange={(e) => setQuantity(Math.max(1, Math.min(99, parseInt(e.target.value, 10) || 1)))}
+                          className="w-14 text-center py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setQuantity((q) => Math.min(99, q + 1))}
+                          className="w-9 h-9 rounded-lg border border-gray-200 hover:bg-purple-50 font-medium text-gray-700"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Your selections</label>
+                      <div className="space-y-2">
+                        {accounts.map((_, idx) => {
+                          const sel = userSelections[idx];
+                          const isActive = activeUserIdx === idx;
+                          return (
+                            <div
+                              key={idx}
+                              className={`flex flex-wrap items-center gap-2 py-3 px-3 rounded-lg border transition-colors ${
+                                isActive ? 'bg-purple-50 border-purple-300 ring-1 ring-purple-200' : 'bg-gray-50 border-gray-200'
+                              }`}
+                            >
+                              <span className="text-sm font-medium text-gray-900 min-w-0">
+                                {firstFieldLabel} #{idx + 1}
+                                {sel ? (
+                                  <span className="ml-2 font-normal text-gray-700">
+                                    {sel.variation.name} (₱{(getDiscountedPrice(sel.variation.price) * sel.quantity).toFixed(0)})
+                                  </span>
+                                ) : (
+                                  <span className="ml-2 font-normal text-gray-500 italic">← Select package above</span>
+                                )}
+                              </span>
+                              {sel && (
+                                <div className="flex items-center gap-1 ml-auto sm:ml-2">
+                                  <span className="text-xs text-gray-600 mr-1">Qty:</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateUserQuantity(idx, sel.quantity - 1)}
+                                    className="w-8 h-8 rounded border border-gray-200 hover:bg-purple-50 font-medium text-gray-700 text-sm"
+                                  >
+                                    −
+                                  </button>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={99}
+                                    value={sel.quantity}
+                                    onChange={(e) => updateUserQuantity(idx, parseInt(e.target.value, 10) || 1)}
+                                    className="w-12 text-center py-1 rounded border border-gray-200 text-sm font-medium text-gray-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => updateUserQuantity(idx, sel.quantity + 1)}
+                                    className="w-8 h-8 rounded border border-gray-200 hover:bg-purple-50 font-medium text-gray-700 text-sm"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              )}
+                              {sel && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleChangePackageFor(idx)}
+                                  className="px-3 py-1 rounded-lg border border-purple-300 text-purple-700 text-xs font-medium hover:bg-purple-50 ml-auto"
+                                >
+                                  Change
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
@@ -537,6 +807,20 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                   </div>
                   <div className="pt-2 border-t border-gray-200">
                     <p className="text-base sm:text-lg font-semibold text-gray-900">Amount: ₱{totalPrice.toFixed(0)}</p>
+                    {accounts.length > 1 && Object.keys(userSelections).length > 0 && (
+                      <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                        {Object.entries(userSelections).map(([idx, sel]) => (
+                          <p key={idx}>
+                            {firstFieldLabel} #{parseInt(idx, 10) + 1}: {sel.variation.name} × {sel.quantity}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    {accounts.length === 1 && selectedVariation && (quantity > 1) && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {selectedVariation.name} × {quantity}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
