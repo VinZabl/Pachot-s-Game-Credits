@@ -30,24 +30,25 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
   const { categories } = useCategories();
   const { siteSettings } = useSiteSettings();
   const [activeCategory, setActiveCategory] = React.useState(selectedCategory === 'popular' ? 'popular' : 'hot-coffee');
+  const menuItemsSafe = Array.isArray(menuItems) ? menuItems : [];
 
   // Preload images when menu items change
   React.useEffect(() => {
-    if (menuItems.length > 0) {
+    if (menuItemsSafe.length > 0) {
       // Preload images for visible category first
       let visibleItems: MenuItem[];
       if (selectedCategory === 'popular') {
-        visibleItems = menuItems.filter(item => Boolean(item.popular) === true);
+        visibleItems = menuItemsSafe.filter(item => Boolean(item.popular) === true);
       } else if (selectedCategory === 'all') {
-        visibleItems = menuItems;
+        visibleItems = menuItemsSafe;
       } else {
-        visibleItems = menuItems.filter(item => item.category === activeCategory);
+        visibleItems = menuItemsSafe.filter(item => item.category === activeCategory);
       }
       preloadImages(visibleItems);
       
       // Then preload other images after a short delay
       setTimeout(() => {
-        const otherItems = menuItems.filter(item => {
+        const otherItems = menuItemsSafe.filter(item => {
           if (selectedCategory === 'popular') {
             return item.popular !== true;
           } else if (selectedCategory === 'all') {
@@ -59,7 +60,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
         preloadImages(otherItems);
       }, 1000);
     }
-  }, [menuItems, activeCategory, selectedCategory]);
+  }, [menuItemsSafe, activeCategory, selectedCategory]);
 
   const handleCategoryClick = (categoryId: string) => {
     setActiveCategory(categoryId);
@@ -83,10 +84,11 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
       return;
     }
     
-    if (categories.length > 0) {
+    const list = Array.isArray(categories) ? categories : [];
+    if (list.length > 0) {
       // Set default to dim-sum if it exists, otherwise first category
-      const defaultCategory = categories.find(cat => cat.id === 'dim-sum') || categories[0];
-      if (!categories.find(cat => cat.id === activeCategory) && selectedCategory !== 'popular') {
+      const defaultCategory = list.find(cat => cat.id === 'dim-sum') || list[0];
+      if (defaultCategory && !list.find(cat => cat.id === activeCategory) && selectedCategory !== 'popular') {
         setActiveCategory(defaultCategory.id);
       }
     }
@@ -98,14 +100,15 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
       return;
     }
 
+    const list = Array.isArray(categories) ? categories : [];
     const handleScroll = () => {
-      const sections = categories.map(cat => document.getElementById(cat.id)).filter(Boolean);
+      const sections = list.map(cat => document.getElementById(cat.id)).filter(Boolean);
       const scrollPosition = window.scrollY + 200;
 
       for (let i = sections.length - 1; i >= 0; i--) {
         const section = sections[i];
-        if (section && section.offsetTop <= scrollPosition) {
-          setActiveCategory(categories[i].id);
+        if (section && section.offsetTop <= scrollPosition && list[i]) {
+          setActiveCategory(list[i].id);
           break;
         }
       }
@@ -115,10 +118,22 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
     return () => window.removeEventListener('scroll', handleScroll);
   }, [categories, selectedCategory]);
 
+  // Get hero images for slideshow (only show on "All" category) – must run before any early return (hooks order)
+  const heroImages = React.useMemo(() => {
+    if (!siteSettings || selectedCategory !== 'all') return [];
+    return [
+      siteSettings.hero_image_1,
+      siteSettings.hero_image_2,
+      siteSettings.hero_image_3,
+      siteSettings.hero_image_4,
+      siteSettings.hero_image_5,
+    ].filter((img): img is string => typeof img === 'string' && img.trim() !== '');
+  }, [siteSettings, selectedCategory]);
 
   // Helper function to render menu items
   const renderMenuItems = (items: MenuItem[]) => {
-    return items.map((item) => {
+    const list = Array.isArray(items) ? items : [];
+    return list.map((item) => {
       // Find cart items that match this menu item (by extracting menu item id from cart item id)
       // For simple items without variations/add-ons, sum all matching cart items
       const matchingCartItems = cartItems.filter(cartItem => {
@@ -161,7 +176,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
 
   // If there's a search query, show search results
   if (searchQuery.trim() !== '') {
-    if (menuItems.length === 0) {
+    if (menuItemsSafe.length === 0) {
       return (
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-5 pb-4 md:pb-6">
           <section className="mb-6 md:mb-8">
@@ -181,11 +196,11 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
             <h3 className="text-2xl md:text-3xl font-medium text-cafe-text">
               Search Results for "{searchQuery}"
             </h3>
-            <span className="ml-4 text-sm text-gray-500">({menuItems.length} {menuItems.length === 1 ? 'game' : 'games'})</span>
+            <span className="ml-4 text-sm text-gray-500">({menuItemsSafe.length} {menuItemsSafe.length === 1 ? 'game' : 'games'})</span>
           </div>
           
           <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-3">
-            {renderMenuItems(menuItems)}
+            {renderMenuItems(menuItemsSafe)}
           </div>
         </section>
       </main>
@@ -195,8 +210,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
   // If showing popular items, display them in a single section
   // Note: menuItems prop is already filtered by App.tsx when selectedCategory === 'popular'
   if (selectedCategory === 'popular') {
-    // menuItems is already filtered to only popular items from App.tsx
-    if (menuItems.length === 0) {
+    if (menuItemsSafe.length === 0) {
       return (
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-5 pb-4 md:pb-6">
           <section id="popular" className="mb-6 md:mb-8">
@@ -229,7 +243,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
           </div>
           
           <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-3">
-            {renderMenuItems(menuItems)}
+            {renderMenuItems(menuItemsSafe)}
           </div>
         </section>
       </main>
@@ -238,20 +252,8 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
 
   // Otherwise, display items grouped by category
   // If viewing "All", also show Popular section at the top (only when not searching)
-  const popularItems = menuItems.filter(item => Boolean(item.popular) === true);
+  const popularItems = menuItemsSafe.filter(item => Boolean(item?.popular) === true);
   const showPopularSection = selectedCategory === 'all' && popularItems.length > 0 && searchQuery.trim() === '';
-
-  // Get hero images for slideshow (only show on "All" category)
-  const heroImages = React.useMemo(() => {
-    if (!siteSettings || selectedCategory !== 'all') return [];
-    return [
-      siteSettings.hero_image_1,
-      siteSettings.hero_image_2,
-      siteSettings.hero_image_3,
-      siteSettings.hero_image_4,
-      siteSettings.hero_image_5,
-    ].filter(img => img && img.trim() !== '');
-  }, [siteSettings, selectedCategory]);
 
   return (
     <>
@@ -289,8 +291,8 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems, updateQuan
         )}
 
         {/* Regular category sections */}
-        {categories.map((category) => {
-          const categoryItems = menuItems.filter(item => item.category === category.id);
+        {(Array.isArray(categories) ? categories : []).map((category) => {
+          const categoryItems = menuItemsSafe.filter(item => item.category === category.id);
           
           if (categoryItems.length === 0) return null;
           

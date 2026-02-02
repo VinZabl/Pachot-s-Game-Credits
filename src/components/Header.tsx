@@ -13,6 +13,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ cartItemsCount, onCartClick, onMenuClick, onMemberClick, currentMember }) => {
   const { siteSettings } = useSiteSettings();
+  const logoUrl = (siteSettings?.site_logo && siteSettings.site_logo.trim() !== '') ? siteSettings.site_logo : '/logo.png';
 
   return (
     <header className="w-full" style={{
@@ -27,15 +28,17 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount, onCartClick, onMenuClic
             className="text-white hover:opacity-80 transition-colors duration-200 flex items-center gap-3"
           >
             <img 
-              src="/logo.png" 
-              alt="Trish Devion Logo"
-              className="h-10 sm:h-12 md:h-12 w-auto object-contain"
+              src={logoUrl}
+              alt={`${siteSettings?.site_name || 'Trish Devion'} Logo`}
+              className="h-10 sm:h-12 md:h-12 w-auto object-contain flex-shrink-0"
               onError={(e) => {
-                e.currentTarget.style.display = 'none';
+                if (e.currentTarget.src !== '/logo.png') {
+                  e.currentTarget.src = '/logo.png';
+                }
               }}
             />
             <span className="text-base sm:text-lg md:text-lg font-bold text-white whitespace-nowrap">
-              Trish Devion
+              {siteSettings?.site_name || 'Trish Devion'}
             </span>
           </button>
 
