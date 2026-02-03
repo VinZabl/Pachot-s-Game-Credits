@@ -6,7 +6,11 @@ import { usePaymentMethods, PaymentMethod } from '../hooks/usePaymentMethods';
 import { supabase } from '../lib/supabase';
 import { aggregateOrderItems } from '../utils/orderItems';
 
-const OrderManager: React.FC = () => {
+interface OrderManagerProps {
+  onOrderFilterChange?: (filter: 'place_order' | 'order_via_messenger') => void;
+}
+
+const OrderManager: React.FC<OrderManagerProps> = ({ onOrderFilterChange }) => {
   const { orders, loading, fetchOrders, fetchOrderById, updateOrderStatus, totalCount, currentPage, ordersPerPage } = useOrders();
   const { paymentMethods } = usePaymentMethods();
   const [allPaymentMethods, setAllPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -38,8 +42,15 @@ const OrderManager: React.FC = () => {
   const [rejectingOrderId, setRejectingOrderId] = useState<string | null>(null);
   const [selectedRejectionReason, setSelectedRejectionReason] = useState<string>('');
   const [customRejectionText, setCustomRejectionText] = useState<string>('');
+  const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
+  const [approvingOrderId, setApprovingOrderId] = useState<string | null>(null);
+  const [approvalMessage, setApprovalMessage] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [orderFilter, setOrderFilter] = useState<'place_order' | 'order_via_messenger'>('place_order');
+  const [orderFilter, setOrderFilterState] = useState<'place_order' | 'order_via_messenger'>('place_order');
+  const setOrderFilter = useCallback((filter: 'place_order' | 'order_via_messenger') => {
+    setOrderFilterState(filter);
+    onOrderFilterChange?.(filter);
+  }, [onOrderFilterChange]);
   const [memberMap, setMemberMap] = useState<Record<string, Member>>({});
 
   // Calculate pagination info (must be before useEffects that use it)
@@ -82,7 +93,7 @@ const OrderManager: React.FC = () => {
       try {
         const { data, error } = await supabase
           .from('members')
-          .select('id, username, email, mobile_no, user_type')
+          .select('id, username, email, user_type')
           .in('id', memberIds);
 
         if (error) throw error;
@@ -129,12 +140,28 @@ const OrderManager: React.FC = () => {
     }
   };
 
-  const handleApprove = async (orderId: string) => {
-    const success = await updateOrderStatus(orderId, 'approved');
+  const handleApproveClick = (orderId: string) => {
+    setApprovingOrderId(orderId);
+    setIsApproveModalOpen(true);
+    setApprovalMessage('');
+  };
+
+  const handleApproveConfirm = async () => {
+    if (!approvingOrderId) return;
+    const success = await updateOrderStatus(approvingOrderId, 'approved', undefined, approvalMessage);
     if (success) {
+      setIsApproveModalOpen(false);
       setIsModalOpen(false);
       setSelectedOrder(null);
+      setApprovingOrderId(null);
+      setApprovalMessage('');
     }
+  };
+
+  const handleApproveCancel = () => {
+    setIsApproveModalOpen(false);
+    setApprovingOrderId(null);
+    setApprovalMessage('');
   };
 
   const handleRejectClick = (orderId: string) => {
@@ -334,6 +361,30 @@ const OrderManager: React.FC = () => {
 
   return (
     <div className="space-y-3 md:space-y-6">
+      {/* Order type tabs */}
+      <div className="flex gap-2 p-1 bg-gray-100 rounded-lg w-fit">
+        <button
+          onClick={() => setOrderFilter('place_order')}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            orderFilter === 'place_order'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Place Order
+        </button>
+        <button
+          onClick={() => setOrderFilter('order_via_messenger')}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            orderFilter === 'order_via_messenger'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Order via Messenger
+        </button>
+      </div>
+
       <div className="flex items-center gap-3 md:gap-4 mb-3 md:mb-6">
         {/* Search Bar */}
         <div className="flex-1 max-w-md">
@@ -341,7 +392,7 @@ const OrderManager: React.FC = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by order number or customer details..."
+              placeholder={orderFilter === 'order_via_messenger' ? 'Search messenger orders...' : 'Search by order number or customer details...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
@@ -369,7 +420,11 @@ const OrderManager: React.FC = () => {
       {filteredOrders.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
           <p className="text-gray-500">
-            {searchQuery ? `No orders found matching "${searchQuery}" on this page` : 'No orders found'}
+            {searchQuery
+              ? `No ${orderFilter === 'order_via_messenger' ? 'messenger ' : ''}orders found matching "${searchQuery}" on this page`
+              : orderFilter === 'order_via_messenger'
+                ? 'No orders via Messenger yet'
+                : 'No orders found'}
           </p>
           {searchQuery && (
             <p className="text-xs text-gray-400 mt-2">
@@ -450,7 +505,7 @@ const OrderManager: React.FC = () => {
                  {(order.order_option || 'place_order') !== 'order_via_messenger' && order.status === 'pending' && (
                    <>
                      <button
-                       onClick={() => handleApprove(order.id)}
+                       onClick={() => handleApproveClick(order.id)}
                        className="px-3 py-1.5 md:px-4 md:py-2 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 text-green-700 flex items-center gap-1.5 md:gap-2 text-xs font-medium"
                      >
                        <CheckCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -468,7 +523,7 @@ const OrderManager: React.FC = () => {
                  {(order.order_option || 'place_order') !== 'order_via_messenger' && order.status === 'processing' && (
                    <>
                      <button
-                       onClick={() => handleApprove(order.id)}
+                       onClick={() => handleApproveClick(order.id)}
                        className="px-3 py-1.5 md:px-4 md:py-2 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 text-green-700 flex items-center gap-1.5 md:gap-2 text-xs font-medium"
                      >
                        <CheckCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -583,16 +638,10 @@ const OrderManager: React.FC = () => {
               {/* Member Information */}
               {selectedOrder.member_id && memberMap[selectedOrder.member_id] && (
                 <div className="bg-blue-50 rounded-lg p-3 md:p-4 border border-blue-200">
-                  <div className="space-y-1.5 md:space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-gray-900">
-                        {memberMap[selectedOrder.member_id].username} / {memberMap[selectedOrder.member_id].user_type === 'reseller' ? 'VIP' : 'Member'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-600">Mobile:</span>
-                      <span className="text-xs text-gray-900">{memberMap[selectedOrder.member_id].mobile_no}</span>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-gray-900">
+                      {memberMap[selectedOrder.member_id].username} / {memberMap[selectedOrder.member_id].user_type === 'reseller' ? 'VIP' : 'Member'}
+                    </span>
                   </div>
                 </div>
               )}
@@ -656,11 +705,16 @@ const OrderManager: React.FC = () => {
               <div className="bg-gray-50 rounded-lg p-3 md:p-4 border border-gray-200">
                 <h3 className="text-sm md:text-base font-medium text-gray-900 mb-3 md:mb-4">Customer Information</h3>
                 {(() => {
-                  const info = selectedOrder.customer_info || {};
-                  const multipleAccounts = Array.isArray(info['Multiple Accounts']) ? info['Multiple Accounts'] : null;
+                  const info = selectedOrder.customer_info;
+                  // Handle array format: customer_info is [{ game, package, fields }, ...]
+                  const accountsArray = Array.isArray(info) ? info : null;
+                  // Handle object format: { "Multiple Accounts": [...], "Payment Method": "..." } or { "IGN": "...", ... }
+                  const infoObj = info && typeof info === 'object' && !Array.isArray(info) ? info as Record<string, unknown> : {};
+                  const multipleAccounts = accountsArray ?? (Array.isArray(infoObj['Multiple Accounts']) ? infoObj['Multiple Accounts'] : null);
                   const hasMultipleAccounts = multipleAccounts && multipleAccounts.length > 0;
-                  const singleEntries = Object.entries(info)
-                    .filter(([key]) => key !== 'Payment Method' && key !== 'Multiple Accounts');
+                  const singleEntries = Object.entries(infoObj)
+                    .filter(([key]) => key !== 'Payment Method' && key !== 'Multiple Accounts')
+                    .filter(([, value]) => typeof value === 'string' || typeof value === 'number');
                   const hasSingleEntries = singleEntries.length > 0;
 
                   if (hasMultipleAccounts) {
@@ -675,7 +729,9 @@ const OrderManager: React.FC = () => {
                               )}
                             </div>
                             <div className="space-y-1.5 md:space-y-2 mt-2">
-                              {account.fields && Object.entries(account.fields).map(([key, value]) => {
+                              {account.fields && Object.entries(account.fields)
+                                .filter(([, v]) => v != null && (typeof v === 'string' || typeof v === 'number'))
+                                .map(([key, value]) => {
                                 const fieldKey = `${accountIndex}_${key}`;
                                 return (
                                   <div key={fieldKey} className="flex items-center justify-between gap-2">
@@ -804,6 +860,61 @@ const OrderManager: React.FC = () => {
                   </>
                 )}
                </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approval Message Modal */}
+      {isApproveModalOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2 md:p-4">
+          <div className="bg-white rounded-lg shadow-xl p-4 md:p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4 md:mb-6">
+              <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+                Approve Order
+              </h2>
+              <button
+                onClick={handleApproveCancel}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 mb-4">
+                Add a message for the customer (optional):
+              </p>
+
+              <div>
+                <label htmlFor="approval-message" className="block text-sm font-medium text-gray-700 mb-2">
+                  Message
+                </label>
+                <textarea
+                  id="approval-message"
+                  value={approvalMessage}
+                  onChange={(e) => setApprovalMessage(e.target.value)}
+                  placeholder="e.g. Credits have been sent! Thank you for your order."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none text-sm"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={handleApproveCancel}
+                  className="flex-1 px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-gray-700 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleApproveConfirm}
+                  className="flex-1 px-4 py-2 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 text-green-700 font-medium flex items-center justify-center gap-2"
+                >
+                  <CheckCircle className="h-4 w-4" />
+                  Confirm Approve
+                </button>
+              </div>
             </div>
           </div>
         </div>

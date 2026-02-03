@@ -38,6 +38,7 @@ const AdminDashboard: React.FC = () => {
   };
   const [pendingOrders, setPendingOrders] = useState<number>(0);
   const [lastSeenPendingCount, setLastSeenPendingCount] = useState<number>(0);
+  const [ordersTabFilter, setOrdersTabFilter] = useState<'place_order' | 'order_via_messenger'>('place_order');
   const notificationVolumeRef = useRef<number>(0.5);
 
   // When user opens Orders view, mark current pending count as "seen" so badge clears until new orders arrive
@@ -2255,14 +2256,16 @@ const AdminDashboard: React.FC = () => {
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </button>
-                <h1 className="text-black">Orders</h1>
+                <h1 className="text-black">
+                  {ordersTabFilter === 'order_via_messenger' ? 'Order via Messenger' : 'Orders'}
+                </h1>
               </div>
             </div>
           </div>
         </div>
 
         <div className="max-w-7xl mx-auto px-4 py-8">
-          <OrderManager />
+          <OrderManager onOrderFilterChange={setOrdersTabFilter} />
         </div>
       </div>
     );

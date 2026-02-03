@@ -125,6 +125,8 @@ export interface Order {
   total_price: number;
   status: OrderStatus;
   rejection_reason?: string; // Reason for rejection if order is rejected
+  approval_message?: string; // Message from admin when order is approved
+  order_option?: 'place_order' | 'order_via_messenger';
   created_at: string;
   updated_at: string;
 }

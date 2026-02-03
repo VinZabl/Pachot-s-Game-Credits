@@ -1,10 +1,12 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { X, Upload, HelpCircle, Copy, Download, Plus, Trash2 } from 'lucide-react';
+import { X, Upload, HelpCircle, Copy, Download, Plus, Trash2, MessageCircle } from 'lucide-react';
 import { MenuItem, Variation, CartItem, Member } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { useOrders } from '../hooks/useOrders';
 import { useOrderStatus } from '../contexts/OrderStatusContext';
+import { useSiteSettings } from '../hooks/useSiteSettings';
+import { supabase } from '../lib/supabase';
 
 interface GameItemOrderModalProps {
   item: MenuItem;
@@ -25,6 +27,8 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   const { uploadImage, uploading: uploadingReceipt } = useImageUpload();
   const { createOrder } = useOrders();
   const { setOrderPlaced } = useOrderStatus();
+  const { siteSettings } = useSiteSettings();
+  const orderOption = siteSettings?.order_option || 'place_order';
 
   const [selectedVariation, setSelectedVariation] = useState<Variation | undefined>(undefined);
   const [accounts, setAccounts] = useState<Record<string, string>[]>([{}]);
@@ -40,6 +44,9 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   const [showIdHelp, setShowIdHelp] = useState(false);
   const [copiedAccountName, setCopiedAccountName] = useState(false);
   const [copiedAccountNumber, setCopiedAccountNumber] = useState(false);
+  const [copiedOrderMessage, setCopiedOrderMessage] = useState(false);
+  const [savedOrderId, setSavedOrderId] = useState<string | null>(null);
+  const [generatedInvoiceNumber, setGeneratedInvoiceNumber] = useState<string | null>(null);
   const section2Ref = useRef<HTMLDivElement>(null);
   const packageGridRef = useRef<HTMLDivElement>(null);
   const quantityApplyToRef = useRef<HTMLDivElement>(null);
@@ -295,13 +302,18 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
         customerInfo['IGN'] = accounts[0]['default_ign'];
       }
 
+      const customerInfoForOrder = multipleAccountsData.length > 0
+        ? multipleAccountsData
+        : Object.fromEntries(Object.entries(customerInfo).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
+
       const newOrder = await createOrder({
         order_items: orderItems,
-        customer_info: customerInfo as Record<string, string | unknown>,
+        customer_info: customerInfoForOrder,
         payment_method_id: selectedPaymentMethod.id,
         receipt_url: receiptImageUrl,
         total_price: totalPrice,
         member_id: currentMember?.id,
+        order_option: 'place_order',
       });
 
       if (newOrder) {
@@ -325,7 +337,196 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
     setUserSelections({});
     setActiveUserIdx(null);
     setPaymentMethodId(null);
+    setSavedOrderId(null);
+    setGeneratedInvoiceNumber(null);
     handleReceiptRemove();
+  };
+
+  // Philippine timezone helper for invoice number
+  const getPhilippineDate = () => {
+    const now = new Date();
+    const ph = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+    return {
+      dateString: `${ph.getFullYear()}-${String(ph.getMonth() + 1).padStart(2, '0')}-${String(ph.getDate()).padStart(2, '0')}`,
+      dayOfMonth: ph.getDate(),
+    };
+  };
+
+  const generateInvoiceNumber = async (forceNew: boolean): Promise<string> => {
+    const { dateString: todayStr, dayOfMonth } = getPhilippineDate();
+    if (!forceNew && generatedInvoiceNumber) return generatedInvoiceNumber;
+    try {
+      const countSettingId = 'invoice_count';
+      const dateSettingId = 'invoice_count_date';
+      const { data: dateData } = await supabase.from('site_settings').select('value').eq('id', dateSettingId).maybeSingle();
+      const { data: countData } = await supabase.from('site_settings').select('value').eq('id', countSettingId).maybeSingle();
+      let currentCount = 0;
+      const lastDate = dateData?.value || null;
+      if (lastDate !== todayStr) {
+        await supabase.from('site_settings').upsert({ id: countSettingId, value: '0', type: 'number', description: 'Invoice count' }, { onConflict: 'id' });
+        await supabase.from('site_settings').upsert({ id: dateSettingId, value: todayStr, type: 'text', description: 'Invoice date' }, { onConflict: 'id' });
+      } else {
+        currentCount = countData?.value ? parseInt(countData.value, 10) : 0;
+      }
+      if (forceNew) currentCount += 1;
+      else if (currentCount === 0) currentCount = 1;
+      const invoiceNumber = `TD1M${dayOfMonth}D${currentCount}`;
+      await supabase.from('site_settings').upsert({ id: countSettingId, value: currentCount.toString(), type: 'number', description: 'Invoice count' }, { onConflict: 'id' });
+      setGeneratedInvoiceNumber(invoiceNumber);
+      return invoiceNumber;
+    } catch {
+      return `TD1M${getPhilippineDate().dayOfMonth}D1`;
+    }
+  };
+
+  const buildOrderMessage = (): string => {
+    const lines: string[] = [`GAME: ${item.name}`];
+    if (accounts.length === 1 && accounts[0]) {
+      const acc = accounts[0];
+      if (hasCustomFields && item.customFields) {
+        item.customFields.forEach((f) => {
+          const v = acc[f.key];
+          if (v) lines.push(`${f.label}: ${v}`);
+        });
+      } else if (acc['default_ign']) {
+        lines.push(`IGN: ${acc['default_ign']}`);
+      }
+      if (selectedVariation) {
+        lines.push(`ORDER: ${selectedVariation.name} x${quantity} - ₱${totalPrice}`);
+      }
+    } else {
+      Object.entries(userSelections).forEach(([idxStr, sel]) => {
+        const acc = accounts[parseInt(idxStr, 10)];
+        if (!acc) return;
+        if (hasCustomFields && item.customFields) {
+          item.customFields.forEach((f) => {
+            const v = acc[f.key];
+            if (v) lines.push(`${f.label}: ${v}`);
+          });
+        } else if (acc['default_ign']) {
+          lines.push(`IGN: ${acc['default_ign']}`);
+        }
+        lines.push(`ORDER: ${sel.variation.name} x${sel.quantity} - ₱${getDiscountedPrice(sel.variation.price, sel.variation) * sel.quantity}`);
+      });
+    }
+    lines.push(`PAYMENT: ${selectedPaymentMethod?.name || ''}${selectedPaymentMethod?.account_name ? ` - ${selectedPaymentMethod.account_name}` : ''}`);
+    lines.push(`TOTAL: ₱${totalPrice}`, '', 'PAYMENT RECEIPT:');
+    if (receiptImageUrl) lines.push(receiptImageUrl);
+    return lines.join('\n');
+  };
+
+  const saveOrderAndGetMessage = async (): Promise<string> => {
+    if (!selectedPaymentMethod || !receiptImageUrl) throw new Error('Please select payment and upload receipt');
+    const invoiceNumber = savedOrderId && generatedInvoiceNumber
+      ? generatedInvoiceNumber
+      : await generateInvoiceNumber(true);
+    const customerInfo: Record<string, string | unknown> = { 'Payment Method': selectedPaymentMethod.name };
+    const orderItems: CartItem[] = [];
+    const multipleAccountsData: { game: string; package: string; fields: Record<string, string> }[] = [];
+    if (accounts.length === 1) {
+      const acc = accounts[0];
+      const variation = selectedVariation!;
+      const unitP = getDiscountedPrice(variation.price, variation);
+      const fields: Record<string, string> = {};
+      if (hasCustomFields && item.customFields) {
+        item.customFields.forEach((f) => { const v = acc[f.key]; if (v) fields[f.label] = v; });
+      } else if (acc['default_ign']) fields['IGN'] = acc['default_ign'];
+      if (Object.keys(fields).length > 0) multipleAccountsData.push({ game: item.name, package: variation.name, fields });
+      for (let q = 0; q < quantity; q++) {
+        orderItems.push({
+          ...item,
+          id: `${item.id}:::CART:::${Date.now()}-0-${q}-${Math.random().toString(36).slice(2)}`,
+          quantity: 1,
+          selectedVariation: variation,
+          totalPrice: unitP,
+        });
+      }
+    } else {
+      for (const [accIdxStr, sel] of Object.entries(userSelections)) {
+        const accIdx = parseInt(accIdxStr, 10);
+        const acc = accounts[accIdx];
+        if (!acc || !sel.variation) continue;
+        const unitP = getDiscountedPrice(sel.variation.price, sel.variation);
+        const fields: Record<string, string> = {};
+        if (hasCustomFields && item.customFields) {
+          item.customFields.forEach((f) => { const v = acc[f.key]; if (v) fields[f.label] = v; });
+        } else if (acc['default_ign']) fields['IGN'] = acc['default_ign'];
+        if (Object.keys(fields).length > 0) multipleAccountsData.push({ game: item.name, package: sel.variation.name, fields });
+        for (let q = 0; q < sel.quantity; q++) {
+          orderItems.push({
+            ...item,
+            id: `${item.id}:::CART:::${Date.now()}-${accIdx}-${q}-${Math.random().toString(36).slice(2)}`,
+            quantity: 1,
+            selectedVariation: sel.variation,
+            totalPrice: unitP,
+          });
+        }
+      }
+    }
+    if (multipleAccountsData.length > 0) customerInfo['Multiple Accounts'] = multipleAccountsData;
+    else if (accounts[0]?.['default_ign']) customerInfo['IGN'] = accounts[0]['default_ign'];
+    const customerInfoForOrder = multipleAccountsData.length > 0
+      ? multipleAccountsData
+      : Object.fromEntries(Object.entries(customerInfo).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
+    if (!savedOrderId) {
+      const newOrder = await createOrder({
+        order_items: orderItems,
+        customer_info: customerInfoForOrder,
+        payment_method_id: selectedPaymentMethod.id,
+        receipt_url: receiptImageUrl,
+        total_price: totalPrice,
+        member_id: currentMember?.id,
+        order_option: 'order_via_messenger',
+        invoice_number: invoiceNumber,
+      });
+      if (newOrder) setSavedOrderId(newOrder.id);
+    }
+    return buildOrderMessage();
+  };
+
+  const handleCopyOrderMessage = async () => {
+    try {
+      setIsPlacingOrder(true);
+      setReceiptError(null);
+      const message = await saveOrderAndGetMessage();
+      const didCopy = await navigator.clipboard.writeText(message).then(() => true).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = message;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      });
+      if (didCopy) {
+        setCopiedOrderMessage(true);
+        setTimeout(() => setCopiedOrderMessage(false), 2000);
+      }
+    } catch (err) {
+      setReceiptError(err instanceof Error ? err.message : 'Failed to prepare order');
+    } finally {
+      setIsPlacingOrder(false);
+    }
+  };
+
+  const handleOpenMessenger = async () => {
+    try {
+      setIsPlacingOrder(true);
+      setReceiptError(null);
+      const message = await saveOrderAndGetMessage();
+      const supportUrl = siteSettings?.footer_support_url || '';
+      const m = supportUrl.match(/m\.me\/([^/?]+)/);
+      const pageId = m ? m[1] : 'pachotsgamecredits';
+      const messengerUrl = `https://m.me/${pageId}?text=${encodeURIComponent(message)}`;
+      window.open(messengerUrl, '_blank');
+      handleClose();
+    } catch (err) {
+      setReceiptError(err instanceof Error ? err.message : 'Failed to open Messenger');
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   const firstFieldLabel = hasCustomFields && item.customFields?.[0] ? item.customFields[0].label : 'User ID';
@@ -894,18 +1095,50 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                 {receiptError && (
                   <p className="text-xs sm:text-sm text-red-500">{receiptError}</p>
                 )}
-                <button
-                  type="button"
-                  onClick={handlePlaceOrder}
-                  disabled={!isFormValid || isPlacingOrder}
-                  className={`w-full py-3 sm:py-4 rounded-xl font-semibold text-sm sm:text-lg transition-all ${
-                    isFormValid && !isPlacingOrder
-                      ? 'bg-pink-500 hover:bg-pink-600 text-white'
-                      : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  {isPlacingOrder ? 'Placing Order...' : `Proceed to Payment - ₱${totalPrice.toFixed(0)}`}
-                </button>
+                {orderOption === 'place_order' ? (
+                  <button
+                    type="button"
+                    onClick={handlePlaceOrder}
+                    disabled={!isFormValid || isPlacingOrder}
+                    className={`w-full py-3 sm:py-4 rounded-xl font-semibold text-sm sm:text-lg transition-all ${
+                      isFormValid && !isPlacingOrder
+                        ? 'bg-pink-500 hover:bg-pink-600 text-white'
+                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {isPlacingOrder ? 'Placing Order...' : `Place Order - ₱${totalPrice.toFixed(0)}`}
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={handleCopyOrderMessage}
+                      disabled={!isFormValid || isPlacingOrder}
+                      className={`w-full py-3 sm:py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${
+                        isFormValid && !isPlacingOrder
+                          ? 'bg-purple-500 hover:bg-purple-600 text-white'
+                          : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {copiedOrderMessage ? <span>Copied!</span> : <><Copy className="h-4 w-4" /> Copy Order Message</>}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenMessenger}
+                      disabled={!isFormValid || isPlacingOrder}
+                      className={`w-full py-3 sm:py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${
+                        isFormValid && !isPlacingOrder
+                          ? 'bg-pink-500 hover:bg-pink-600 text-white'
+                          : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      <MessageCircle className="h-4 w-4" /> Open Messenger
+                    </button>
+                    <p className="text-xs text-gray-500 text-center mt-1">
+                      Copy the order message, then open Messenger to send it.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

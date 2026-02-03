@@ -208,6 +208,19 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
               </div>
             )}
 
+            {/* Approval Message */}
+            {order.status === 'approved' && order.approval_message && (
+              <div className="bg-green-900/30 border border-green-500/50 rounded-lg p-3 sm:p-4">
+                <h3 className="text-sm sm:text-base font-medium text-green-300 mb-1.5 sm:mb-2 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                  Message from store
+                </h3>
+                <p className="text-xs sm:text-sm text-green-200 whitespace-pre-wrap leading-relaxed">
+                  {order.approval_message}
+                </p>
+              </div>
+            )}
+
             {/* Support Section */}
             {siteSettings?.footer_support_url && (
               <div className="mb-4 sm:mb-6">

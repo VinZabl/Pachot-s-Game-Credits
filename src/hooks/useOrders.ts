@@ -26,7 +26,7 @@ export const useOrders = () => {
       // Full order with receipt_url is fetched via fetchOrderById when viewing details
       const { data, error: fetchError, count } = await supabase
         .from('orders')
-        .select('id, order_items, total_price, payment_method_id, status, created_at, updated_at, rejection_reason, customer_info, member_id', { count: 'exact' })
+        .select('id, invoice_number, order_items, total_price, payment_method_id, status, created_at, updated_at, rejection_reason, approval_message, order_option, customer_info, member_id', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(from, to);
 
@@ -35,6 +35,7 @@ export const useOrders = () => {
       // Transform the data to match Order interface (receipt_url omitted for list, fetched on View)
       const transformedOrders: Order[] = (data || []).map((order: any) => ({
         id: order.id,
+        invoice_number: order.invoice_number || undefined,
         order_items: order.order_items || [],
         customer_info: order.customer_info || {},
         payment_method_id: order.payment_method_id || '',
@@ -42,6 +43,8 @@ export const useOrders = () => {
         total_price: order.total_price || 0,
         status: order.status as OrderStatus,
         rejection_reason: order.rejection_reason || undefined,
+        approval_message: order.approval_message || undefined,
+        order_option: order.order_option || undefined,
         created_at: order.created_at,
         updated_at: order.updated_at || order.created_at,
         member_id: order.member_id || undefined,
@@ -84,6 +87,7 @@ export const useOrders = () => {
         total_price: data.total_price || 0,
         status: data.status as OrderStatus,
         rejection_reason: data.rejection_reason || undefined,
+        approval_message: data.approval_message || undefined,
         created_at: data.created_at,
         updated_at: data.updated_at || data.created_at,
         member_id: data.member_id || undefined,
@@ -143,6 +147,7 @@ export const useOrders = () => {
         total_price: data.total_price || 0,
         status: data.status as OrderStatus,
         rejection_reason: data.rejection_reason || undefined,
+        approval_message: data.approval_message || undefined,
         created_at: data.created_at,
         updated_at: data.updated_at || data.created_at,
         member_id: data.member_id || undefined,
@@ -154,16 +159,19 @@ export const useOrders = () => {
     }
   };
 
-  const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, rejectionReason?: string): Promise<boolean> => {
+  const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, rejectionReason?: string, approvalMessage?: string): Promise<boolean> => {
     try {
-      const updateData: { status: OrderStatus; rejection_reason?: string } = { status };
+      const updateData: { status: OrderStatus; rejection_reason?: string | null; approval_message?: string | null } = { status };
       
-      // Only include rejection_reason if status is rejected
-      if (status === 'rejected' && rejectionReason) {
-        updateData.rejection_reason = rejectionReason;
-      } else if (status !== 'rejected') {
-        // Clear rejection reason if status is not rejected
+      if (status === 'rejected') {
+        updateData.rejection_reason = rejectionReason || null;
+        updateData.approval_message = null;
+      } else if (status === 'approved') {
+        updateData.approval_message = approvalMessage?.trim() || null;
         updateData.rejection_reason = null;
+      } else {
+        updateData.rejection_reason = null;
+        updateData.approval_message = null;
       }
 
       const { error: updateError } = await supabase
