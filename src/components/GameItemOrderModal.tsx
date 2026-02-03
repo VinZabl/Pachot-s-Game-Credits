@@ -306,6 +306,8 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
         ? multipleAccountsData
         : Object.fromEntries(Object.entries(customerInfo).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
 
+      const invoiceNumber = await generateInvoiceNumber(true);
+
       const newOrder = await createOrder({
         order_items: orderItems,
         customer_info: customerInfoForOrder,
@@ -314,6 +316,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
         total_price: totalPrice,
         member_id: currentMember?.id,
         order_option: 'place_order',
+        invoice_number: invoiceNumber,
       });
 
       if (newOrder) {

@@ -510,22 +510,28 @@ const MemberManager: React.FC<MemberManagerProps> = ({ onBack }) => {
                               </div>
                             </div>
                             {/* Customer Information */}
-                            {order.customer_info && Object.keys(order.customer_info).length > 0 && (
+                            {order.customer_info && (Array.isArray(order.customer_info) ? order.customer_info.length > 0 : Object.keys(order.customer_info).length > 0) && (
                               <div className="text-xs pt-2 border-t border-gray-200">
                                 <span className="text-gray-600 font-medium">Customer Info:</span>
                                 <div className="mt-1 space-y-1 pl-4">
                                   {(() => {
-                                    const info = order.customer_info as Record<string, unknown>;
-                                    const multipleAccounts = Array.isArray(info['Multiple Accounts']) ? info['Multiple Accounts'] : null;
+                                    const info = order.customer_info;
+                                    const accountsArray = Array.isArray(info) ? info : null;
+                                    const infoObj = info && typeof info === 'object' && !Array.isArray(info) ? (info as Record<string, unknown>) : {};
+                                    const multipleAccounts = accountsArray ?? (Array.isArray(infoObj['Multiple Accounts']) ? infoObj['Multiple Accounts'] : null);
                                     const hasMultipleAccounts = multipleAccounts && multipleAccounts.length > 0;
-                                    const singleEntries = Object.entries(info).filter(([key]) => key !== 'Multiple Accounts');
+                                    const singleEntries = Object.entries(infoObj)
+                                      .filter(([key]) => key !== 'Payment Method' && key !== 'Multiple Accounts')
+                                      .filter(([, value]) => typeof value === 'string' || typeof value === 'number');
 
                                     if (hasMultipleAccounts) {
-                                      return multipleAccounts.map((account: any, idx: number) => (
+                                      return multipleAccounts.map((account: { game?: string; package?: string; fields?: Record<string, unknown> }, idx: number) => (
                                         <div key={idx} className="pl-2 border-l-2 border-gray-300">
-                                          <p className="text-gray-900 font-medium">{account.game}</p>
+                                          <p className="text-gray-900 font-medium">{account.game || 'Item'}</p>
                                           {account.package && <p className="text-gray-600 text-xs">Package: {account.package}</p>}
-                                          {account.fields && Object.entries(account.fields).map(([label, value]: [string, any]) => (
+                                          {account.fields && Object.entries(account.fields)
+                                            .filter(([, v]) => v != null && (typeof v === 'string' || typeof v === 'number'))
+                                            .map(([label, value]) => (
                                             <p key={label} className="text-gray-600 text-xs">
                                               <span className="font-medium">{label}:</span> {String(value)}
                                             </p>
@@ -535,7 +541,7 @@ const MemberManager: React.FC<MemberManagerProps> = ({ onBack }) => {
                                     }
                                     return singleEntries.map(([label, value]) => (
                                       <p key={label} className="text-gray-600 text-xs">
-                                        <span className="font-medium">{label}:</span> {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                        <span className="font-medium">{label}:</span> {String(value)}
                                       </p>
                                     ));
                                   })()}
@@ -592,22 +598,28 @@ const MemberManager: React.FC<MemberManagerProps> = ({ onBack }) => {
                                 </div>
                               </td>
                               <td className="p-3 text-gray-600 text-xs">
-                                {order.customer_info && Object.keys(order.customer_info).length > 0 ? (
+                                {order.customer_info && (Array.isArray(order.customer_info) ? order.customer_info.length > 0 : Object.keys(order.customer_info).length > 0) ? (
                                   <div className="space-y-1">
                                     <p className="text-gray-600 font-medium mb-1">Customer Info:</p>
                                     <div className="pl-4 space-y-1">
                                       {(() => {
-                                        const info = order.customer_info as Record<string, unknown>;
-                                        const multipleAccounts = Array.isArray(info['Multiple Accounts']) ? info['Multiple Accounts'] : null;
+                                        const info = order.customer_info;
+                                        const accountsArray = Array.isArray(info) ? info : null;
+                                        const infoObj = info && typeof info === 'object' && !Array.isArray(info) ? (info as Record<string, unknown>) : {};
+                                        const multipleAccounts = accountsArray ?? (Array.isArray(infoObj['Multiple Accounts']) ? infoObj['Multiple Accounts'] : null);
                                         const hasMultipleAccounts = multipleAccounts && multipleAccounts.length > 0;
-                                        const singleEntries = Object.entries(info).filter(([key]) => key !== 'Multiple Accounts');
+                                        const singleEntries = Object.entries(infoObj)
+                                          .filter(([key]) => key !== 'Payment Method' && key !== 'Multiple Accounts')
+                                          .filter(([, value]) => typeof value === 'string' || typeof value === 'number');
 
                                         if (hasMultipleAccounts) {
-                                          return multipleAccounts.map((account: any, idx: number) => (
+                                          return multipleAccounts.map((account: { game?: string; package?: string; fields?: Record<string, unknown> }, idx: number) => (
                                             <div key={idx} className="border-l-2 border-gray-300 pl-2">
-                                              <p className="font-medium text-gray-900">{account.game}</p>
+                                              <p className="font-medium text-gray-900">{account.game || 'Item'}</p>
                                               {account.package && <p className="text-xs text-gray-600">Package: {account.package}</p>}
-                                              {account.fields && Object.entries(account.fields).map(([label, value]: [string, any]) => (
+                                              {account.fields && Object.entries(account.fields)
+                                                .filter(([, v]) => v != null && (typeof v === 'string' || typeof v === 'number'))
+                                                .map(([label, value]) => (
                                                 <p key={label} className="text-xs text-gray-600">
                                                   <span className="font-medium">{label}:</span> {String(value)}
                                                 </p>
@@ -617,7 +629,7 @@ const MemberManager: React.FC<MemberManagerProps> = ({ onBack }) => {
                                         }
                                         return singleEntries.map(([label, value]) => (
                                           <p key={label} className="text-xs text-gray-600">
-                                            <span className="font-medium">{label}:</span> {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                            <span className="font-medium">{label}:</span> {String(value)}
                                           </p>
                                         ));
                                       })()}

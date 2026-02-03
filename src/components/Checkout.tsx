@@ -1252,6 +1252,9 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
         }
       }
 
+      // Generate invoice number for Place Order (forceNew = true for each new order)
+      const invoiceNumber = await generateInvoiceNumber(true);
+
       // Create order
       const newOrder = await createOrder({
         order_items: cartItems,
@@ -1260,6 +1263,8 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
         receipt_url: receiptImageUrl,
         total_price: totalPrice,
         member_id: currentMember?.id,
+        order_option: 'place_order',
+        invoice_number: invoiceNumber,
       });
 
       if (newOrder) {

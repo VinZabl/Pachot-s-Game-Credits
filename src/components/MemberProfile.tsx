@@ -28,7 +28,7 @@ const MemberProfile: React.FC<MemberProfileProps> = ({ onClose, onLogout }) => {
       setLoadingOrders(true);
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select('id, invoice_number, status, total_price, payment_method_id, created_at, updated_at, order_option, order_items, customer_info')
         .eq('member_id', currentMember?.id)
         .order('created_at', { ascending: false });
 
@@ -262,25 +262,31 @@ const MemberProfile: React.FC<MemberProfileProps> = ({ onClose, onLogout }) => {
             </div>
 
             {/* Customer Inputs (Custom Fields) */}
-            {selectedOrder.customer_info && Object.keys(selectedOrder.customer_info).length > 0 && (
+            {selectedOrder.customer_info && (Array.isArray(selectedOrder.customer_info) ? selectedOrder.customer_info.length > 0 : Object.keys(selectedOrder.customer_info).length > 0) && (
               <div className="mb-4">
                 <h3 className="font-medium text-white mb-3">Customer Information</h3>
                 {(() => {
-                  const info = selectedOrder.customer_info as Record<string, unknown>;
-                  const multipleAccounts = Array.isArray(info['Multiple Accounts']) ? info['Multiple Accounts'] : null;
+                  const info = selectedOrder.customer_info;
+                  const accountsArray = Array.isArray(info) ? info : null;
+                  const infoObj = info && typeof info === 'object' && !Array.isArray(info) ? (info as Record<string, unknown>) : {};
+                  const multipleAccounts = accountsArray ?? (Array.isArray(infoObj['Multiple Accounts']) ? infoObj['Multiple Accounts'] : null);
                   const hasMultipleAccounts = multipleAccounts && multipleAccounts.length > 0;
-                  const singleEntries = Object.entries(info).filter(([key]) => key !== 'Multiple Accounts');
+                  const singleEntries = Object.entries(infoObj)
+                    .filter(([key]) => key !== 'Payment Method' && key !== 'Multiple Accounts')
+                    .filter(([, value]) => typeof value === 'string' || typeof value === 'number');
 
                   if (hasMultipleAccounts) {
                     return (
                       <div className="space-y-3">
-                        {multipleAccounts.map((account: { game?: string; package?: string; fields?: Record<string, string> }, idx: number) => (
+                        {multipleAccounts.map((account: { game?: string; package?: string; fields?: Record<string, unknown> }, idx: number) => (
                           <div key={idx} className="pb-3 border-b border-pink-500/20 last:border-b-0 last:pb-0">
-                            <p className="font-semibold text-white text-sm mb-2">{account.game}</p>
+                            <p className="font-semibold text-white text-sm mb-2">{account.game || 'Item'}</p>
                             {account.package && <p className="text-xs text-pink-200/80 mb-2">Package: {account.package}</p>}
                             {account.fields && (
                               <div className="space-y-1">
-                                {Object.entries(account.fields).map(([label, value]) => (
+                                {Object.entries(account.fields)
+                                  .filter(([, v]) => v != null && (typeof v === 'string' || typeof v === 'number'))
+                                  .map(([label, value]) => (
                                   <p key={label} className="text-xs text-pink-200/80">
                                     <span className="font-medium text-white">{label}:</span> {String(value)}
                                   </p>
@@ -296,7 +302,7 @@ const MemberProfile: React.FC<MemberProfileProps> = ({ onClose, onLogout }) => {
                     <div className="space-y-1">
                       {singleEntries.map(([label, value]) => (
                         <p key={label} className="text-xs text-pink-200/80">
-                          <span className="font-medium text-white">{label}:</span> {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                          <span className="font-medium text-white">{label}:</span> {String(value)}
                         </p>
                       ))}
                     </div>
