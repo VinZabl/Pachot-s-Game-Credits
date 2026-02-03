@@ -26,7 +26,7 @@ export const useOrders = () => {
       // Full order with receipt_url is fetched via fetchOrderById when viewing details
       const { data, error: fetchError, count } = await supabase
         .from('orders')
-        .select('id, order_items, total_price, payment_method_id, status, created_at, updated_at, rejection_reason, customer_info', { count: 'exact' })
+        .select('id, order_items, total_price, payment_method_id, status, created_at, updated_at, rejection_reason, customer_info, member_id', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(from, to);
 
@@ -44,14 +44,20 @@ export const useOrders = () => {
         rejection_reason: order.rejection_reason || undefined,
         created_at: order.created_at,
         updated_at: order.updated_at || order.created_at,
+        member_id: order.member_id || undefined,
       }));
 
       setOrders(transformedOrders);
       setTotalCount(count || 0);
       setCurrentPage(page);
       setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch orders');
+    } catch (err: unknown) {
+      const msg = (err && typeof err === 'object' && 'message' in err)
+        ? String((err as { message?: string }).message)
+        : err instanceof Error ? err.message : 'Failed to fetch orders';
+      // Supabase/PostgREST sometimes returns truncated JSON as message (e.g. '{"') - use fallback
+      const displayMsg = (msg && msg.length > 3 && !msg.startsWith('{"')) ? msg : 'Failed to fetch orders. Check Supabase connection and RLS policies.';
+      setError(displayMsg);
       console.error('Error fetching orders:', err);
     } finally {
       setLoading(false);
@@ -80,6 +86,7 @@ export const useOrders = () => {
         rejection_reason: data.rejection_reason || undefined,
         created_at: data.created_at,
         updated_at: data.updated_at || data.created_at,
+        member_id: data.member_id || undefined,
       };
     } catch (err) {
       console.error('Error fetching order:', err);
@@ -115,8 +122,9 @@ export const useOrders = () => {
           // Keep only the most recent 100
           return updated.slice(0, 100);
         });
-      } else if (orders.length === 0) {
-        // If no orders loaded, fetch initial set (page 1)
+      } else if (orders.length === 0 && isAdminRoute) {
+        // If no orders loaded (admin only), fetch initial set (page 1)
+        // Skip for customer - they don't have permission to list all orders
         await fetchOrders(1);
       }
 
@@ -133,6 +141,7 @@ export const useOrders = () => {
         rejection_reason: data.rejection_reason || undefined,
         created_at: data.created_at,
         updated_at: data.updated_at || data.created_at,
+        member_id: data.member_id || undefined,
       };
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create order');

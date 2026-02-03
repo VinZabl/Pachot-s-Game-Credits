@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Header from './components/Header';
 import SubNav from './components/SubNav';
 import Menu from './components/Menu';
@@ -9,6 +9,8 @@ import MemberLogin from './components/MemberLogin';
 import WelcomeModal from './components/WelcomeModal';
 import MemberProfile from './components/MemberProfile';
 import OrderStatusModal from './components/OrderStatusModal';
+import { OrderStatusProvider, useOrderStatus } from './contexts/OrderStatusContext';
+import { MemberAuthProvider } from './contexts/MemberAuthContext';
 import { useMenu } from './hooks/useMenu';
 import { useMemberAuth } from './hooks/useMemberAuth';
 import { useOrders } from './hooks/useOrders';
@@ -20,6 +22,9 @@ function MainApp() {
   const { currentMember, logout, loading: authLoading } = useMemberAuth();
   const { menuItems } = useMenu();
   const { fetchOrderById } = useOrders();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const navState = location.state as { justLoggedIn?: boolean } | null;
 
   const [selectedCategory, setSelectedCategory] = React.useState<string>(() => {
     try {
@@ -50,8 +55,7 @@ function MainApp() {
   const [showWelcomeModal, setShowWelcomeModal] = React.useState(false);
   const [showMemberProfile, setShowMemberProfile] = React.useState(false);
   const [justLoggedIn, setJustLoggedIn] = React.useState(false);
-  const [pendingOrderId, setPendingOrderId] = React.useState<string | null>(null);
-  const [showOrderStatusModal, setShowOrderStatusModal] = React.useState(false);
+  const { orderId: pendingOrderId, showOrderStatusModal, clearOrderStatus, closeOrderStatusModal, openOrderStatusModal } = useOrderStatus();
 
   // Persist app state to localStorage whenever it changes
   React.useEffect(() => {
@@ -65,15 +69,19 @@ function MainApp() {
     }
   }, [selectedCategory, searchQuery]);
 
-  // Show welcome modal when member logs in
+  // Show welcome modal only once when member logs in (from login/register redirect)
   React.useEffect(() => {
-    if (currentMember && justLoggedIn) {
+    if (currentMember && (justLoggedIn || navState?.justLoggedIn)) {
       setShowWelcomeModal(true);
       setJustLoggedIn(false);
+      // Clear nav state so we don't show again when returning to tab or using back button
+      if (navState?.justLoggedIn) {
+        navigate(location.pathname, { replace: true, state: {} });
+      }
     }
-  }, [currentMember, justLoggedIn]);
+  }, [currentMember, justLoggedIn, navState?.justLoggedIn, navigate, location.pathname]);
 
-  // Check for pending order when app loads
+  // Check for order in localStorage when app loads (for banner + auto-open modal for pending/processing)
   React.useEffect(() => {
     const checkPendingOrder = async () => {
       if (authLoading) return;
@@ -81,22 +89,22 @@ function MainApp() {
       if (!storedOrderId) return;
       try {
         const order = await fetchOrderById(storedOrderId);
-        if (order && (order.status === 'pending' || order.status === 'processing')) {
-          setPendingOrderId(storedOrderId);
-          setShowOrderStatusModal(true);
+        if (order && (order.status === 'pending' || order.status === 'processing' || order.status === 'approved' || order.status === 'rejected')) {
+          const autoShow = order.status === 'pending' || order.status === 'processing';
+          openOrderStatusModal(storedOrderId, autoShow);
         }
       } catch {
         // ignore
       }
     };
     checkPendingOrder();
-  }, [authLoading, fetchOrderById]);
+  }, [authLoading, fetchOrderById, openOrderStatusModal]);
 
   const handleMemberClick = () => {
     if (currentMember) {
       setShowMemberProfile(true);
     } else {
-      window.location.href = '/member/login';
+      navigate('/member/login');
     }
   };
 
@@ -190,12 +198,8 @@ function MainApp() {
       <OrderStatusModal
         orderId={pendingOrderId}
         isOpen={showOrderStatusModal}
-        onClose={() => setShowOrderStatusModal(false)}
-        onSucceededClose={() => {
-          localStorage.removeItem('current_order_id');
-          setShowOrderStatusModal(false);
-          setPendingOrderId(null);
-        }}
+        onClose={closeOrderStatusModal}
+        onSucceededClose={clearOrderStatus}
       />
 
       <FloatingSupportButton />
@@ -205,12 +209,11 @@ function MainApp() {
 }
 
 function MemberLoginPage() {
+  const navigate = useNavigate();
   return (
     <MemberLogin
-      onBack={() => (window.location.href = '/')}
-      onLoginSuccess={() => {
-        window.location.href = '/';
-      }}
+      onBack={() => navigate('/')}
+      onLoginSuccess={() => navigate('/', { state: { justLoggedIn: true } })}
     />
   );
 }
@@ -218,11 +221,15 @@ function MemberLoginPage() {
 function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<MainApp />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/member/login" element={<MemberLoginPage />} />
-      </Routes>
+      <MemberAuthProvider>
+        <OrderStatusProvider>
+          <Routes>
+            <Route path="/" element={<MainApp />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/member/login" element={<MemberLoginPage />} />
+          </Routes>
+        </OrderStatusProvider>
+      </MemberAuthProvider>
     </Router>
   );
 }

@@ -4,7 +4,7 @@ import { MenuItem, Variation, CartItem, Member } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { useOrders } from '../hooks/useOrders';
-import OrderStatusModal from './OrderStatusModal';
+import { useOrderStatus } from '../contexts/OrderStatusContext';
 
 interface GameItemOrderModalProps {
   item: MenuItem;
@@ -23,7 +23,8 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 }) => {
   const { paymentMethods } = usePaymentMethods();
   const { uploadImage, uploading: uploadingReceipt } = useImageUpload();
-  const { createOrder, fetchOrderById } = useOrders();
+  const { createOrder } = useOrders();
+  const { setOrderPlaced } = useOrderStatus();
 
   const [selectedVariation, setSelectedVariation] = useState<Variation | undefined>(undefined);
   const [accounts, setAccounts] = useState<Record<string, string>[]>([{}]);
@@ -36,8 +37,6 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-  const [orderId, setOrderId] = useState<string | null>(null);
-  const [isOrderStatusOpen, setIsOrderStatusOpen] = useState(false);
   const [showIdHelp, setShowIdHelp] = useState(false);
   const [copiedAccountName, setCopiedAccountName] = useState(false);
   const [copiedAccountNumber, setCopiedAccountNumber] = useState(false);
@@ -302,13 +301,13 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
         payment_method_id: selectedPaymentMethod.id,
         receipt_url: receiptImageUrl,
         total_price: totalPrice,
+        member_id: currentMember?.id,
       });
 
       if (newOrder) {
-        setOrderId(newOrder.id);
-        localStorage.setItem('current_order_id', newOrder.id);
-        setIsOrderStatusOpen(true);
+        setOrderPlaced(newOrder.id);
         onOrderPlaced?.();
+        handleClose();
       }
     } catch (err) {
       console.error('Error placing order:', err);
@@ -913,27 +912,6 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
         </div>
       </div>
 
-      <OrderStatusModal
-        orderId={orderId}
-        isOpen={isOrderStatusOpen}
-        onClose={() => {
-          setIsOrderStatusOpen(false);
-          if (orderId) {
-            fetchOrderById(orderId).then((o) => {
-              if (o?.status === 'approved') {
-                localStorage.removeItem('current_order_id');
-                setOrderId(null);
-                handleClose();
-              }
-            });
-          }
-        }}
-        onSucceededClose={() => {
-          localStorage.removeItem('current_order_id');
-          setOrderId(null);
-          handleClose();
-        }}
-      />
     </>
   );
 };

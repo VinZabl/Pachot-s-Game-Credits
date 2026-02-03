@@ -3,6 +3,7 @@ import { X, LogOut, History, User, ArrowLeft } from 'lucide-react';
 import { useMemberAuth } from '../hooks/useMemberAuth';
 import { supabase } from '../lib/supabase';
 import { Order } from '../types';
+import { aggregateOrderItems } from '../utils/orderItems';
 
 interface MemberProfileProps {
   onClose: () => void;
@@ -218,7 +219,7 @@ const MemberProfile: React.FC<MemberProfileProps> = ({ onClose, onLogout }) => {
               <h3 className="font-medium text-white mb-3">Order Details</h3>
               {Array.isArray(selectedOrder.order_items) && selectedOrder.order_items.length > 0 ? (
                 <div className="space-y-4">
-                  {selectedOrder.order_items.map((item, idx) => (
+                  {aggregateOrderItems(selectedOrder.order_items).map((item, idx) => (
                     <div key={idx} className="flex items-start gap-3">
                       <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-white/10">
                         {item.image ? (
@@ -264,33 +265,43 @@ const MemberProfile: React.FC<MemberProfileProps> = ({ onClose, onLogout }) => {
             {selectedOrder.customer_info && Object.keys(selectedOrder.customer_info).length > 0 && (
               <div className="mb-4">
                 <h3 className="font-medium text-white mb-3">Customer Information</h3>
-                {Array.isArray(selectedOrder.customer_info) ? (
-                  // Multiple accounts mode
-                  <div className="space-y-3">
-                    {selectedOrder.customer_info.map((account, idx) => (
-                      <div key={idx} className="pb-3 border-b border-pink-500/20 last:border-b-0 last:pb-0">
-                        <p className="font-semibold text-white text-sm mb-2">{account.game}</p>
-                        <p className="text-xs text-pink-200/80 mb-2">Package: {account.package}</p>
-                        <div className="space-y-1">
-                          {Object.entries(account.fields).map(([label, value]) => (
-                            <p key={label} className="text-xs text-pink-200/80">
-                              <span className="font-medium text-white">{label}:</span> {value}
-                            </p>
-                          ))}
-                        </div>
+                {(() => {
+                  const info = selectedOrder.customer_info as Record<string, unknown>;
+                  const multipleAccounts = Array.isArray(info['Multiple Accounts']) ? info['Multiple Accounts'] : null;
+                  const hasMultipleAccounts = multipleAccounts && multipleAccounts.length > 0;
+                  const singleEntries = Object.entries(info).filter(([key]) => key !== 'Multiple Accounts');
+
+                  if (hasMultipleAccounts) {
+                    return (
+                      <div className="space-y-3">
+                        {multipleAccounts.map((account: { game?: string; package?: string; fields?: Record<string, string> }, idx: number) => (
+                          <div key={idx} className="pb-3 border-b border-pink-500/20 last:border-b-0 last:pb-0">
+                            <p className="font-semibold text-white text-sm mb-2">{account.game}</p>
+                            {account.package && <p className="text-xs text-pink-200/80 mb-2">Package: {account.package}</p>}
+                            {account.fields && (
+                              <div className="space-y-1">
+                                {Object.entries(account.fields).map(([label, value]) => (
+                                  <p key={label} className="text-xs text-pink-200/80">
+                                    <span className="font-medium text-white">{label}:</span> {String(value)}
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  // Single account mode
-                  <div className="space-y-1">
-                    {Object.entries(selectedOrder.customer_info).map(([label, value]) => (
-                      <p key={label} className="text-xs text-pink-200/80">
-                        <span className="font-medium text-white">{label}:</span> {value}
-                      </p>
-                    ))}
-                  </div>
-                )}
+                    );
+                  }
+                  return (
+                    <div className="space-y-1">
+                      {singleEntries.map(([label, value]) => (
+                        <p key={label} className="text-xs text-pink-200/80">
+                          <span className="font-medium text-white">{label}:</span> {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                        </p>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

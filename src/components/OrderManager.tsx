@@ -4,6 +4,7 @@ import { Order, OrderStatus, Member } from '../types';
 import { useOrders } from '../hooks/useOrders';
 import { usePaymentMethods, PaymentMethod } from '../hooks/usePaymentMethods';
 import { supabase } from '../lib/supabase';
+import { aggregateOrderItems } from '../utils/orderItems';
 
 const OrderManager: React.FC = () => {
   const { orders, loading, fetchOrders, fetchOrderById, updateOrderStatus, totalCount, currentPage, ordersPerPage } = useOrders();
@@ -600,7 +601,7 @@ const OrderManager: React.FC = () => {
               <div className="bg-gray-50 rounded-lg p-3 md:p-4 border border-gray-200">
                 <h3 className="text-xs font-medium text-gray-900 mb-3 md:mb-4">Order Items</h3>
                 <div className="space-y-2 md:space-y-3">
-                  {selectedOrder.order_items.map((item, index) => (
+                  {aggregateOrderItems(selectedOrder.order_items).map((item, index) => (
                     <div key={index} className="flex items-start gap-2 md:gap-4 py-2 md:py-3 border-b border-gray-200 last:border-b-0">
                       <div className="flex-shrink-0 w-12 h-12 md:w-16 md:h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
                         {item.image ? (

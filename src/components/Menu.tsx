@@ -3,9 +3,9 @@ import { MenuItem, OrderStatus, Member } from '../types';
 import { useCategories } from '../hooks/useCategories';
 import { useSiteSettings } from '../hooks/useSiteSettings';
 import { useOrders } from '../hooks/useOrders';
+import { useOrderStatus } from '../contexts/OrderStatusContext';
 import MenuItemCard from './MenuItemCard';
 import Hero from './Hero';
-import OrderStatusModal from './OrderStatusModal';
 
 // Preload images for better performance
 const preloadImages = (items: MenuItem[]) => {
@@ -28,38 +28,23 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
   const { categories } = useCategories();
   const { siteSettings } = useSiteSettings();
   const { fetchOrderById } = useOrders();
+  const { orderId: processingOrderId, openOrderStatusModal } = useOrderStatus();
   const menuItemsSafe = Array.isArray(menuItems) ? menuItems : [];
   const [activeCategory, setActiveCategory] = React.useState(selectedCategory === 'popular' ? 'popular' : 'hot-coffee');
-  const [processingOrderId, setProcessingOrderId] = React.useState<string | null>(null);
-  const [isOrderModalOpen, setIsOrderModalOpen] = React.useState(false);
 
-  // Track current order status to know when to clear banner
+  // Track current order status for banner text
   const [currentOrderStatus, setCurrentOrderStatus] = React.useState<OrderStatus | null>(null);
 
-  // Handle modal close - clear approved/rejected orders from banner and localStorage
-  const handleModalClose = React.useCallback(async () => {
-    setIsOrderModalOpen(false);
-    // If we already know the order is approved or rejected, clear immediately
-    if (processingOrderId && (currentOrderStatus === 'approved' || currentOrderStatus === 'rejected')) {
-      localStorage.removeItem('current_order_id');
-      setProcessingOrderId(null);
+  // Fetch order status when we have an order (for banner text)
+  React.useEffect(() => {
+    if (!processingOrderId) {
       setCurrentOrderStatus(null);
       return;
     }
-    
-    // Otherwise, check the current order status
-    if (processingOrderId) {
-      const order = await fetchOrderById(processingOrderId);
-      if (order) {
-        setCurrentOrderStatus(order.status);
-        if (order.status === 'approved' || order.status === 'rejected') {
-          localStorage.removeItem('current_order_id');
-          setProcessingOrderId(null);
-          setCurrentOrderStatus(null);
-        }
-      }
-    }
-  }, [processingOrderId, currentOrderStatus, fetchOrderById]);
+    fetchOrderById(processingOrderId).then((order) => {
+      if (order) setCurrentOrderStatus(order.status);
+    });
+  }, [processingOrderId, fetchOrderById]);
 
   // Preload images when menu items change
   React.useEffect(() => {
@@ -122,40 +107,6 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
       }
     }
   }, [categories, activeCategory, selectedCategory]);
-
-  // Check for processing order on mount and when component becomes visible
-  React.useEffect(() => {
-    const checkProcessingOrder = async () => {
-      const storedOrderId = localStorage.getItem('current_order_id');
-      if (storedOrderId) {
-        const order = await fetchOrderById(storedOrderId);
-        if (order && (order.status === 'pending' || order.status === 'processing' || order.status === 'approved' || order.status === 'rejected')) {
-          // Show banner for all order statuses (pending, processing, approved, rejected)
-          // Banner will be cleared when user closes the modal
-          setProcessingOrderId(storedOrderId);
-          setCurrentOrderStatus(order.status);
-          
-          // Auto-open modal if order is pending or processing
-          if (order.status === 'pending' || order.status === 'processing') {
-            setIsOrderModalOpen(true);
-          }
-        } else {
-          // Order not found, clear it
-          localStorage.removeItem('current_order_id');
-          setProcessingOrderId(null);
-          setCurrentOrderStatus(null);
-        }
-      } else {
-        setProcessingOrderId(null);
-        setCurrentOrderStatus(null);
-      }
-    };
-
-    checkProcessingOrder();
-    // Poll every 5 seconds to check order status
-    const interval = setInterval(checkProcessingOrder, 5000);
-    return () => clearInterval(interval);
-  }, [fetchOrderById]);
 
   React.useEffect(() => {
     // Only handle scroll if not showing popular category
@@ -247,7 +198,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
           </div>
           {/* Right Section - Action Button */}
           <button
-            onClick={() => setIsOrderModalOpen(true)}
+            onClick={() => processingOrderId && openOrderStatusModal(processingOrderId)}
             className="px-4 sm:px-6 py-3 sm:py-4 text-white font-semibold hover:opacity-90 transition-all duration-200 flex items-center justify-center whitespace-nowrap"
             style={{ backgroundColor: '#FF69B4' }}
           >
@@ -272,17 +223,6 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
               <p className="text-gray-400">No games found matching "{searchQuery}"</p>
             </section>
           </main>
-          <OrderStatusModal
-            orderId={processingOrderId}
-            isOpen={isOrderModalOpen}
-            onClose={handleModalClose}
-            onSucceededClose={() => {
-              localStorage.removeItem('current_order_id');
-              setProcessingOrderId(null);
-              setCurrentOrderStatus(null);
-              setIsOrderModalOpen(false);
-            }}
-          />
         </>
       );
     }
@@ -304,17 +244,6 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
             </div>
           </section>
         </main>
-        <OrderStatusModal
-          orderId={processingOrderId}
-          isOpen={isOrderModalOpen}
-          onClose={handleModalClose}
-          onSucceededClose={() => {
-            localStorage.removeItem('current_order_id');
-            setProcessingOrderId(null);
-            setCurrentOrderStatus(null);
-            setIsOrderModalOpen(false);
-          }}
-        />
       </>
     );
   }
@@ -334,17 +263,6 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
               <p className="text-gray-400">No popular items available at the moment.</p>
             </section>
           </main>
-          <OrderStatusModal
-            orderId={processingOrderId}
-            isOpen={isOrderModalOpen}
-            onClose={handleModalClose}
-            onSucceededClose={() => {
-              localStorage.removeItem('current_order_id');
-              setProcessingOrderId(null);
-              setCurrentOrderStatus(null);
-              setIsOrderModalOpen(false);
-            }}
-          />
         </>
       );
     }
@@ -363,17 +281,6 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
             </div>
           </section>
         </main>
-        <OrderStatusModal
-          orderId={processingOrderId}
-          isOpen={isOrderModalOpen}
-          onClose={handleModalClose}
-          onSucceededClose={() => {
-            localStorage.removeItem('current_order_id');
-            setProcessingOrderId(null);
-            setCurrentOrderStatus(null);
-            setIsOrderModalOpen(false);
-          }}
-        />
       </>
     );
   }
@@ -439,17 +346,6 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
       </main>
 
       {/* Order Status Modal */}
-      <OrderStatusModal
-        orderId={processingOrderId}
-        isOpen={isOrderModalOpen}
-        onClose={handleModalClose}
-        onSucceededClose={() => {
-          localStorage.removeItem('current_order_id');
-          setProcessingOrderId(null);
-          setCurrentOrderStatus(null);
-          setIsOrderModalOpen(false);
-        }}
-      />
     </>
   );
 };

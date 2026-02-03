@@ -1259,6 +1259,7 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
         payment_method_id: selectedPaymentMethod.id,
         receipt_url: receiptImageUrl,
         total_price: totalPrice,
+        member_id: currentMember?.id,
       });
 
       if (newOrder) {
@@ -1315,6 +1316,7 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
         }
       }}
       onSucceededClose={() => {
+        setIsOrderModalOpen(false);
         localStorage.removeItem('current_order_id');
         // Clear checkout state when order succeeds
         localStorage.removeItem(CHECKOUT_STATE_STORAGE_KEY);

@@ -225,7 +225,7 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
             <div>
               <h3 className="text-sm sm:text-base font-medium text-white mb-3 sm:mb-4">Order Details</h3>
               <div className="space-y-2 sm:space-y-3">
-                {order.order_items.map((item, index) => (
+                {aggregateOrderItems(order.order_items).map((item, index) => (
                   <div key={index} className="flex items-start gap-2 sm:gap-4 py-1.5 sm:py-2 border-b border-pink-500/20 last:border-b-0">
                     <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg">
                       {item.image ? (
