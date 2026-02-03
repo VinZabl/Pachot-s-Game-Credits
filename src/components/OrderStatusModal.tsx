@@ -115,7 +115,7 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
             <h2 className="text-base sm:text-2xl font-semibold text-white">Order Status</h2>
             {order && (
               <p className="text-xs sm:text-sm text-gray-400 mt-0.5 sm:mt-1">
-                Order #{order.id.slice(0, 8)}
+                Order #{order.invoice_number || order.id.slice(0, 8)}
               </p>
             )}
           </div>
@@ -291,10 +291,16 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
             <div>
               <h3 className="text-sm sm:text-base font-medium text-white mb-3 sm:mb-4">Customer Information</h3>
               {(() => {
-                const info = order.customer_info || {};
-                const multipleAccounts = Array.isArray(info['Multiple Accounts']) ? info['Multiple Accounts'] : null;
+                const info = order.customer_info;
+                // Handle array format: customer_info is [{ game, package, fields }, ...]
+                const accountsArray = Array.isArray(info) ? info : null;
+                // Handle object format: { "Multiple Accounts": [...], "Payment Method": "..." } or { "IGN": "...", ... }
+                const infoObj = info && typeof info === 'object' && !Array.isArray(info) ? (info as Record<string, unknown>) : {};
+                const multipleAccounts = accountsArray ?? (Array.isArray(infoObj['Multiple Accounts']) ? infoObj['Multiple Accounts'] : null);
                 const hasMultipleAccounts = multipleAccounts && multipleAccounts.length > 0;
-                const singleEntries = Object.entries(info).filter(([key]) => key !== 'Multiple Accounts');
+                const singleEntries = Object.entries(infoObj)
+                  .filter(([key]) => key !== 'Payment Method' && key !== 'Multiple Accounts')
+                  .filter(([, value]) => typeof value === 'string' || typeof value === 'number');
                 const hasSingleEntries = singleEntries.length > 0;
 
                 if (hasMultipleAccounts) {
@@ -309,7 +315,9 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                             )}
                           </div>
                           <div className="space-y-1 sm:space-y-2 mt-1.5 sm:mt-2">
-                            {account.fields && Object.entries(account.fields).map(([key, value]) => (
+                            {account.fields && Object.entries(account.fields)
+                              .filter(([, v]) => v != null && (typeof v === 'string' || typeof v === 'number'))
+                              .map(([key, value]) => (
                               <p key={key} className="text-xs sm:text-sm text-gray-400">
                                 {key}: {String(value)}
                               </p>
@@ -317,29 +325,28 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                           </div>
                         </div>
                       ))}
-                      {info['Payment Method'] && (
+                      {(infoObj['Payment Method'] as string | undefined) && (
                         <p className="text-xs sm:text-sm text-gray-400 mt-1.5 sm:mt-2">
-                          Payment Method: {String(info['Payment Method'])}
+                          Payment Method: {String(infoObj['Payment Method'])}
                         </p>
                       )}
                     </div>
                   );
                 }
                 if (hasSingleEntries) {
-                  const customFieldEntries = singleEntries.filter(([key]) => key !== 'Payment Method');
-                  const paymentMethod = info['Payment Method'];
+                  const paymentMethod = infoObj['Payment Method'] as string | undefined;
                   return (
                     <div className="space-y-1.5 sm:space-y-2">
-                      {customFieldEntries.map(([key, value]) => (
+                      {singleEntries.map(([key, value]) => (
                         <p key={key} className="text-xs sm:text-sm text-gray-400">
                           {key}: {String(value)}
                         </p>
                       ))}
-                      {paymentMethod && (
+                      {paymentMethod ? (
                         <p key="payment-method" className="text-xs sm:text-sm text-gray-400">
-                          Payment Method: {String(paymentMethod)}
+                          Payment Method: {paymentMethod}
                         </p>
-                      )}
+                      ) : null}
                     </div>
                   );
                 }

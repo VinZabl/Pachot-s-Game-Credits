@@ -501,10 +501,10 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
 
       const orderNumber = currentCount;
 
-      // Format: TD1M{day}D{orderNumber}
-      // Example: TD1M17D1 (1st order on day 17), TD1M17D2 (2nd order on day 17), etc.
+      // Format: PGC1M{day}D{orderNumber}
+      // Example: PGC1M17D1 (1st order on day 17), PGC1M17D2 (2nd order on day 17), etc.
       // The first number is always 1, the last number is the order number
-      const invoiceNumber = `TD1M${dayOfMonth}D${orderNumber}`;
+      const invoiceNumber = `PGC1M${dayOfMonth}D${orderNumber}`;
       
       // Store the generated invoice number and date
       setGeneratedInvoiceNumber(invoiceNumber);
@@ -515,7 +515,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack, onNa
       console.error('Error generating invoice number:', error);
       // Fallback to a simple format if there's an error
       const { dayOfMonth } = getPhilippineDate();
-      return `TD1M${dayOfMonth}D1`;
+      return `PGC1M${dayOfMonth}D1`;
     }
   };
 

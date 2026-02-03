@@ -80,6 +80,8 @@ export const useOrders = () => {
 
       return {
         id: data.id,
+        invoice_number: data.invoice_number || undefined,
+        order_option: data.order_option || undefined,
         order_items: data.order_items || [],
         customer_info: data.customer_info || {},
         payment_method_id: data.payment_method_id || '',

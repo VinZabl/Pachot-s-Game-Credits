@@ -314,11 +314,11 @@ const OrderManager: React.FC<OrderManagerProps> = ({ onOrderFilterChange }) => {
     const orderOption = order.order_option || 'place_order';
     const status = order.status;
 
-    // For messenger orders with pending status, show "Done"
-    if (orderOption === 'order_via_messenger' && status === 'pending') {
+    // For order via messenger, show "Messenger" status
+    if (orderOption === 'order_via_messenger') {
       return (
-        <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-          Done
+        <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+          Messenger
         </span>
       );
     }
@@ -635,6 +635,32 @@ const OrderManager: React.FC<OrderManagerProps> = ({ onOrderFilterChange }) => {
                 {getStatusBadge(selectedOrder)}
               </div>
 
+              {/* Approval Message */}
+              {selectedOrder.status === 'approved' && selectedOrder.approval_message && (
+                <div className="bg-green-50 rounded-lg p-3 md:p-4 border border-green-200">
+                  <h3 className="text-xs md:text-sm font-medium text-green-800 mb-1.5 md:mb-2 flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
+                    Message when approved
+                  </h3>
+                  <p className="text-xs md:text-sm text-green-700 whitespace-pre-wrap leading-relaxed">
+                    {selectedOrder.approval_message}
+                  </p>
+                </div>
+              )}
+
+              {/* Rejection Reason */}
+              {selectedOrder.status === 'rejected' && selectedOrder.rejection_reason && (
+                <div className="bg-red-50 rounded-lg p-3 md:p-4 border border-red-200">
+                  <h3 className="text-xs md:text-sm font-medium text-red-800 mb-1.5 md:mb-2 flex items-center gap-2">
+                    <XCircle className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
+                    Message when rejected
+                  </h3>
+                  <p className="text-xs md:text-sm text-red-700 whitespace-pre-wrap leading-relaxed">
+                    {selectedOrder.rejection_reason}
+                  </p>
+                </div>
+              )}
+
               {/* Member Information */}
               {selectedOrder.member_id && memberMap[selectedOrder.member_id] && (
                 <div className="bg-blue-50 rounded-lg p-3 md:p-4 border border-blue-200">
@@ -821,45 +847,47 @@ const OrderManager: React.FC<OrderManagerProps> = ({ onOrderFilterChange }) => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 md:gap-3 pt-3 md:pt-4 border-t border-gray-200 flex-wrap">
-                {selectedOrder.status === 'pending' && (
-                  <>
-                    <button
-                      onClick={() => handleApprove(selectedOrder.id)}
-                      className="px-3 py-1.5 md:px-4 md:py-2 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 text-green-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
-                    >
-                      <CheckCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => handleRejectClick(selectedOrder.id)}
-                      className="px-3 py-1.5 md:px-4 md:py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors duration-200 text-red-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
-                    >
-                      <XCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                      Reject
-                    </button>
-                  </>
-                )}
-                {selectedOrder.status === 'processing' && (
-                  <>
-                    <button
-                      onClick={() => handleApprove(selectedOrder.id)}
-                      className="px-3 py-1.5 md:px-4 md:py-2 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 text-green-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
-                    >
-                      <CheckCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => handleRejectClick(selectedOrder.id)}
-                      className="px-3 py-1.5 md:px-4 md:py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors duration-200 text-red-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
-                    >
-                      <XCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                      Reject
-                    </button>
-                  </>
-                )}
-               </div>
+              {/* Action Buttons - hide for order via messenger */}
+              {(selectedOrder.order_option || 'place_order') !== 'order_via_messenger' && (
+                <div className="flex items-center gap-2 md:gap-3 pt-3 md:pt-4 border-t border-gray-200 flex-wrap">
+                  {selectedOrder.status === 'pending' && (
+                    <>
+                      <button
+                        onClick={() => handleApproveClick(selectedOrder.id)}
+                        className="px-3 py-1.5 md:px-4 md:py-2 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 text-green-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
+                      >
+                        <CheckCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => handleRejectClick(selectedOrder.id)}
+                        className="px-3 py-1.5 md:px-4 md:py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors duration-200 text-red-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
+                      >
+                        <XCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                        Reject
+                      </button>
+                    </>
+                  )}
+                  {selectedOrder.status === 'processing' && (
+                    <>
+                      <button
+                        onClick={() => handleApproveClick(selectedOrder.id)}
+                        className="px-3 py-1.5 md:px-4 md:py-2 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 text-green-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
+                      >
+                        <CheckCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => handleRejectClick(selectedOrder.id)}
+                        className="px-3 py-1.5 md:px-4 md:py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors duration-200 text-red-700 flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-medium"
+                      >
+                        <XCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                        Reject
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

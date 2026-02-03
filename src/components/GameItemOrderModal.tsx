@@ -370,12 +370,12 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       }
       if (forceNew) currentCount += 1;
       else if (currentCount === 0) currentCount = 1;
-      const invoiceNumber = `TD1M${dayOfMonth}D${currentCount}`;
+      const invoiceNumber = `PGC1M${dayOfMonth}D${currentCount}`;
       await supabase.from('site_settings').upsert({ id: countSettingId, value: currentCount.toString(), type: 'number', description: 'Invoice count' }, { onConflict: 'id' });
       setGeneratedInvoiceNumber(invoiceNumber);
       return invoiceNumber;
     } catch {
-      return `TD1M${getPhilippineDate().dayOfMonth}D1`;
+      return `PGC1M${getPhilippineDate().dayOfMonth}D1`;
     }
   };
 
