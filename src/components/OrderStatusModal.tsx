@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { X, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { X, CheckCircle, XCircle, Loader2, MessageCircle } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
 import { useOrders } from '../hooks/useOrders';
+import { useSiteSettings } from '../hooks/useSiteSettings';
 
 interface OrderStatusModalProps {
   orderId: string | null;
@@ -12,6 +13,7 @@ interface OrderStatusModalProps {
 
 const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, onClose, onSucceededClose }) => {
   const { fetchOrderById } = useOrders();
+  const { siteSettings } = useSiteSettings();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const isInitialLoad = useRef(true);

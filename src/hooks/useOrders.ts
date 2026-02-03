@@ -116,8 +116,8 @@ export const useOrders = () => {
           return updated.slice(0, 100);
         });
       } else if (orders.length === 0) {
-        // If no orders loaded, fetch initial set
-        await fetchOrders(100);
+        // If no orders loaded, fetch initial set (page 1)
+        await fetchOrders(1);
       }
 
       // Refresh orders list only on admin (customer doesn't have access to orders list)

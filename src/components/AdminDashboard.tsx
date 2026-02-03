@@ -826,10 +826,10 @@ const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* QR Code Upload */}
+                  {/* Game Icon Upload */}
                   <div>
                     <ImageUpload
-                      label="QR Code Upload"
+                      label="Game Icon upload"
                       currentImage={formData.image}
                       onImageChange={(imageUrl) => setFormData({ ...formData, image: imageUrl })}
                     />
