@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, Edit, Trash2, Save, X, ArrowLeft, TrendingUp, Package, Users, Lock, FolderOpen, CreditCard, Settings, ArrowUpDown, ChevronDown, ChevronUp, ShoppingBag, CheckCircle, Star, Activity, FilePlus, List, FolderTree, Wallet, Cog, Trophy, DollarSign, Clock, Gamepad2, Copy } from 'lucide-react';
 import { MenuItem, Variation, CustomField } from '../types';
 import { useMenu } from '../hooks/useMenu';
@@ -14,7 +14,7 @@ import { useSiteSettings } from '../hooks/useSiteSettings';
 
 const AdminDashboard: React.FC = () => {
   const { siteSettings } = useSiteSettings();
-  const orderOption = siteSettings?.order_option || 'order_via_messenger';
+  const orderOption = siteSettings?.order_option || 'place_order';
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('beracah_admin_auth') === 'true';
@@ -78,34 +78,78 @@ const AdminDashboard: React.FC = () => {
           .single();
         if (!error && data?.value) {
           const v = parseFloat(data.value);
-          if (!isNaN(v) && v >= 0 && v <= 1) notificationVolumeRef.current = v;
+          if (!isNaN(v) && v >= 0 && v <= 1) {
+            notificationVolumeRef.current = v > 0 ? v : 0.7;
+            console.log('[Notification] Volume loaded:', notificationVolumeRef.current, v === 0 ? '(was 0, using 0.7)' : '');
+          }
+        } else {
+          console.log('[Notification] Volume: using default 0.5 (fetch failed or no setting)');
         }
       } catch (err) {
-        console.error('Error fetching notification volume:', err);
+        console.error('[Notification] Error fetching volume:', err);
       }
     };
     fetchVolume();
   }, []);
 
-  // Pending orders count: initial fetch + Supabase Realtime (no polling – efficient on egress)
-  // Play notification sound when a new pending order arrives (works from any admin page)
-  useEffect(() => {
-    if (orderOption !== 'place_order') {
-      setPendingOrders(0);
-      return;
-    }
+  // Pending orders count: initial fetch + Supabase Realtime + polling fallback
+  // Play notification sound when a new pending order arrives
+  const audioUnlockedRef = useRef(false);
 
+  // Play notification sound - try even if not unlocked (browser will block but we log it)
+  const playNotificationSound = useCallback(() => {
+    console.log('🔊 [Sound] Attempting to play, unlocked:', audioUnlockedRef.current);
+    try {
+      const vol = notificationVolumeRef.current;
+      const audio = new Audio('/notifSound.mp3');
+      audio.volume = vol > 0 ? vol : 0.7;
+      audio.play()
+        .then(() => {
+          audioUnlockedRef.current = true; // Mark as unlocked if it worked
+          console.log('🔊 [Sound] Played successfully!');
+        })
+        .catch((err) => console.warn('🔊 [Sound] Play blocked:', err.message));
+    } catch (err) {
+      console.error('🔊 [Sound] Error:', err);
+    }
+  }, []);
+
+  // Unlock audio on first user click
+  const handleFirstInteraction = useCallback(() => {
+    if (audioUnlockedRef.current) return;
+    console.log('🔊 [Sound] First click - unlocking...');
+    try {
+      const audio = new Audio('/notifSound.mp3');
+      audio.volume = 0.3;
+      audio.play().then(() => {
+        audioUnlockedRef.current = true;
+        console.log('🔊 [Sound] UNLOCKED!');
+      }).catch((err) => {
+        console.warn('🔊 [Sound] Unlock blocked:', err.message);
+      });
+    } catch (err) {
+      console.error('🔊 [Sound] Unlock error:', err);
+    }
+  }, []);
+
+  // Test button
+  const playTestNotificationSound = useCallback(() => {
+    console.log('🔊 [Sound] Test button');
+    playNotificationSound();
+  }, [playNotificationSound]);
+
+  // Track previous count to detect new orders via polling
+  const prevPendingCountRef = useRef<number>(-1);
+
+  useEffect(() => {
+    console.log('🔔 [Orders] Setting up real-time subscription...');
+    
     const isPlaceOrderPending = (row: { status?: string; order_option?: string | null }) =>
       row.status === 'pending' && (row.order_option ?? 'place_order') === 'place_order';
 
     const playNewOrderSound = () => {
-      try {
-        const audio = new Audio('/notifSound.mp3');
-        audio.volume = notificationVolumeRef.current;
-        audio.play().catch((err) => console.error('Error playing notification sound:', err));
-      } catch (err) {
-        console.error('Error creating audio element:', err);
-      }
+      console.log('🔔 [Orders] NEW ORDER - playing sound!');
+      playNotificationSound();
     };
 
     const fetchPendingCount = async () => {
@@ -117,6 +161,13 @@ const AdminDashboard: React.FC = () => {
 
         if (error) throw error;
         const count = (data ?? []).filter((o) => (o.order_option ?? 'place_order') === 'place_order').length;
+        
+        // Play sound if count increased (new order detected via polling)
+        if (prevPendingCountRef.current >= 0 && count > prevPendingCountRef.current) {
+          console.log('🔔 [Orders] Polling detected NEW order! Previous:', prevPendingCountRef.current, 'Now:', count);
+          playNewOrderSound();
+        }
+        prevPendingCountRef.current = count;
         setPendingOrders(count);
       } catch (err) {
         console.error('Error fetching pending orders count:', err);
@@ -125,37 +176,86 @@ const AdminDashboard: React.FC = () => {
 
     fetchPendingCount();
 
-    const channel = supabase
-      .channel('admin-pending-orders')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const row = payload.new as { status?: string; order_option?: string | null };
-            if (isPlaceOrderPending(row)) {
-              setPendingOrders((n) => n + 1);
-              playNewOrderSound();
+    // Polling fallback: refresh count every 5s to catch new orders reliably
+    const POLL_MS = 5000;
+    const pollInterval = setInterval(fetchPendingCount, POLL_MS);
+    console.log('🔔 [Orders] Polling every', POLL_MS / 1000, 'seconds');
+
+    let reconnectTimeout: ReturnType<typeof setTimeout>;
+    const channelRef = { current: null as ReturnType<typeof supabase.channel> | null };
+    const setupRealtime = () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+      const ch = supabase
+        .channel(`admin-pending-orders-${Date.now()}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'orders' },
+          (payload) => {
+            console.log('🔔 [Orders] Real-time event:', payload.eventType, payload.new);
+            if (payload.eventType === 'INSERT') {
+              const row = payload.new as { status?: string; order_option?: string | null };
+              console.log('🔔 [Orders] INSERT - status:', row.status, 'option:', row.order_option);
+              if (isPlaceOrderPending(row)) {
+                console.log('🔔 [Orders] ✅ Pending order! Incrementing count and playing sound...');
+                setPendingOrders((n) => n + 1);
+                playNewOrderSound();
+              } else {
+                console.log('🔔 [Orders] ⏭️ Skipped - not a pending place_order');
+              }
+            } else if (payload.eventType === 'UPDATE') {
+              const oldRow = payload.old as { status?: string; order_option?: string | null };
+              const newRow = payload.new as { status?: string; order_option?: string | null };
+              const wasPending = isPlaceOrderPending(oldRow);
+              const isPending = isPlaceOrderPending(newRow);
+              if (wasPending && !isPending) setPendingOrders((n) => Math.max(0, n - 1));
+              else if (!wasPending && isPending) setPendingOrders((n) => n + 1);
+            } else if (payload.eventType === 'DELETE') {
+              const row = payload.old as { status?: string; order_option?: string | null };
+              if (isPlaceOrderPending(row)) setPendingOrders((n) => Math.max(0, n - 1));
             }
-          } else if (payload.eventType === 'UPDATE') {
-            const oldRow = payload.old as { status?: string; order_option?: string | null };
-            const newRow = payload.new as { status?: string; order_option?: string | null };
-            const wasPending = isPlaceOrderPending(oldRow);
-            const isPending = isPlaceOrderPending(newRow);
-            if (wasPending && !isPending) setPendingOrders((n) => Math.max(0, n - 1));
-            else if (!wasPending && isPending) setPendingOrders((n) => n + 1);
-          } else if (payload.eventType === 'DELETE') {
-            const row = payload.old as { status?: string; order_option?: string | null };
-            if (isPlaceOrderPending(row)) setPendingOrders((n) => Math.max(0, n - 1));
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe((status) => {
+          console.log('🔔 [Orders] Subscription status:', status);
+          if (status === 'SUBSCRIBED') {
+            console.log('🔔 [Orders] ✅ Real-time ACTIVE');
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            console.warn('🔔 [Orders] ⚠️ Disconnected, retrying...');
+            reconnectTimeout = setTimeout(setupRealtime, 5000);
+          }
+        });
+      channelRef.current = ch;
+    };
+
+    setupRealtime();
 
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(pollInterval);
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
     };
-  }, [orderOption]);
+  }, [playNotificationSound]);
+
+  // Unlock audio on any click/key in the admin (required by browser autoplay policy)
+  useEffect(() => {
+    console.log('🔊 [Sound] Setting up click listeners for unlock...');
+    const unlock = () => {
+      handleFirstInteraction();
+    };
+    document.addEventListener('click', unlock, { capture: true });
+    document.addEventListener('keydown', unlock, { capture: true });
+    document.addEventListener('touchstart', unlock, { capture: true });
+    return () => {
+      document.removeEventListener('click', unlock, true);
+      document.removeEventListener('keydown', unlock, true);
+      document.removeEventListener('touchstart', unlock, true);
+    };
+  }, [handleFirstInteraction]);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -529,7 +629,7 @@ const AdminDashboard: React.FC = () => {
   // Login Screen
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center" onClick={() => handleFirstInteraction()}>
         <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
           <div className="text-center mb-8">
             <div className="mx-auto w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mb-4">
@@ -2134,7 +2234,7 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         <div className="max-w-4xl mx-auto px-4 py-8">
-          <SiteSettingsManager />
+          <SiteSettingsManager onTestNotificationSound={playTestNotificationSound} />
         </div>
       </div>
     );
@@ -2171,7 +2271,7 @@ const AdminDashboard: React.FC = () => {
 
   // Dashboard View
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" onClick={() => handleFirstInteraction()}>
       <div className="sticky top-0 z-40 bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -2219,6 +2319,9 @@ const AdminDashboard: React.FC = () => {
               <div className="md:ml-4">
                 <p className="text-xs font-medium text-gray-600">Pending Orders</p>
                 <p className="text-xs font-semibold text-gray-900">{availableItems}</p>
+                {orderOption !== 'place_order' && (
+                  <p className="text-[10px] text-amber-600 mt-0.5">Enable &quot;Place Order&quot; in Site Settings for sound & badge</p>
+                )}
               </div>
             </div>
           </div>

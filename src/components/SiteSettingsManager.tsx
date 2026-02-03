@@ -4,7 +4,11 @@ import { useSiteSettings } from '../hooks/useSiteSettings';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { supabase } from '../lib/supabase';
 
-const SiteSettingsManager: React.FC = () => {
+interface SiteSettingsManagerProps {
+  onTestNotificationSound?: () => void;
+}
+
+const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({ onTestNotificationSound }) => {
   const { siteSettings, loading, updateSiteSettings } = useSiteSettings();
   const { uploadImage, uploading } = useImageUpload();
   const [formData, setFormData] = useState({
@@ -638,6 +642,19 @@ const SiteSettingsManager: React.FC = () => {
                 </p>
               )}
             </div>
+            {onTestNotificationSound && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Test sound</label>
+                <button
+                  type="button"
+                  onClick={onTestNotificationSound}
+                  className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                >
+                  Play notification sound
+                </button>
+                <p className="mt-1 text-xs text-gray-500">Optional: verify sound works. First click anywhere in admin activates notifications.</p>
+              </div>
+            )}
           </div>
         </div>
 

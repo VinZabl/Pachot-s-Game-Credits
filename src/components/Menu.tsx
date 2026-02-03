@@ -28,7 +28,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
   const { categories } = useCategories();
   const { siteSettings } = useSiteSettings();
   const { fetchOrderById } = useOrders();
-  const { orderId: processingOrderId, openOrderStatusModal } = useOrderStatus();
+  const { orderId: processingOrderId, openOrderStatusModal, clearOrderStatus } = useOrderStatus();
   const menuItemsSafe = Array.isArray(menuItems) ? menuItems : [];
   const [activeCategory, setActiveCategory] = React.useState(selectedCategory === 'popular' ? 'popular' : 'hot-coffee');
 
@@ -42,9 +42,15 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
       return;
     }
     fetchOrderById(processingOrderId).then((order) => {
-      if (order) setCurrentOrderStatus(order.status);
+      if (order) {
+        setCurrentOrderStatus(order.status);
+      } else {
+        // Order not found (deleted) - clear stale reference
+        clearOrderStatus();
+        setCurrentOrderStatus(null);
+      }
     });
-  }, [processingOrderId, fetchOrderById]);
+  }, [processingOrderId, fetchOrderById, clearOrderStatus]);
 
   // Preload images when menu items change
   React.useEffect(() => {

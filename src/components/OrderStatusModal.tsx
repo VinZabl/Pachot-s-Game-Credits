@@ -3,6 +3,7 @@ import { X, CheckCircle, XCircle, Loader2, MessageCircle } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
 import { useOrders } from '../hooks/useOrders';
 import { useSiteSettings } from '../hooks/useSiteSettings';
+import { aggregateOrderItems } from '../utils/orderItems';
 
 interface OrderStatusModalProps {
   orderId: string | null;
@@ -54,6 +55,9 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
         }
         return prevOrder;
       });
+    } else {
+      // Order not found (deleted or invalid) - clear stale ID and stop polling
+      onSucceededClose?.();
     }
     
     if (isInitial) {

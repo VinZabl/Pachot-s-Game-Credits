@@ -92,13 +92,16 @@ function MainApp() {
         if (order && (order.status === 'pending' || order.status === 'processing' || order.status === 'approved' || order.status === 'rejected')) {
           const autoShow = order.status === 'pending' || order.status === 'processing';
           openOrderStatusModal(storedOrderId, autoShow);
+        } else if (!order) {
+          // Order not found (deleted or invalid) - clear stale ID to stop retries
+          clearOrderStatus();
         }
       } catch {
         // ignore
       }
     };
     checkPendingOrder();
-  }, [authLoading, fetchOrderById, openOrderStatusModal]);
+  }, [authLoading, fetchOrderById, openOrderStatusModal, clearOrderStatus]);
 
   const handleMemberClick = () => {
     if (currentMember) {

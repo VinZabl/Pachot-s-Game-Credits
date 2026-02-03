@@ -88,8 +88,12 @@ export const useOrders = () => {
         updated_at: data.updated_at || data.created_at,
         member_id: data.member_id || undefined,
       };
-    } catch (err) {
-      console.error('Error fetching order:', err);
+    } catch (err: unknown) {
+      // PGRST116 = 0 rows (order not found/deleted) - expected, don't log as error
+      const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : '';
+      if (code !== 'PGRST116') {
+        console.error('Error fetching order:', err);
+      }
       return null;
     }
   };
