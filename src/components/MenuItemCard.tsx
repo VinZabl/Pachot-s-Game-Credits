@@ -69,8 +69,8 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, currentMember }) => {
           </div>
         )}
         
-        {/* Game Icon - compact aspect */}
-        <div className="relative w-full aspect-[4/3] overflow-hidden rounded-t-lg bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg transition-transform duration-300 group-hover:scale-105">
+        {/* Game Icon - square aspect */}
+        <div className="relative w-full aspect-square overflow-hidden rounded-t-lg bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg transition-transform duration-300 group-hover:scale-105">
           {item.image ? (
             <img
               src={item.image}

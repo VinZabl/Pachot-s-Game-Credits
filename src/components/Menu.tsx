@@ -325,7 +325,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
               <h3 className="text-3xl font-medium text-white">Popular</h3>
             </div>
             
-            <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-3">
+            <div className="grid grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
               {renderMenuItems(popularItems)}
             </div>
           </section>
@@ -343,7 +343,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
               <h3 className="text-3xl font-medium text-white">{category.name}</h3>
             </div>
               
-              <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-3">
+              <div className="grid grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
                 {renderMenuItems(categoryItems)}
               </div>
             </section>
