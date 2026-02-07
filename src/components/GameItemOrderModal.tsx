@@ -950,41 +950,43 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                   <div>
                     <p className="text-sm sm:text-lg font-semibold text-gray-900">{selectedPaymentMethod.name}</p>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
-                      <p className="text-xs sm:text-sm text-gray-500">Account Name:</p>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyAccountName(selectedPaymentMethod.account_name)}
-                        className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-purple-50 hover:border-purple-300 text-xs sm:text-sm font-medium text-gray-700 transition-colors"
-                        title="Copy account name"
-                      >
-                        {copiedAccountName ? (
-                          <span className="text-green-600">Copied!</span>
-                        ) : (
-                          <span className="flex items-center gap-1"><Copy className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Copy</span>
-                        )}
-                      </button>
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
+                        <p className="text-xs sm:text-sm text-gray-500">Account Name:</p>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyAccountName(selectedPaymentMethod.account_name)}
+                          className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-purple-50 hover:border-purple-300 text-xs sm:text-sm font-medium text-gray-700 transition-colors"
+                          title="Copy account name"
+                        >
+                          {copiedAccountName ? (
+                            <span className="text-green-600">Copied!</span>
+                          ) : (
+                            <span className="flex items-center gap-1"><Copy className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Copy</span>
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-sm sm:text-base text-gray-900 font-medium truncate">{selectedPaymentMethod.account_name}</p>
                     </div>
-                    <p className="text-sm sm:text-base text-gray-900 font-medium">{selectedPaymentMethod.account_name}</p>
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
-                      <p className="text-xs sm:text-sm text-gray-500">Account Number:</p>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyAccountNumber(selectedPaymentMethod.account_number)}
-                        className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-purple-50 hover:border-purple-300 text-xs sm:text-sm font-medium text-gray-700 transition-colors"
-                        title="Copy account number"
-                      >
-                        {copiedAccountNumber ? (
-                          <span className="text-green-600">Copied!</span>
-                        ) : (
-                          <span className="flex items-center gap-1"><Copy className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Copy</span>
-                        )}
-                      </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
+                        <p className="text-xs sm:text-sm text-gray-500">Account Number:</p>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyAccountNumber(selectedPaymentMethod.account_number)}
+                          className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-purple-50 hover:border-purple-300 text-xs sm:text-sm font-medium text-gray-700 transition-colors"
+                          title="Copy account number"
+                        >
+                          {copiedAccountNumber ? (
+                            <span className="text-green-600">Copied!</span>
+                          ) : (
+                            <span className="flex items-center gap-1"><Copy className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Copy</span>
+                          )}
+                        </button>
+                      </div>
+                      <p className="font-mono text-gray-900 font-medium text-base sm:text-xl truncate">{selectedPaymentMethod.account_number}</p>
                     </div>
-                    <p className="font-mono text-gray-900 font-medium text-base sm:text-xl">{selectedPaymentMethod.account_number}</p>
                   </div>
                   <div>
                     <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2 text-center">Other Option</p>
@@ -1125,18 +1127,6 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                     >
                       {copiedOrderMessage ? <span>Copied!</span> : <><Copy className="h-4 w-4" /> Copy Order Message</>}
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleOpenMessenger}
-                      disabled={!isFormValid || isPlacingOrder}
-                      className={`w-full py-3 sm:py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${
-                        isFormValid && !isPlacingOrder
-                          ? 'bg-pink-500 hover:bg-pink-600 text-white'
-                          : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      }`}
-                    >
-                      <MessageCircle className="h-4 w-4" /> Open Messenger
-                    </button>
                     <p className="text-xs text-gray-500 text-center mt-1">
                       Copy the order message, then open Messenger to send it.
                     </p>
@@ -1144,6 +1134,28 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Section 5: Send Order (Order via Messenger only) */}
+            {orderOption === 'order_via_messenger' && (
+              <div className={stepCardClass}>
+                <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                  <div className={stepNumClass} style={{ backgroundColor: '#EC4899' }}>5</div>
+                  <h3 className="text-sm sm:text-base font-semibold text-gray-900">Send Order</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenMessenger}
+                  disabled={!isFormValid || isPlacingOrder}
+                  className={`w-full py-3 sm:py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${
+                    isFormValid && !isPlacingOrder
+                      ? 'bg-pink-500 hover:bg-pink-600 text-white'
+                      : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  <MessageCircle className="h-4 w-4" /> Send Order
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

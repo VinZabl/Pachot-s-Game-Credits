@@ -87,33 +87,34 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, currentMember }) => {
           <div className={`absolute inset-0 flex items-center justify-center ${item.image ? 'hidden' : ''}`}>
             <div className="text-2xl opacity-20 text-gray-400">🎮</div>
           </div>
-          {/* Game Title + Subtitle Overlay on Icon */}
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-5 pb-1.5 px-1.5">
-            <h4 
-              ref={nameRef}
-              className={`text-white font-bold text-xs sm:text-sm text-center line-clamp-2 ${
-                shouldScroll ? 'animate-scroll-text' : ''
-              }`}
-              style={shouldScroll ? {
-                display: 'inline-block',
-              } : {}}
-            >
-              {shouldScroll ? (
-                <>
-                  <span>{item.name}</span>
-                  <span className="mx-4">•</span>
-                  <span>{item.name}</span>
-                </>
-              ) : (
-                item.name
-              )}
-            </h4>
-            {item.subtitle ? (
-              <p className="text-[10px] sm:text-xs text-white/80 text-center mt-0.5 truncate px-0.5">
-                {item.subtitle}
-              </p>
-            ) : null}
-          </div>
+        </div>
+
+        {/* Game Title + Subtitle under icon */}
+        <div className="bg-gradient-to-b from-cafe-darkCard to-cafe-darkBg px-2 py-2 rounded-b-lg">
+          <h4 
+            ref={nameRef}
+            className={`text-white font-bold text-xs sm:text-sm text-center line-clamp-2 ${
+              shouldScroll ? 'animate-scroll-text' : ''
+            }`}
+            style={shouldScroll ? {
+              display: 'inline-block',
+            } : {}}
+          >
+            {shouldScroll ? (
+              <>
+                <span>{item.name}</span>
+                <span className="mx-4">•</span>
+                <span>{item.name}</span>
+              </>
+            ) : (
+              item.name
+            )}
+          </h4>
+          {item.subtitle ? (
+            <p className="text-[10px] sm:text-xs text-white/80 text-center mt-0.5 truncate px-0.5">
+              {item.subtitle}
+            </p>
+          ) : null}
         </div>
       </div>
 

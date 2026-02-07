@@ -1660,25 +1660,44 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
                   <p className="text-lg font-semibold text-white">{selectedPaymentMethod.name}</p>
                 </div>
                 
-                {/* Account Name with Copy Button */}
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="text-sm text-whiteMuted">Account Name:</p>
-                    <button
-                      onClick={() => handleCopyAccountName(selectedPaymentMethod.account_name)}
-                      className="px-3 py-1.5 glass-strong rounded-lg hover:bg-pink-500/20 transition-colors duration-200 flex-shrink-0 text-sm font-medium"
-                      title="Copy account name"
-                    >
-                      {copiedAccountName ? (
-                        <Check className="h-3.5 w-3.5 text-green-400" />
-                      ) : (
-                        <span className="text-white">Copy</span>
-                      )}
-                    </button>
+                {/* Account Name and Account Number in one row */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-sm text-whiteMuted">Account Name:</p>
+                      <button
+                        onClick={() => handleCopyAccountName(selectedPaymentMethod.account_name)}
+                        className="px-3 py-1.5 glass-strong rounded-lg hover:bg-pink-500/20 transition-colors duration-200 flex-shrink-0 text-sm font-medium"
+                        title="Copy account name"
+                      >
+                        {copiedAccountName ? (
+                          <Check className="h-3.5 w-3.5 text-green-400" />
+                        ) : (
+                          <span className="text-white">Copy</span>
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-white font-medium truncate">{selectedPaymentMethod.account_name}</p>
                   </div>
-                  <p className="text-white font-medium">{selectedPaymentMethod.account_name}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-sm text-whiteMuted">Account Number:</p>
+                      <button
+                        onClick={() => handleCopyAccountNumber(selectedPaymentMethod.account_number)}
+                        className="px-3 py-1.5 glass-strong rounded-lg hover:bg-pink-500/20 transition-colors duration-200 flex-shrink-0 text-sm font-medium"
+                        title="Copy account number"
+                      >
+                        {copiedAccountNumber ? (
+                          <span className="text-green-400">Copied!</span>
+                        ) : (
+                          <span className="text-white">Copy</span>
+                        )}
+                      </button>
+                    </div>
+                    <p className="font-mono text-white font-medium text-xl md:text-2xl truncate">{selectedPaymentMethod.account_number}</p>
+                  </div>
                 </div>
-                
+
                 {/* Other Option */}
                 <div>
                   <h3 className="font-medium text-white text-center">Other Option</h3>
@@ -1712,25 +1731,6 @@ Please confirm this order to proceed. Thank you for choosing Pachot's Game Credi
                       <p className="text-sm text-whiteMuted text-center">QR code not available</p>
                     </div>
                   )}
-                </div>
-                
-                {/* Account Number with Copy Button */}
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="text-sm text-whiteMuted">Account Number:</p>
-                    <button
-                      onClick={() => handleCopyAccountNumber(selectedPaymentMethod.account_number)}
-                      className="px-3 py-1.5 glass-strong rounded-lg hover:bg-pink-500/20 transition-colors duration-200 flex-shrink-0 text-sm font-medium"
-                      title="Copy account number"
-                    >
-                      {copiedAccountNumber ? (
-                        <span className="text-green-400">Copied!</span>
-                      ) : (
-                        <span className="text-white">Copy</span>
-                      )}
-                    </button>
-                  </div>
-                  <p className="font-mono text-white font-medium text-xl md:text-2xl">{selectedPaymentMethod.account_number}</p>
                 </div>
                 
                 {/* Amount and Instructions */}
