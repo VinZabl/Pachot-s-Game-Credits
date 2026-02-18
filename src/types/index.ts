@@ -110,6 +110,8 @@ export interface SiteSettings {
   hero_image_3?: string;
   hero_image_4?: string;
   hero_image_5?: string;
+  /** When true, customer page shows "closed" and customers cannot order or browse. */
+  store_closed?: boolean;
 }
 
 // Order Types

@@ -13,8 +13,9 @@ import { supabase } from '../lib/supabase';
 import { useSiteSettings } from '../hooks/useSiteSettings';
 
 const AdminDashboard: React.FC = () => {
-  const { siteSettings } = useSiteSettings();
+  const { siteSettings, updateSiteSetting, refetch: refetchSiteSettings } = useSiteSettings();
   const orderOption = siteSettings?.order_option || 'place_order';
+  const storeClosed = siteSettings?.store_closed === true;
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('beracah_admin_auth') === 'true';
@@ -2280,6 +2281,24 @@ const AdminDashboard: React.FC = () => {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <h1 className="text-black">Admin</h1>
+              <button
+                onClick={async () => {
+                  try {
+                    await updateSiteSetting('store_closed', storeClosed ? 'false' : 'true');
+                    await refetchSiteSettings();
+                  } catch (e) {
+                    console.error('Failed to toggle store closed:', e);
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors duration-200 ${
+                  storeClosed
+                    ? 'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200'
+                    : 'bg-green-100 border-green-300 text-green-800 hover:bg-green-200'
+                }`}
+                title={storeClosed ? 'Click to open customer page' : 'Click to close customer page'}
+              >
+                Customer page: {storeClosed ? 'Closed' : 'Open'}
+              </button>
             </div>
             <div className="flex items-center space-x-4">
               <a

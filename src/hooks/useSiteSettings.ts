@@ -38,6 +38,7 @@ export const useSiteSettings = () => {
         hero_image_3: data.find(s => s.id === 'hero_image_3')?.value || '',
         hero_image_4: data.find(s => s.id === 'hero_image_4')?.value || '',
         hero_image_5: data.find(s => s.id === 'hero_image_5')?.value || '',
+        store_closed: (data.find(s => s.id === 'store_closed')?.value || 'false') === 'true',
       };
 
       setSiteSettings(settings);
@@ -53,12 +54,19 @@ export const useSiteSettings = () => {
     try {
       setError(null);
 
-      const { error } = await supabase
-        .from('site_settings')
-        .update({ value })
-        .eq('id', id);
-
-      if (error) throw error;
+      // Use upsert for store_closed so the row is created if it doesn't exist yet
+      if (id === 'store_closed') {
+        const { error } = await supabase
+          .from('site_settings')
+          .upsert({ id: 'store_closed', value, type: 'text', description: 'When true, customer page is closed (no ordering/browsing)' }, { onConflict: 'id' });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('site_settings')
+          .update({ value })
+          .eq('id', id);
+        if (error) throw error;
+      }
 
       // Refresh the settings
       await fetchSiteSettings();

@@ -14,6 +14,7 @@ import { MemberAuthProvider } from './contexts/MemberAuthContext';
 import { useMenu } from './hooks/useMenu';
 import { useMemberAuth } from './hooks/useMemberAuth';
 import { useOrders } from './hooks/useOrders';
+import { useSiteSettings } from './hooks/useSiteSettings';
 import Footer from './components/Footer';
 
 const APP_STATE_STORAGE_KEY = 'pachot_app_state';
@@ -22,8 +23,10 @@ function MainApp() {
   const { currentMember, logout, loading: authLoading } = useMemberAuth();
   const { menuItems } = useMenu();
   const { fetchOrderById } = useOrders();
+  const { siteSettings } = useSiteSettings();
   const navigate = useNavigate();
   const location = useLocation();
+  const storeClosed = siteSettings?.store_closed === true;
   const navState = location.state as { justLoggedIn?: boolean } | null;
 
   const [selectedCategory, setSelectedCategory] = React.useState<string>(() => {
@@ -156,6 +159,31 @@ function MainApp() {
     }
     return filtered;
   }, [menuItems, selectedCategory, searchQuery]);
+
+  // Store closed: show a single message, no menu or ordering
+  if (storeClosed) {
+    return (
+      <div className="min-h-screen relative flex flex-col items-center justify-center p-6" style={{ backgroundColor: '#0d0d0d' }}>
+        <div
+          className="fixed inset-0 flex items-center justify-center pointer-events-none z-0"
+          style={{
+            backgroundImage: 'url(/logo.png)',
+            backgroundSize: 'contain',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            opacity: 0.1
+          }}
+        />
+        <div className="relative z-10 text-center max-w-md">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">We&apos;re closed</h1>
+          <p className="text-gray-400 text-sm sm:text-base">
+            We&apos;re not taking orders right now. Please check back later.
+          </p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative" style={{ backgroundColor: '#0d0d0d' }}>
