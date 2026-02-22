@@ -763,13 +763,37 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                 </div>
               )}
               {item.variations && item.variations.length > 0 ? (
-                <div ref={packageGridRef} className="grid grid-cols-2 gap-2 sm:gap-3">
-                  {item.variations.map((v) => {
+                (() => {
+                  const grouped = item.variations.reduce<Record<string, Variation[]>>((acc, v) => {
+                    const key = (v.category && v.category.trim()) || '\u200b'; // \u200b = empty category label
+                    if (!acc[key]) acc[key] = [];
+                    acc[key].push(v);
+                    return acc;
+                  }, {}); // initial {} so acc is never a variation object
+                  // Order categories by minimum sort_order of their variations so first package (e.g. Lite 1x) shows first
+                  const categoryOrder = Object.keys(grouped).sort((a, b) => {
+                    const minA = Math.min(...(grouped[a] || []).map((v) => v.sort_order ?? 999));
+                    const minB = Math.min(...(grouped[b] || []).map((v) => v.sort_order ?? 999));
+                    return minA - minB;
+                  });
+                  return (
+                    <div className="space-y-4">
+                      {categoryOrder.map((catKey) => {
+                        // Sort variations by sort_order so first package is never skipped
+                        const variations = (grouped[catKey] || []).sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
+                        const categoryName = catKey === '\u200b' ? null : catKey;
+                        return (
+                          <div key={catKey}>
+                            {categoryName && (
+                              <p className="text-xs font-medium text-gray-600 mb-2">{categoryName}</p>
+                            )}
+                            <div ref={packageGridRef} className="grid grid-cols-2 gap-2 sm:gap-3">
+                              {variations.map((v, idx) => {
                     const price = getDiscountedPrice(v.price, v);
                     const isSelected = selectedVariation?.id === v.id;
                     return (
                       <button
-                        key={v.id}
+                        key={`${v.id}-${idx}`}
                         type="button"
                         onClick={() => {
                           if (accounts.length > 1 && activeUserIdx !== null) {
@@ -802,7 +826,13 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                       </button>
                     );
                   })}
-                </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()
               ) : (
                 <p className="text-xs sm:text-sm text-gray-500">No packages available</p>
               )}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, Edit, Trash2, Save, X, ArrowLeft, TrendingUp, Package, Users, Lock, FolderOpen, CreditCard, Settings, ArrowUpDown, ChevronDown, ChevronUp, ShoppingBag, CheckCircle, Star, Activity, FilePlus, List, FolderTree, Wallet, Cog, Trophy, DollarSign, Clock, Gamepad2, Copy } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, ArrowLeft, TrendingUp, Package, Users, Lock, FolderOpen, CreditCard, Settings, ArrowUpDown, ChevronDown, ChevronUp, ShoppingBag, CheckCircle, Star, Activity, FilePlus, List, FolderTree, Wallet, Cog, Trophy, DollarSign, Clock, Gamepad2, Copy, GripVertical } from 'lucide-react';
 import { MenuItem, Variation, CustomField } from '../types';
 import { useMenu } from '../hooks/useMenu';
 import { useCategories } from '../hooks/useCategories';
@@ -23,7 +23,7 @@ const AdminDashboard: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [adminPassword, setAdminPassword] = useState<string>('Diginix@Admin!2025'); // Default fallback
-  const { menuItems, loading, addMenuItem, updateMenuItem, deleteMenuItem, duplicateMenuItem } = useMenu();
+  const { menuItems, loading, addMenuItem, updateMenuItem, updateSortOrderOnly, reorderCategoryItemsLocally, deleteMenuItem, duplicateMenuItem } = useMenu();
   const { categories } = useCategories();
   type AdminView = 'dashboard' | 'items' | 'add' | 'edit' | 'categories' | 'payments' | 'settings' | 'orders' | 'members';
   const [currentView, setCurrentViewState] = useState<AdminView>(() => {
@@ -268,6 +268,17 @@ const AdminDashboard: React.FC = () => {
     customFields: false
   });
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null);
+  const [draggedPackageCategoryKey, setDraggedPackageCategoryKey] = useState<string | null>(null);
+  const [draggedPackageVariationId, setDraggedPackageVariationId] = useState<string | null>(null);
+  const touchDropTargetRef = useRef<{ type: 'category' | 'package'; key?: string; variationId?: string } | null>(null);
+  const touchDraggingCategoryKeyRef = useRef<string | null>(null);
+  const touchDraggingVariationIdRef = useRef<string | null>(null);
+  const packageOrderByCategoryRef = useRef<Record<string, Variation[]>>({});
+  const [touchDragPreview, setTouchDragPreview] = useState<{ type: 'category' | 'package'; label: string; x: number; y: number } | null>(null);
+  const [itemsListTouchDragPreview, setItemsListTouchDragPreview] = useState<{ label: string; x: number; y: number } | null>(null);
+  const itemsListDraggedRef = useRef<{ itemId: string; categoryId: string; items: MenuItem[] } | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
   const [priceDiscount, setPriceDiscount] = useState<number | undefined>(undefined);
   const [memberDiscount, setMemberDiscount] = useState<number | undefined>(undefined);
@@ -342,6 +353,130 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleReorderItems = useCallback(async (items: MenuItem[], categoryId: string, draggedId: string, dropTargetId: string) => {
+    if (draggedId === dropTargetId) return;
+    const fromIdx = items.findIndex((i) => i.id === draggedId);
+    const toIdx = items.findIndex((i) => i.id === dropTargetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const next = [...items];
+    const [removed] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, removed);
+    reorderCategoryItemsLocally(next);
+    try {
+      setIsProcessing(true);
+      for (let i = 0; i < next.length; i++) {
+        await updateSortOrderOnly(next[i].id, i);
+      }
+    } catch (err) {
+      console.error('Reorder failed:', err);
+      alert('Failed to reorder. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [updateSortOrderOnly, reorderCategoryItemsLocally]);
+
+  const handleMoveItem = useCallback(async (items: MenuItem[], categoryId: string, itemId: string, direction: 'up' | 'down') => {
+    const idx = items.findIndex((i) => i.id === itemId);
+    if (idx === -1) return;
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= items.length) return;
+    const next = [...items];
+    [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+    reorderCategoryItemsLocally(next);
+    try {
+      setIsProcessing(true);
+      for (let i = 0; i < next.length; i++) {
+        await updateSortOrderOnly(next[i].id, i);
+      }
+    } catch (err) {
+      console.error('Move failed:', err);
+      alert('Failed to reorder. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [updateSortOrderOnly, reorderCategoryItemsLocally]);
+
+  const handleReorderPackageCategories = useCallback((draggedKey: string, targetKey: string) => {
+    if (!formData.variations || formData.variations.length === 0) return;
+    if (draggedKey === targetKey) return;
+    const UNNAMED = '__unnamed_category__';
+    const grouped: Record<string, { variations: Variation[] }> = {};
+    formData.variations.forEach((v) => {
+      let key: string;
+      if (v.category && v.category.startsWith('__temp_empty_')) key = v.category;
+      else if (!v.category || v.category.trim() === '') key = UNNAMED;
+      else key = v.category;
+      if (!grouped[key]) grouped[key] = { variations: [] };
+      grouped[key].variations.push(v);
+    });
+    const sorted = Object.keys(grouped).sort((a, b) => {
+      const sortA = Math.min(...grouped[a].variations.map((v) => (v.sort != null ? v.sort : 999)));
+      const sortB = Math.min(...grouped[b].variations.map((v) => (v.sort != null ? v.sort : 999)));
+      return sortA - sortB;
+    });
+    const fromIdx = sorted.indexOf(draggedKey);
+    const toIdx = sorted.indexOf(targetKey);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const next = [...sorted];
+    next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, draggedKey);
+    const getKey = (v: Variation) => {
+      if (v.category && v.category.startsWith('__temp_empty_')) return v.category;
+      if (!v.category || v.category.trim() === '') return UNNAMED;
+      return v.category;
+    };
+    const updatedVariations = formData.variations.map((v) => {
+      const key = getKey(v);
+      const i = next.indexOf(key);
+      return i === -1 ? v : { ...v, sort: i };
+    });
+    setFormData((prev) => ({ ...prev, variations: updatedVariations }));
+  }, [formData.variations]);
+
+  const getTouchDropTarget = useCallback((clientX: number, clientY: number) => {
+    const el = document.elementFromPoint(clientX, clientY);
+    if (!el) return null;
+    const card = el.closest('[data-droppable]');
+    if (!card || !(card instanceof HTMLElement)) return null;
+    const type = card.getAttribute('data-droppable');
+    if (type === 'category') {
+      const key = card.getAttribute('data-drop-key');
+      return key != null ? { type: 'category' as const, key } : null;
+    }
+    if (type === 'package') {
+      const variationId = card.getAttribute('data-drop-variation-id');
+      return variationId != null ? { type: 'package' as const, variationId } : null;
+    }
+    return null;
+  }, []);
+
+  const getTouchDropTargetGameItem = useCallback((clientX: number, clientY: number) => {
+    const el = document.elementFromPoint(clientX, clientY);
+    const card = el?.closest('[data-droppable="game-item"]');
+    if (!card || !(card instanceof HTMLElement)) return null;
+    const itemId = card.getAttribute('data-drop-item-id');
+    const categoryId = card.getAttribute('data-drop-category-id');
+    if (itemId && categoryId != null) return { itemId, categoryId };
+    return null;
+  }, []);
+
+  const handleReorderPackagesInCategory = useCallback((categoryVariations: Variation[], draggedId: string, targetId: string) => {
+    if (!formData.variations) return;
+    if (draggedId === targetId) return;
+    const fromIdx = categoryVariations.findIndex((v) => v.id === draggedId);
+    const toIdx = categoryVariations.findIndex((v) => v.id === targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const next = [...categoryVariations];
+    const [removed] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, removed);
+    const updatedVariations = formData.variations.map((v) => {
+      const i = next.findIndex((n) => n.id === v.id);
+      if (i === -1) return v;
+      return { ...v, sort_order: i };
+    });
+    setFormData((prev) => ({ ...prev, variations: updatedVariations }));
+  }, [formData.variations]);
+
   const handleDuplicateItem = async (id: string) => {
     try {
       setIsProcessing(true);
@@ -406,12 +541,15 @@ const AdminDashboard: React.FC = () => {
         }
         return { ...v, category: cleanedCategory };
       });
+      // Sort by sort_order and assign explicit 0,1,2,... so the first package is never skipped on the customer side
+      const sortedVariations = [...(cleanedVariations || [])].sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999))
+        .map((v, index) => ({ ...v, sort_order: index }));
       
       // Set basePrice to 0 since we don't use it anymore
       const itemData = {
         ...formData,
         basePrice: 0,
-        variations: cleanedVariations
+        variations: sortedVariations
       };
 
       if (editingItem) {
@@ -1097,9 +1235,80 @@ const AdminDashboard: React.FC = () => {
                             const isCategoryCollapsed = collapsedCategories[category] ?? false;
                             
                             return (
-                              <div key={stableKey} className="border border-gray-300 rounded-lg p-4 bg-white">
-                                {/* Category Header */}
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4 pb-3 border-b border-gray-200">
+                              <div
+                                key={stableKey}
+                                data-droppable="category"
+                                data-drop-key={category}
+                                className={`border border-gray-300 rounded-lg p-4 bg-white ${draggedPackageCategoryKey === category ? 'opacity-50' : ''}`}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  e.dataTransfer.dropEffect = 'move';
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  const targetKey = category;
+                                  if (draggedPackageCategoryKey && draggedPackageCategoryKey !== targetKey) {
+                                    handleReorderPackageCategories(draggedPackageCategoryKey, targetKey);
+                                  }
+                                  setDraggedPackageCategoryKey(null);
+                                }}
+                                onDragEnd={() => setDraggedPackageCategoryKey(null)}
+                              >
+                                {/* Category Header - single row: drag, dropdown, name, delete */}
+                                <div className="flex flex-row items-center gap-2 mb-4 pb-3 border-b border-gray-200">
+                                  <span
+                                    role="button"
+                                    tabIndex={0}
+                                    draggable
+                                    onDragStart={(e) => {
+                                      setDraggedPackageCategoryKey(category);
+                                      e.dataTransfer.effectAllowed = 'move';
+                                      e.dataTransfer.setData('text/plain', category);
+                                    }}
+                                    onDragEnd={() => setDraggedPackageCategoryKey(null)}
+                                    onTouchStart={(e) => {
+                                      if (e.changedTouches.length === 0) return;
+                                      const touch = e.changedTouches[0];
+                                      setDraggedPackageCategoryKey(category);
+                                      touchDraggingCategoryKeyRef.current = category;
+                                      touchDropTargetRef.current = null;
+                                      setTouchDragPreview({ type: 'category', label: displayCategoryName || 'Category', x: touch.clientX, y: touch.clientY });
+                                      const onTouchMove = (ev: TouchEvent) => {
+                                        ev.preventDefault();
+                                        const t = ev.changedTouches[0] || ev.touches[ev.touches.length - 1];
+                                        if (t) {
+                                          touchDropTargetRef.current = getTouchDropTarget(t.clientX, t.clientY);
+                                          setTouchDragPreview(prev => prev ? { ...prev, x: t.clientX, y: t.clientY } : null);
+                                        }
+                                      };
+                                      const onTouchEnd = (ev: TouchEvent) => {
+                                        const t = ev.changedTouches[0];
+                                        if (t) {
+                                          const target = touchDropTargetRef.current?.type === 'category' ? touchDropTargetRef.current : getTouchDropTarget(t.clientX, t.clientY);
+                                          const draggedKey = touchDraggingCategoryKeyRef.current;
+                                          if (target?.type === 'category' && target.key && draggedKey && target.key !== draggedKey) {
+                                            handleReorderPackageCategories(draggedKey, target.key);
+                                          }
+                                        }
+                                        document.removeEventListener('touchmove', onTouchMove, { capture: true });
+                                        document.removeEventListener('touchend', onTouchEnd, { capture: true });
+                                        document.removeEventListener('touchcancel', onTouchEnd, { capture: true });
+                                        setDraggedPackageCategoryKey(null);
+                                        setTouchDragPreview(null);
+                                        touchDraggingCategoryKeyRef.current = null;
+                                        touchDropTargetRef.current = null;
+                                      };
+                                      document.addEventListener('touchmove', onTouchMove, { passive: false, capture: true });
+                                      document.addEventListener('touchend', onTouchEnd, { capture: true });
+                                      document.addEventListener('touchcancel', onTouchEnd, { capture: true });
+                                    }}
+                                    className="inline-flex cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 flex-shrink-0 p-1 touch-manipulation"
+                                    title="Drag to reorder category"
+                                  >
+                                    <GripVertical className="h-5 w-5" />
+                                  </span>
                                   <button
                                     onClick={() => {
                                       setCollapsedCategories(prev => ({
@@ -1116,11 +1325,9 @@ const AdminDashboard: React.FC = () => {
                                       <ChevronUp className="h-5 w-5 text-gray-600" />
                                     )}
                                   </button>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex flex-row items-center gap-2">
-                                      <div className="w-40 sm:w-48 flex-shrink-0">
-                                        <label className="block text-xs font-medium text-gray-500 mb-1">Category Name</label>
-                                        <input
+                                  <div className="flex-1 min-w-0 flex items-center gap-2">
+                                    <label className="text-xs font-medium text-gray-500 whitespace-nowrap hidden sm:block">Category Name</label>
+                                    <input
                                           type="text"
                                           value={displayCategoryName}
                                           onChange={(e) => {
@@ -1155,69 +1362,120 @@ const AdminDashboard: React.FC = () => {
                                           setFormData({ ...formData, variations: updatedVariations });
                                         }}
                                         disabled={isReadOnly}
-                                        className="w-full min-w-0 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs font-semibold disabled:bg-gray-100 disabled:cursor-not-allowed text-black"
+                                        className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs font-semibold disabled:bg-gray-100 disabled:cursor-not-allowed text-black"
                                         placeholder="Category name (e.g., Category 1)"
                                       />
-                                      </div>
-                                      <div className="w-16 sm:w-24 flex-shrink-0">
-                                        <label className="block text-xs font-medium text-gray-500 mb-1">Sort</label>
-                                        <input
-                                          type="number"
-                                          value={categorySort !== 999 ? categorySort : ''}
-                                          onChange={(e) => {
-                                            const value = e.target.value === '' ? 999 : parseInt(e.target.value) || 999;
-                                            // Update sort for all variations in this category using variation IDs
-                                            const categoryVariationIds = new Set(categoryVariations.map(v => v.id));
-                                            const updatedVariations = formData.variations!.map(v => {
-                                              if (categoryVariationIds.has(v.id)) {
-                                                return { ...v, sort: value !== 999 ? value : null };
-                                              }
-                                              return v;
-                                            });
-                                            setFormData({ ...formData, variations: updatedVariations });
-                                          }}
-                                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                          placeholder="Sort"
-                                          min="0"
-                                          step="1"
-                                        />
-                                      </div>
-                                      {!isReadOnly && (
-                                        <button
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            console.log('Delete category clicked:', category);
-                                            setCategoryToDelete(category);
-                                          }}
-                                          className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200 flex-shrink-0 self-end mb-1"
+                                  </div>
+                                  {!isReadOnly && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setCategoryToDelete(category);
+                                      }}
+                                      className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200 flex-shrink-0"
                                           aria-label="Delete category"
                                           title="Delete category"
-                                          type="button"
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
+                                      type="button"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  )}
                                 </div>
 
                                 {/* Packages in this category */}
-                                {!isCategoryCollapsed && (
+                                {!isCategoryCollapsed && (() => {
+                                  const sortedPackages = [...categoryVariations].sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
+                                  packageOrderByCategoryRef.current[category] = sortedPackages;
+                                  return (
                                 <div className="space-y-3">
-                                  {categoryVariations.map((variation) => {
+                                  {sortedPackages.map((variation) => {
                                     const index = formData.variations!.findIndex(v => v.id === variation.id);
                                     return (
-                                      <div key={variation.id} className="p-3 bg-gray-50 rounded-lg space-y-3 border border-gray-200">
-                                        {/* Product Name Row */}
-                                        <div className="flex items-center gap-2">
-                                          <label className="text-xs font-medium text-gray-700 whitespace-nowrap flex-shrink-0">Product Name</label>
+                                      <div
+                                        key={variation.id}
+                                        data-droppable="package"
+                                        data-drop-variation-id={variation.id}
+                                        className={`p-3 bg-gray-50 rounded-lg space-y-3 border border-gray-200 ${draggedPackageVariationId === variation.id ? 'opacity-50' : ''}`}
+                                        onDragOver={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          e.dataTransfer.dropEffect = 'move';
+                                        }}
+                                        onDrop={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          const targetId = variation.id;
+                                          if (draggedPackageVariationId && draggedPackageVariationId !== targetId) {
+                                            handleReorderPackagesInCategory(sortedPackages, draggedPackageVariationId, targetId);
+                                          }
+                                          setDraggedPackageVariationId(null);
+                                        }}
+                                        onDragEnd={() => setDraggedPackageVariationId(null)}
+                                      >
+                                        {/* Product row: drag handle, name input, delete */}
+                                        <div className="flex flex-row items-center gap-2">
+                                          <span
+                                            role="button"
+                                            tabIndex={0}
+                                            draggable
+                                            onDragStart={(e) => {
+                                              setDraggedPackageVariationId(variation.id);
+                                              e.dataTransfer.effectAllowed = 'move';
+                                              e.dataTransfer.setData('text/plain', variation.id);
+                                            }}
+                                            onDragEnd={() => setDraggedPackageVariationId(null)}
+                                            onTouchStart={(e) => {
+                                              if (e.changedTouches.length === 0) return;
+                                              const touch = e.changedTouches[0];
+                                              setDraggedPackageVariationId(variation.id);
+                                              touchDraggingVariationIdRef.current = variation.id;
+                                              touchDraggingCategoryKeyRef.current = category;
+                                              touchDropTargetRef.current = null;
+                                              setTouchDragPreview({ type: 'package', label: variation.name || 'Package', x: touch.clientX, y: touch.clientY });
+                                              const onTouchMove = (ev: TouchEvent) => {
+                                                ev.preventDefault();
+                                                const t = ev.changedTouches[0] || ev.touches[ev.touches.length - 1];
+                                                if (t) {
+                                                  touchDropTargetRef.current = getTouchDropTarget(t.clientX, t.clientY);
+                                                  setTouchDragPreview(prev => prev ? { ...prev, x: t.clientX, y: t.clientY } : null);
+                                                }
+                                              };
+                                              const onTouchEnd = (ev: TouchEvent) => {
+                                                const t = ev.changedTouches[0];
+                                                if (t) {
+                                                  const target = touchDropTargetRef.current?.type === 'package' ? touchDropTargetRef.current : getTouchDropTarget(t.clientX, t.clientY);
+                                                  const draggedId = touchDraggingVariationIdRef.current;
+                                                  const catKey = touchDraggingCategoryKeyRef.current;
+                                                  const sorted = catKey ? packageOrderByCategoryRef.current[catKey] : undefined;
+                                                  if (target?.type === 'package' && target.variationId && draggedId && target.variationId !== draggedId && sorted) {
+                                                    handleReorderPackagesInCategory(sorted, draggedId, target.variationId);
+                                                  }
+                                                }
+                                                document.removeEventListener('touchmove', onTouchMove, { capture: true });
+                                                document.removeEventListener('touchend', onTouchEnd, { capture: true });
+                                                document.removeEventListener('touchcancel', onTouchEnd, { capture: true });
+                                                setDraggedPackageVariationId(null);
+                                                setTouchDragPreview(null);
+                                                touchDraggingVariationIdRef.current = null;
+                                                touchDraggingCategoryKeyRef.current = null;
+                                                touchDropTargetRef.current = null;
+                                              };
+                                              document.addEventListener('touchmove', onTouchMove, { passive: false, capture: true });
+                                              document.addEventListener('touchend', onTouchEnd, { capture: true });
+                                              document.addEventListener('touchcancel', onTouchEnd, { capture: true });
+                                            }}
+                                            className="inline-flex cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 flex-shrink-0 p-1 touch-manipulation"
+                                            title="Drag to reorder package"
+                                          >
+                                            <GripVertical className="h-5 w-5" />
+                                          </span>
                                           <input
                                             type="text"
                                             value={variation.name || ''}
                                             onChange={(e) => updateVariation(index, 'name', e.target.value)}
                                             className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
-                                            placeholder="e.g., Weekly Diamond Pass"
+                                            placeholder="Product name"
                                           />
                                           <button
                                             onClick={() => removeVariation(index)}
@@ -1330,7 +1588,8 @@ const AdminDashboard: React.FC = () => {
                                     <span>Add Package to {displayCategoryName || 'Category'}</span>
                                   </button>
                                 </div>
-                                )}
+                                );
+                                  })()}
                               </div>
                             );
                           })}
@@ -1491,6 +1750,21 @@ const AdminDashboard: React.FC = () => {
                 Delete Category
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Touch drag preview - follows finger when dragging on mobile */}
+      {touchDragPreview && (
+        <div
+          className="fixed z-[9999] pointer-events-none touch-none"
+          style={{
+            left: touchDragPreview.x,
+            top: touchDragPreview.y,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          <div className="px-4 py-2.5 rounded-lg shadow-lg border-2 border-gray-200 bg-white text-gray-900 text-sm font-medium whitespace-nowrap max-w-[200px] truncate">
+            {touchDragPreview.label}
           </div>
         </div>
       )}
@@ -1719,7 +1993,36 @@ const AdminDashboard: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                             {items.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
+                    <tr
+                      key={item.id}
+                      className={`hover:bg-gray-50 ${draggedItemId === item.id ? 'opacity-50' : ''}`}
+                      draggable
+                      onDragStart={(e) => {
+                        setDraggedItemId(item.id);
+                        setDraggedCategoryId(category.id);
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', item.id);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (draggedCategoryId === category.id) e.dataTransfer.dropEffect = 'move';
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggedCategoryId !== category.id) return;
+                        const targetId = item.id;
+                        if (draggedItemId && draggedCategoryId === category.id) {
+                          handleReorderItems(items, category.id, draggedItemId, targetId);
+                        }
+                        setDraggedItemId(null);
+                        setDraggedCategoryId(null);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedItemId(null);
+                        setDraggedCategoryId(null);
+                      }}
+                      data-item-id={item.id}
+                    >
                       <td className="px-6 py-4">
                         <input
                           type="checkbox"
@@ -1728,18 +2031,11 @@ const AdminDashboard: React.FC = () => {
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                       </td>
-                      <td className="px-6 py-4">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={item.sort_order || 0}
-                                    onChange={async (e) => {
-                                      const newSortOrder = parseInt(e.target.value) || 0;
-                                      await updateMenuItem(item.id, { ...item, sort_order: newSortOrder });
-                                    }}
-                                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-black"
-                                  />
-                                </td>
+                      <td className="px-6 py-4 w-10">
+                        <span className="inline-flex cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600" title="Drag to reorder">
+                          <GripVertical className="h-5 w-5" />
+                        </span>
+                      </td>
                                 <td className="px-6 py-4">
                           <div className="font-medium text-gray-900">{item.name}</div>
                                 </td>
@@ -1837,7 +2133,36 @@ const AdminDashboard: React.FC = () => {
                           </thead>
                           <tbody className="divide-y divide-gray-200">
                             {uncategorizedItems.map((item) => (
-                              <tr key={item.id} className="hover:bg-gray-50">
+                              <tr
+                                key={item.id}
+                                className={`hover:bg-gray-50 ${draggedItemId === item.id ? 'opacity-50' : ''}`}
+                                draggable
+                                onDragStart={(e) => {
+                                  setDraggedItemId(item.id);
+                                  setDraggedCategoryId('__uncategorized__');
+                                  e.dataTransfer.effectAllowed = 'move';
+                                  e.dataTransfer.setData('text/plain', item.id);
+                                }}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  if (draggedCategoryId === '__uncategorized__') e.dataTransfer.dropEffect = 'move';
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  if (draggedCategoryId !== '__uncategorized__') return;
+                                  const targetId = item.id;
+                                  if (draggedItemId && draggedCategoryId === '__uncategorized__') {
+                                    handleReorderItems(uncategorizedItems, '__uncategorized__', draggedItemId, targetId);
+                                  }
+                                  setDraggedItemId(null);
+                                  setDraggedCategoryId(null);
+                                }}
+                                onDragEnd={() => {
+                                  setDraggedItemId(null);
+                                  setDraggedCategoryId(null);
+                                }}
+                                data-item-id={item.id}
+                              >
                                 <td className="px-6 py-4">
                                   <input
                                     type="checkbox"
@@ -1846,17 +2171,10 @@ const AdminDashboard: React.FC = () => {
                                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                   />
                                 </td>
-                                <td className="px-6 py-4">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={item.sort_order || 0}
-                                    onChange={async (e) => {
-                                      const newSortOrder = parseInt(e.target.value) || 0;
-                                      await updateMenuItem(item.id, { ...item, sort_order: newSortOrder });
-                                    }}
-                                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-black"
-                                  />
+                                <td className="px-6 py-4 w-10">
+                                  <span className="inline-flex cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600" title="Drag to reorder">
+                                    <GripVertical className="h-5 w-5" />
+                                  </span>
                                 </td>
                                 <td className="px-6 py-4">
                                   <div className="font-medium text-gray-900">{item.name}</div>
@@ -1970,7 +2288,13 @@ const AdminDashboard: React.FC = () => {
                           </button>
                         </div>
                         {!isCollapsed && items.map((item) => (
-                <div key={item.id} className={`p-3 md:p-4 border-b border-gray-200 last:border-b-0 ${selectedItems.includes(item.id) ? 'bg-blue-50 border-blue-200' : ''}`}>
+                <div
+                  key={item.id}
+                  data-droppable="game-item"
+                  data-drop-item-id={item.id}
+                  data-drop-category-id={category.id}
+                  className={`p-3 md:p-4 border-b border-gray-200 last:border-b-0 ${selectedItems.includes(item.id) ? 'bg-blue-50 border-blue-200' : ''} ${draggedItemId === item.id ? 'opacity-50' : ''}`}
+                >
                   <div className="flex items-center justify-between mb-2 md:mb-3">
                     <label className="flex items-center space-x-2 cursor-pointer">
                       <input
@@ -1982,6 +2306,55 @@ const AdminDashboard: React.FC = () => {
                       <span className="text-xs text-gray-600">Select</span>
                     </label>
                     <div className="flex items-center space-x-2">
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        draggable
+                        onDragStart={(e) => {
+                          setDraggedItemId(item.id);
+                          setDraggedCategoryId(category.id);
+                          e.dataTransfer.effectAllowed = 'move';
+                          e.dataTransfer.setData('text/plain', item.id);
+                        }}
+                        onDragEnd={() => { setDraggedItemId(null); setDraggedCategoryId(null); }}
+                        onTouchStart={(e) => {
+                          if (e.changedTouches.length === 0) return;
+                          const touch = e.changedTouches[0];
+                          setDraggedItemId(item.id);
+                          setDraggedCategoryId(category.id);
+                          itemsListDraggedRef.current = { itemId: item.id, categoryId: category.id, items };
+                          setItemsListTouchDragPreview({ label: item.name, x: touch.clientX, y: touch.clientY });
+                          const onTouchMove = (ev: TouchEvent) => {
+                            ev.preventDefault();
+                            const t = ev.changedTouches[0] || ev.touches[ev.touches.length - 1];
+                            if (t) setItemsListTouchDragPreview(prev => prev ? { ...prev, x: t.clientX, y: t.clientY } : null);
+                          };
+                          const onTouchEnd = (ev: TouchEvent) => {
+                            const t = ev.changedTouches[0];
+                            if (t) {
+                              const target = getTouchDropTargetGameItem(t.clientX, t.clientY);
+                              const ref = itemsListDraggedRef.current;
+                              if (target && ref && target.categoryId === ref.categoryId && target.itemId !== ref.itemId) {
+                                handleReorderItems(ref.items, ref.categoryId, ref.itemId, target.itemId);
+                              }
+                            }
+                            document.removeEventListener('touchmove', onTouchMove, { capture: true });
+                            document.removeEventListener('touchend', onTouchEnd, { capture: true });
+                            document.removeEventListener('touchcancel', onTouchEnd, { capture: true });
+                            setDraggedItemId(null);
+                            setDraggedCategoryId(null);
+                            setItemsListTouchDragPreview(null);
+                            itemsListDraggedRef.current = null;
+                          };
+                          document.addEventListener('touchmove', onTouchMove, { passive: false, capture: true });
+                          document.addEventListener('touchend', onTouchEnd, { capture: true });
+                          document.addEventListener('touchcancel', onTouchEnd, { capture: true });
+                        }}
+                        className="inline-flex cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 flex-shrink-0 p-1 touch-manipulation"
+                        title="Drag to reorder"
+                      >
+                        <GripVertical className="h-5 w-5" />
+                      </span>
                       <button
                         onClick={() => handleEditItem(item)}
                         disabled={isProcessing}
@@ -2008,19 +2381,6 @@ const AdminDashboard: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <label className="text-xs md:text-sm text-gray-600">Sort:</label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={item.sort_order || 0}
-                                onChange={async (e) => {
-                                  const newSortOrder = parseInt(e.target.value) || 0;
-                                  await updateMenuItem(item.id, { ...item, sort_order: newSortOrder });
-                                }}
-                                className="w-16 md:w-20 px-2 py-1 border border-gray-300 rounded text-xs md:text-sm text-black"
-                              />
-                  </div>
                   
                   <div className="flex items-start justify-between mb-2 md:mb-3">
                     <div className="flex-1 min-w-0">
@@ -2037,19 +2397,6 @@ const AdminDashboard: React.FC = () => {
                       <span className="ml-1 text-gray-900">{item.variations?.length || 0}</span>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                      <label className="text-xs text-gray-600">Sort:</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={item.sort_order || 0}
-                        onChange={async (e) => {
-                          const newSortOrder = parseInt(e.target.value) || 0;
-                          await updateMenuItem(item.id, { ...item, sort_order: newSortOrder });
-                        }}
-                        className="w-16 md:w-20 px-2 py-1 border border-gray-300 rounded text-xs "
-                      />
                     </div>
                     </div>
                   
@@ -2100,7 +2447,13 @@ const AdminDashboard: React.FC = () => {
                           </button>
                         </div>
                         {!isCollapsed && uncategorizedItems.map((item) => (
-                          <div key={item.id} className={`p-4 border-b border-gray-200 last:border-b-0 ${selectedItems.includes(item.id) ? 'bg-blue-50' : ''}`}>
+                          <div
+                            key={item.id}
+                            data-droppable="game-item"
+                            data-drop-item-id={item.id}
+                            data-drop-category-id="__uncategorized__"
+                            className={`p-4 border-b border-gray-200 last:border-b-0 ${selectedItems.includes(item.id) ? 'bg-blue-50' : ''} ${draggedItemId === item.id ? 'opacity-50' : ''}`}
+                          >
                             <div className="flex items-center justify-between mb-3">
                               <label className="flex items-center space-x-2">
                                 <input
@@ -2112,6 +2465,55 @@ const AdminDashboard: React.FC = () => {
                                 <span className="text-xs text-gray-600">Select</span>
                               </label>
                               <div className="flex items-center space-x-2">
+                                <span
+                                  role="button"
+                                  tabIndex={0}
+                                  draggable
+                                  onDragStart={(e) => {
+                                    setDraggedItemId(item.id);
+                                    setDraggedCategoryId('__uncategorized__');
+                                    e.dataTransfer.effectAllowed = 'move';
+                                    e.dataTransfer.setData('text/plain', item.id);
+                                  }}
+                                  onDragEnd={() => { setDraggedItemId(null); setDraggedCategoryId(null); }}
+                                  onTouchStart={(e) => {
+                                    if (e.changedTouches.length === 0) return;
+                                    const touch = e.changedTouches[0];
+                                    setDraggedItemId(item.id);
+                                    setDraggedCategoryId('__uncategorized__');
+                                    itemsListDraggedRef.current = { itemId: item.id, categoryId: '__uncategorized__', items: uncategorizedItems };
+                                    setItemsListTouchDragPreview({ label: item.name, x: touch.clientX, y: touch.clientY });
+                                    const onTouchMove = (ev: TouchEvent) => {
+                                      ev.preventDefault();
+                                      const t = ev.changedTouches[0] || ev.touches[ev.touches.length - 1];
+                                      if (t) setItemsListTouchDragPreview(prev => prev ? { ...prev, x: t.clientX, y: t.clientY } : null);
+                                    };
+                                    const onTouchEnd = (ev: TouchEvent) => {
+                                      const t = ev.changedTouches[0];
+                                      if (t) {
+                                        const target = getTouchDropTargetGameItem(t.clientX, t.clientY);
+                                        const ref = itemsListDraggedRef.current;
+                                        if (target && ref && target.categoryId === ref.categoryId && target.itemId !== ref.itemId) {
+                                          handleReorderItems(ref.items, ref.categoryId, ref.itemId, target.itemId);
+                                        }
+                                      }
+                                      document.removeEventListener('touchmove', onTouchMove, { capture: true });
+                                      document.removeEventListener('touchend', onTouchEnd, { capture: true });
+                                      document.removeEventListener('touchcancel', onTouchEnd, { capture: true });
+                                      setDraggedItemId(null);
+                                      setDraggedCategoryId(null);
+                                      setItemsListTouchDragPreview(null);
+                                      itemsListDraggedRef.current = null;
+                                    };
+                                    document.addEventListener('touchmove', onTouchMove, { passive: false, capture: true });
+                                    document.addEventListener('touchend', onTouchEnd, { capture: true });
+                                    document.addEventListener('touchcancel', onTouchEnd, { capture: true });
+                                  }}
+                                  className="inline-flex cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 flex-shrink-0 p-1 touch-manipulation"
+                                  title="Drag to reorder"
+                                >
+                                  <GripVertical className="h-5 w-5" />
+                                </span>
                                 <button
                                   onClick={() => handleEditItem(item)}
                                   disabled={isProcessing}
@@ -2154,19 +2556,6 @@ const AdminDashboard: React.FC = () => {
                                   </div>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                                <label className="text-xs text-gray-600">Sort:</label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={item.sort_order || 0}
-                                onChange={async (e) => {
-                                  const newSortOrder = parseInt(e.target.value) || 0;
-                                  await updateMenuItem(item.id, { ...item, sort_order: newSortOrder });
-                                }}
-                                  className="w-20 px-2 py-1 border border-gray-300 rounded text-xs "
-                                />
-                              </div>
                             </div>
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center space-x-2">
@@ -2195,6 +2584,21 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+        {/* Touch drag preview for mobile - follows finger when reordering game items */}
+        {itemsListTouchDragPreview && (
+          <div
+            className="fixed z-[9999] pointer-events-none touch-none"
+            style={{
+              left: itemsListTouchDragPreview.x,
+              top: itemsListTouchDragPreview.y,
+              transform: 'translate(-50%, -50%)',
+            }}
+          >
+            <div className="px-4 py-2.5 rounded-lg shadow-lg border-2 border-gray-200 bg-white text-gray-900 text-sm font-medium whitespace-nowrap max-w-[200px] truncate">
+              {itemsListTouchDragPreview.label}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

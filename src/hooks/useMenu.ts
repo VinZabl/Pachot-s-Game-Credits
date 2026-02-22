@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { MenuItem, CustomField } from '../types';
 
@@ -56,10 +56,10 @@ export const useMenu = () => {
             reseller_price: v.reseller_price !== null && v.reseller_price !== undefined ? v.reseller_price : undefined,
             credits_amount: v.credits_amount !== null && v.credits_amount !== undefined ? v.credits_amount : undefined,
             description: v.description || undefined,
-            sort_order: v.sort_order || 0,
+            sort_order: v.sort_order != null ? Number(v.sort_order) : 0,
             category: v.category || undefined,
             sort: v.sort !== null && v.sort !== undefined ? v.sort : undefined
-          })) || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)),
+          })) || []).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
           customFields: (item.custom_fields as CustomField[]) || [],
           subtitle: item.subtitle || undefined
         };
@@ -113,7 +113,7 @@ export const useMenu = () => {
               reseller_price: v.reseller_price !== undefined ? v.reseller_price : null,
               credits_amount: v.credits_amount !== undefined ? v.credits_amount : null,
               description: v.description || null,
-              sort_order: v.sort_order !== undefined ? v.sort_order : index,
+              sort_order: v.sort_order != null ? Number(v.sort_order) : index,
               category: v.category || null,
               sort: v.sort !== null && v.sort !== undefined ? v.sort : null
             }))
@@ -131,7 +131,7 @@ export const useMenu = () => {
     }
   };
 
-  const updateMenuItem = async (id: string, updates: Partial<MenuItem>) => {
+  const updateMenuItem = async (id: string, updates: Partial<MenuItem>, options?: { skipRefetch?: boolean }) => {
     try {
       // Update menu item
       const { error: itemError } = await supabase
@@ -173,7 +173,7 @@ export const useMenu = () => {
               reseller_price: v.reseller_price !== undefined ? v.reseller_price : null,
               credits_amount: v.credits_amount !== undefined ? v.credits_amount : null,
               description: v.description || null,
-              sort_order: v.sort_order !== undefined ? v.sort_order : index,
+              sort_order: v.sort_order != null ? Number(v.sort_order) : index,
               category: v.category || null,
               sort: v.sort !== null && v.sort !== undefined ? v.sort : null
             }))
@@ -182,8 +182,9 @@ export const useMenu = () => {
         if (variationsError) throw variationsError;
       }
 
-
-      await fetchMenuItems();
+      if (!options?.skipRefetch) {
+        await fetchMenuItems();
+      }
     } catch (err) {
       console.error('Error updating menu item:', err);
       throw err;
@@ -249,6 +250,32 @@ export const useMenu = () => {
     }
   };
 
+  /** Update only sort_order in DB (no variations, no refetch). Used for reorder to avoid flicker. */
+  const updateSortOrderOnly = async (id: string, sort_order: number) => {
+    const { error: itemError } = await supabase
+      .from('menu_items')
+      .update({ sort_order })
+      .eq('id', id);
+    if (itemError) throw itemError;
+  };
+
+  /** Apply reorder to local state only (optimistic). Replaces items in the same category with the new order. */
+  const reorderCategoryItemsLocally = useCallback((reorderedItems: MenuItem[]) => {
+    if (reorderedItems.length === 0) return;
+    const ids = new Set(reorderedItems.map((i) => i.id));
+    const withNewOrder = reorderedItems.map((item, i) => ({ ...item, sort_order: i }));
+    setMenuItems((prev) => {
+      const rest = prev.filter((i) => !ids.has(i.id));
+      const merged = [...rest, ...withNewOrder].sort((a, b) => {
+        const catA = a.category || '';
+        const catB = b.category || '';
+        if (catA !== catB) return catA.localeCompare(catB);
+        return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+      });
+      return merged;
+    });
+  }, []);
+
   useEffect(() => {
     fetchMenuItems();
   }, []);
@@ -259,6 +286,8 @@ export const useMenu = () => {
     error,
     addMenuItem,
     updateMenuItem,
+    updateSortOrderOnly,
+    reorderCategoryItemsLocally,
     deleteMenuItem,
     duplicateMenuItem,
     refetch: fetchMenuItems
