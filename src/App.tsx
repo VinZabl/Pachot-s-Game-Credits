@@ -9,6 +9,7 @@ import MemberLogin from './components/MemberLogin';
 import WelcomeModal from './components/WelcomeModal';
 import MemberProfile from './components/MemberProfile';
 import OrderStatusModal from './components/OrderStatusModal';
+import OrderInstructionsModal from './components/OrderInstructionsModal';
 import { OrderStatusProvider, useOrderStatus } from './contexts/OrderStatusContext';
 import { MemberAuthProvider } from './contexts/MemberAuthContext';
 import { useMenu } from './hooks/useMenu';
@@ -57,6 +58,7 @@ function MainApp() {
 
   const [showWelcomeModal, setShowWelcomeModal] = React.useState(false);
   const [showMemberProfile, setShowMemberProfile] = React.useState(false);
+  const [showOrderInstructions, setShowOrderInstructions] = React.useState(true);
   const [justLoggedIn, setJustLoggedIn] = React.useState(false);
   const { orderId: pendingOrderId, showOrderStatusModal, clearOrderStatus, closeOrderStatusModal, openOrderStatusModal } = useOrderStatus();
 
@@ -123,6 +125,8 @@ function MainApp() {
     setShowMemberProfile(false);
     setShowWelcomeModal(false);
   };
+
+  const handleOrderInstructionsClose = () => setShowOrderInstructions(false);
 
   const handleCategoryClick = (categoryId: string) => {
     setSelectedCategory(categoryId);
@@ -215,6 +219,9 @@ function MainApp() {
         currentMember={currentMember}
       />
 
+      {showOrderInstructions && (
+        <OrderInstructionsModal onClose={handleOrderInstructionsClose} />
+      )}
       {showWelcomeModal && currentMember && (
         <WelcomeModal
           username={currentMember.username}

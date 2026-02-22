@@ -20,6 +20,7 @@ interface MemberAuthContextType {
   loading: boolean;
   login: (data: LoginMemberData) => Promise<{ success: boolean; error?: string; member?: Member }>;
   register: (data: CreateMemberData) => Promise<{ success: boolean; error?: string; member?: Member }>;
+  resetPassword: (email: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isReseller: () => boolean;
   isAuthenticated: boolean;
@@ -139,6 +140,25 @@ export const MemberAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, []);
 
+  const resetPassword = useCallback(async (email: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (!email?.trim()) return { success: false, error: 'Email is required' };
+      if (!newPassword || newPassword.length < 6) return { success: false, error: 'Password must be at least 6 characters' };
+      const passwordHash = await hashPassword(newPassword);
+      const { data, error } = await supabase.rpc('reset_member_password', {
+        p_email: email.trim(),
+        p_password_hash: passwordHash
+      });
+      if (error) return { success: false, error: error.message };
+      const result = data as { success?: boolean; error?: string } | null;
+      if (result?.success) return { success: true };
+      return { success: false, error: result?.error || 'Password reset failed' };
+    } catch (err) {
+      console.error('Reset password error:', err);
+      return { success: false, error: 'An error occurred. Please try again.' };
+    }
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem('member_id');
     setCurrentMember(null);
@@ -153,6 +173,7 @@ export const MemberAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         loading,
         login,
         register,
+        resetPassword,
         logout,
         isReseller,
         isAuthenticated: !!currentMember

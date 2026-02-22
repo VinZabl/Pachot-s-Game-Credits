@@ -221,7 +221,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
       return (
         <>
           <OrderStatusBanner />
-          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6 min-h-screen bg-[#0d0d0d]">
             <section className="mb-6 md:mb-8">
               <div className="flex items-center mb-3 md:mb-4">
                 <h3 className="text-3xl font-medium text-white">Search Results</h3>
@@ -236,7 +236,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
     return (
       <>
         <OrderStatusBanner />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 min-h-screen bg-[#0d0d0d]">
           <section className="mb-16">
             <div className="flex items-center mb-8">
               <h3 className="text-3xl font-medium text-white">
@@ -245,7 +245,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
               <span className="ml-4 text-sm text-gray-400">({menuItems.length} {menuItems.length === 1 ? 'game' : 'games'})</span>
             </div>
             
-            <div className="grid grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
+            <div className="grid grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
               {renderMenuItems(menuItems)}
             </div>
           </section>
@@ -261,10 +261,10 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
       return (
         <>
           <OrderStatusBanner />
-          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6 min-h-screen bg-[#0d0d0d]">
             <section id="popular" className="mb-6 md:mb-8">
               <div className="flex items-center mb-3 md:mb-4">
-                <h3 className="text-3xl font-medium text-white">Popular</h3>
+                <h3 className="text-xl font-medium text-white">Popular</h3>
               </div>
               <p className="text-gray-400">No popular items available at the moment.</p>
             </section>
@@ -276,13 +276,13 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
     return (
       <>
         <OrderStatusBanner />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6 min-h-screen bg-[#0d0d0d]">
           <section id="popular" className="mb-6 md:mb-8">
             <div className="flex items-center mb-3 md:mb-4">
-              <h3 className="text-3xl font-medium text-white">Popular</h3>
+              <h3 className="text-xl font-medium text-white">Popular</h3>
             </div>
             
-            <div className="grid grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
+            <div className="grid grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
               {renderMenuItems(menuItems)}
             </div>
           </section>
@@ -298,7 +298,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
 
   return (
     <>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-5 pb-4 md:pb-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-5 pb-4 md:pb-6 min-h-screen bg-[#0d0d0d]">
         {/* Welcome message for logged-in members */}
         {/* Welcome back card - Mobile only */}
         {currentMember && (
@@ -322,10 +322,10 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
         {showPopularSection && (
           <section id="popular" className="mb-8 md:mb-12">
             <div className="flex items-center mb-3 md:mb-4">
-              <h3 className="text-3xl font-medium text-white">Popular</h3>
+              <h3 className="text-xl font-medium text-white">Popular</h3>
             </div>
             
-            <div className="grid grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
+            <div className="grid grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
               {renderMenuItems(popularItems)}
             </div>
           </section>
@@ -340,10 +340,10 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
           return (
             <section key={category.id} id={category.id} className="mb-8 md:mb-12">
             <div className="flex items-center mb-3 md:mb-4">
-              <h3 className="text-3xl font-medium text-white">{category.name}</h3>
+              <h3 className="text-xl font-medium text-white">{category.name}</h3>
             </div>
               
-              <div className="grid grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
+              <div className="grid grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
                 {renderMenuItems(categoryItems)}
               </div>
             </section>

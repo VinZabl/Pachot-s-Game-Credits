@@ -9,6 +9,7 @@ interface MemberLoginProps {
 
 const MemberLogin: React.FC<MemberLoginProps> = ({ onBack, onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
+  const [showReset, setShowReset] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
@@ -17,8 +18,9 @@ const MemberLogin: React.FC<MemberLoginProps> = ({ onBack, onLoginSuccess }) => 
     confirmPassword: ''
   });
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, register, currentMember } = useMemberAuth();
+  const { login, register, resetPassword } = useMemberAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +28,31 @@ const MemberLogin: React.FC<MemberLoginProps> = ({ onBack, onLoginSuccess }) => 
     setLoading(true);
 
     try {
+      if (showReset) {
+        if (formData.password !== formData.confirmPassword) {
+          setError('Passwords do not match');
+          setLoading(false);
+          return;
+        }
+        if (formData.password.length < 6) {
+          setError('Password must be at least 6 characters');
+          setLoading(false);
+          return;
+        }
+        const result = await resetPassword(formData.email, formData.password);
+        if (result.success) {
+          setShowReset(false);
+          setFormData({ username: '', email: '', password: '', confirmPassword: '' });
+          setError('');
+          setSuccess('Password reset. You can log in with your new password.');
+          setLoading(false);
+          return;
+        }
+        setError(result.error || 'Password reset failed');
+        setLoading(false);
+        return;
+      }
+
       if (isLogin) {
         const result = await login({
           email: formData.email,
@@ -75,6 +102,7 @@ const MemberLogin: React.FC<MemberLoginProps> = ({ onBack, onLoginSuccess }) => 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setError('');
+    setSuccess('');
   };
 
   const inputClass = 'w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 bg-white/10 backdrop-blur-sm border-pink-500/30 text-white placeholder-pink-200/60 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500';
@@ -103,10 +131,10 @@ const MemberLogin: React.FC<MemberLoginProps> = ({ onBack, onLoginSuccess }) => 
               <User className="h-8 w-8 text-white" />
             </div>
             <h2 className="text-2xl font-semibold text-white mb-2">
-              {isLogin ? 'Member Login' : 'Member Registration'}
+              {showReset ? 'Reset Password' : isLogin ? 'Member Login' : 'Member Registration'}
             </h2>
             <p className="text-pink-200/80">
-              {isLogin ? 'Welcome back!' : 'Create your account'}
+              {showReset ? 'Enter your email and new password' : isLogin ? 'Welcome back!' : 'Create your account'}
             </p>
           </div>
 
@@ -115,8 +143,89 @@ const MemberLogin: React.FC<MemberLoginProps> = ({ onBack, onLoginSuccess }) => 
               {error}
             </div>
           )}
+          {success && (
+            <div className="mb-4 p-3 rounded-lg text-green-200 text-sm bg-green-500/20 border border-green-500/30">
+              {success}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {showReset && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-pink-300/60" />
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      className={inputClass}
+                      placeholder="Enter your email"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">New Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-pink-300/60" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={formData.password}
+                      onChange={(e) => handleInputChange('password', e.target.value)}
+                      className={inputClass + ' pr-12'}
+                      placeholder="Enter new password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-pink-300/60 hover:text-white"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Confirm New Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-pink-300/60" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={formData.confirmPassword}
+                      onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                      className={inputClass}
+                      placeholder="Confirm new password"
+                      required
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Processing...' : 'Reset Password'}
+                </button>
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowReset(false);
+                      setError('');
+                      setSuccess('');
+                      setFormData({ username: '', email: '', password: '', confirmPassword: '' });
+                    }}
+                    className="text-pink-400 hover:text-pink-300 transition-colors text-sm"
+                  >
+                    Back to login
+                  </button>
+                </div>
+              </>
+            )}
+            {!showReset && (
+              <>
             {!isLogin && (
               <div>
                 <label className="block text-sm font-medium text-white mb-2">Username</label>
@@ -195,13 +304,33 @@ const MemberLogin: React.FC<MemberLoginProps> = ({ onBack, onLoginSuccess }) => 
             >
               {loading ? 'Processing...' : isLogin ? 'Login' : 'Register'}
             </button>
+
+            {isLogin && (
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowReset(true);
+                    setError('');
+                    setSuccess('');
+                  }}
+                  className="text-pink-400 hover:text-pink-300 transition-colors text-sm"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
+              </>
+            )}
           </form>
 
+          {!showReset && (
           <div className="mt-6 text-center">
             <button
               onClick={() => {
                 setIsLogin(!isLogin);
                 setError('');
+                setSuccess('');
                 setFormData({ username: '', email: '', password: '', confirmPassword: '' });
               }}
               className="text-pink-400 hover:text-pink-300 transition-colors text-sm"
@@ -209,6 +338,7 @@ const MemberLogin: React.FC<MemberLoginProps> = ({ onBack, onLoginSuccess }) => 
               {isLogin ? "Don't have an account? Register" : 'Already have an account? Login'}
             </button>
           </div>
+          )}
         </div>
       </div>
     </div>

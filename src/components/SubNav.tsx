@@ -94,7 +94,8 @@ const SubNav: React.FC<SubNavProps> = ({ selectedCategory, onCategoryClick, sear
                   <button
                     key={c.id}
                     onClick={() => onCategoryClick(c.id)}
-                    className={`px-3 py-1.5 rounded-full text-sm transition-all duration-200 border flex-shrink-0 whitespace-nowrap ${
+                    title={c.name}
+                    className={`px-2.5 py-1.5 rounded-full text-xs transition-all duration-200 border flex-shrink-0 whitespace-nowrap max-w-[6.5rem] truncate ${
                       selectedCategory === c.id
                         ? 'text-white border-transparent'
                         : 'bg-transparent text-white border-pink-500/30 hover:border-pink-500 hover:bg-black/50'
