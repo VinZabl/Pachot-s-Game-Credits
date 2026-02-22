@@ -624,6 +624,9 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                 {item.subtitle && (
                   <p className="text-xs text-pink-200/80 mt-0.5">{item.subtitle}</p>
                 )}
+                {item.description && (
+                  <p className="text-xs text-white/70 mt-1 line-clamp-2">{item.description}</p>
+                )}
               </div>
             </div>
             <button
