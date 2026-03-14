@@ -6,8 +6,8 @@ interface OrderInstructionsModalProps {
 }
 
 const STEPS = [
-  'Select Items',
   'Enter user ID',
+  'Select Items',
   'Choose Payment Method',
   'Upload',
   'Submit Order',

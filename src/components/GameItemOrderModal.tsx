@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { X, Upload, HelpCircle, Copy, Download, Plus, Trash2, MessageCircle } from 'lucide-react';
+import { X, Upload, HelpCircle, Copy, Download, Plus, Trash2, MessageCircle, Check } from 'lucide-react';
 import { MenuItem, Variation, CartItem, Member } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useImageUpload } from '../hooks/useImageUpload';
@@ -182,13 +182,14 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   }, [accounts.length, selectedVariation, quantity, userSelections, item.isOnDiscount, item.discountPercentage, currentMember]);
 
   const isFormValid = useMemo(() => {
-    if (!paymentMethodId || !receiptImageUrl) return false;
+    if (!paymentMethodId) return false;
+    if (orderOption === 'place_order' && !receiptImageUrl) return false;
     if (accounts.length === 1) {
       if (!selectedVariation) return false;
       const acc = accounts[0];
       if (hasCustomFields && item.customFields) {
         if (!item.customFields.every((f) => !f.required || !!acc[f.key]?.trim())) return false;
-      } else if (!acc['default_ign']?.trim()) return false;
+      }
       return true;
     }
     const selectionEntries = Object.entries(userSelections);
@@ -196,11 +197,12 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
     return selectionEntries.every(([accIdxStr, sel]) => {
       const accIdx = parseInt(accIdxStr, 10);
       const acc = accounts[accIdx];
-      if (!acc || !sel.variation) return false;
+      if (!sel.variation) return false;
       if (hasCustomFields && item.customFields) {
+        if (!acc) return false;
         return item.customFields.every((f) => !f.required || !!acc[f.key]?.trim());
       }
-      return !!acc['default_ign']?.trim();
+      return true;
     });
   }, [selectedVariation, paymentMethodId, receiptImageUrl, hasCustomFields, item.customFields, accounts, userSelections]);
 
@@ -251,8 +253,6 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
             const val = acc[field.key];
             if (val) fields[field.label] = val;
           });
-        } else if (acc['default_ign']) {
-          fields['IGN'] = acc['default_ign'];
         }
         if (Object.keys(fields).length > 0) {
           multipleAccountsData.push({ game: item.name, package: variation.name, fields });
@@ -275,11 +275,9 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
           const fields: Record<string, string> = {};
           if (hasCustomFields && item.customFields) {
             item.customFields.forEach((field) => {
-              const val = acc[field.key];
+              const val = acc?.[field.key];
               if (val) fields[field.label] = val;
             });
-          } else if (acc['default_ign']) {
-            fields['IGN'] = acc['default_ign'];
           }
           if (Object.keys(fields).length > 0) {
             multipleAccountsData.push({ game: item.name, package: sel.variation.name, fields });
@@ -298,8 +296,6 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
       if (multipleAccountsData.length > 0) {
         customerInfo['Multiple Accounts'] = multipleAccountsData;
-      } else if (accounts[0]?.['default_ign']) {
-        customerInfo['IGN'] = accounts[0]['default_ign'];
       }
 
       const customerInfoForOrder = multipleAccountsData.length > 0
@@ -391,8 +387,6 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
           const v = acc[f.key];
           if (v) lines.push(`${f.label}: ${v}`);
         });
-      } else if (acc['default_ign']) {
-        lines.push(`IGN: ${acc['default_ign']}`);
       }
       if (selectedVariation) {
         lines.push(`ORDER: ${selectedVariation.name} x${quantity} - ₱${totalPrice}`);
@@ -403,11 +397,9 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
         if (!acc) return;
         if (hasCustomFields && item.customFields) {
           item.customFields.forEach((f) => {
-            const v = acc[f.key];
+            const v = acc?.[f.key];
             if (v) lines.push(`${f.label}: ${v}`);
           });
-        } else if (acc['default_ign']) {
-          lines.push(`IGN: ${acc['default_ign']}`);
         }
         lines.push(`ORDER: ${sel.variation.name} x${sel.quantity} - ₱${getDiscountedPrice(sel.variation.price, sel.variation) * sel.quantity}`);
       });
@@ -419,7 +411,8 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   };
 
   const saveOrderAndGetMessage = async (): Promise<string> => {
-    if (!selectedPaymentMethod || !receiptImageUrl) throw new Error('Please select payment and upload receipt');
+    if (!selectedPaymentMethod) throw new Error('Please select a payment method');
+    if (orderOption === 'place_order' && !receiptImageUrl) throw new Error('Please upload receipt');
     const invoiceNumber = savedOrderId && generatedInvoiceNumber
       ? generatedInvoiceNumber
       : await generateInvoiceNumber(true);
@@ -433,7 +426,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       const fields: Record<string, string> = {};
       if (hasCustomFields && item.customFields) {
         item.customFields.forEach((f) => { const v = acc[f.key]; if (v) fields[f.label] = v; });
-      } else if (acc['default_ign']) fields['IGN'] = acc['default_ign'];
+      }
       if (Object.keys(fields).length > 0) multipleAccountsData.push({ game: item.name, package: variation.name, fields });
       for (let q = 0; q < quantity; q++) {
         orderItems.push({
@@ -452,8 +445,8 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
         const unitP = getDiscountedPrice(sel.variation.price, sel.variation);
         const fields: Record<string, string> = {};
         if (hasCustomFields && item.customFields) {
-          item.customFields.forEach((f) => { const v = acc[f.key]; if (v) fields[f.label] = v; });
-        } else if (acc['default_ign']) fields['IGN'] = acc['default_ign'];
+          item.customFields.forEach((f) => { const v = acc?.[f.key]; if (v) fields[f.label] = v; });
+        }
         if (Object.keys(fields).length > 0) multipleAccountsData.push({ game: item.name, package: sel.variation.name, fields });
         for (let q = 0; q < sel.quantity; q++) {
           orderItems.push({
@@ -467,7 +460,6 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       }
     }
     if (multipleAccountsData.length > 0) customerInfo['Multiple Accounts'] = multipleAccountsData;
-    else if (accounts[0]?.['default_ign']) customerInfo['IGN'] = accounts[0]['default_ign'];
     const customerInfoForOrder = multipleAccountsData.length > 0
       ? multipleAccountsData
       : Object.fromEntries(Object.entries(customerInfo).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
@@ -476,7 +468,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
         order_items: orderItems,
         customer_info: customerInfoForOrder,
         payment_method_id: selectedPaymentMethod.id,
-        receipt_url: receiptImageUrl,
+        receipt_url: receiptImageUrl || '',
         total_price: totalPrice,
         member_id: currentMember?.id,
         order_option: 'order_via_messenger',
@@ -625,7 +617,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                   <p className="text-xs text-pink-200/80 mt-0.5">{item.subtitle}</p>
                 )}
                 {item.description && (
-                  <p className="text-xs text-white/70 mt-1 line-clamp-2">{item.description}</p>
+                  <p className="text-xs text-white/70 mt-1 whitespace-pre-wrap">{item.description}</p>
                 )}
               </div>
             </div>
@@ -639,36 +631,35 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-3 sm:space-y-4">
-            {/* Section 1: Enter ID / Customer Info */}
-            <div className={stepCardClass}>
-              <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>1</div>
-                <h3 className="text-sm sm:text-base font-semibold text-gray-900">
-                  {hasCustomFields && item.customFields?.[0]
-                    ? item.customFields[0].label
-                    : 'Enter ID'}
-                </h3>
-              </div>
-              <div className="space-y-4">
-                {accounts.map((acc, accIdx) => (
-                  <div key={accIdx} className="relative">
-                    {accIdx > 0 && (
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-medium text-gray-500">
-                          {firstFieldLabel} #{accIdx + 1}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => removeAccount(accIdx)}
-                          className="p-1 rounded hover:bg-red-100 text-gray-500 hover:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    )}
-                    {hasCustomFields && item.customFields ? (
+            {/* Section 1: Enter ID / Customer Info (Only show if fields exist) */}
+            {hasCustomFields && item.customFields && item.customFields.length > 0 && (
+              <div className={stepCardClass}>
+                <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                  <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>1</div>
+                  <h3 className="text-sm sm:text-base font-semibold text-gray-900">
+                    {item.customFields[0].label}
+                  </h3>
+                </div>
+                <div className="space-y-4">
+                  {accounts.map((acc, accIdx) => (
+                    <div key={accIdx} className="relative">
+                      {accIdx > 0 && (
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-500">
+                            {firstFieldLabel} #{accIdx + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeAccount(accIdx)}
+                            className="p-1 rounded hover:bg-red-100 text-gray-500 hover:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                      
                       <div className="space-y-2 sm:space-y-3">
-                        {item.customFields.map((field) => (
+                        {item.customFields!.map((field) => (
                           <div key={field.key}>
                             <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                               {field.label} {field.required && <span className="text-red-500">*</span>}
@@ -699,48 +690,21 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <div>
-                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                          Enter Player ID <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={acc['default_ign'] || ''}
-                            onChange={(e) => updateAccountField(accIdx, 'default_ign', e.target.value)}
-                            placeholder="e.g. 5363266446"
-                            className={inputClass}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowIdHelp(!showIdHelp)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-500 hover:text-purple-600"
-                          >
-                            <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-                          </button>
-                        </div>
-                        {showIdHelp && (
-                          <p className="mt-2 text-xs text-gray-500">
-                            To find your ID, click on the character icon. Your User ID is listed below your character name. Example: '5363266446'.
-                          </p>
-                        )}
-                      </div>
-                    )}
+                    </div>
+                  ))}
+                  <div className="flex justify-center">
+                    <button
+                      type="button"
+                      onClick={addAccount}
+                      className="inline-flex items-center justify-center gap-2 py-2 px-4 rounded-lg border-2 border-dashed border-purple-300 text-purple-600 hover:bg-purple-50 hover:border-purple-400 text-sm font-medium transition-colors"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add new {firstFieldLabel}
+                    </button>
                   </div>
-                ))}
-                <div className="flex justify-center">
-                <button
-                  type="button"
-                  onClick={addAccount}
-                  className="inline-flex items-center justify-center gap-2 py-2 px-4 rounded-lg border-2 border-dashed border-purple-300 text-purple-600 hover:bg-purple-50 hover:border-purple-400 text-sm font-medium transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add new {firstFieldLabel}
-                </button>
+                </div>
               </div>
-              </div>
-            </div>
+            )}
 
             {/* Section 2: Select Recharge / Package */}
             <div ref={section2Ref} className={stepCardClass}>
@@ -790,7 +754,9 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                             <div ref={packageGridRef} className="grid grid-cols-2 gap-2 sm:gap-3">
                               {variations.map((v, idx) => {
                     const price = getDiscountedPrice(v.price, v);
-                    const isSelected = selectedVariation?.id === v.id;
+                    const isSelected = accounts.length > 1 && activeUserIdx !== null
+                      ? userSelections[activeUserIdx]?.variation.id === v.id
+                      : selectedVariation?.id === v.id;
                     return (
                       <button
                         key={`${v.id}-${idx}`}
@@ -805,23 +771,28 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                             }
                           }
                         }}
-                        className={`p-2.5 sm:p-4 rounded-lg border-2 text-left transition-all ${
+                        className={`relative p-2.5 sm:p-4 rounded-lg border-2 text-left transition-all ${
                           isSelected
-                            ? 'border-purple-500 bg-purple-50'
-                            : 'border-gray-200 bg-gray-50 hover:border-purple-300'
+                            ? 'border-pink-500 bg-pink-500 text-white shadow-md'
+                            : 'border-gray-200 bg-gray-50 hover:border-pink-500 hover:bg-pink-50'
                         }`}
                       >
-                        <div className="font-semibold text-gray-900 text-xs sm:text-base">
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 bg-white text-pink-500 rounded-full p-1 shadow-sm">
+                            <Check className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={3} />
+                          </div>
+                        )}
+                        <div className={`font-semibold text-xs sm:text-base pr-6 ${isSelected ? 'text-white' : 'text-gray-900'}`}>
                           {v.name}
                         </div>
                         {v.description && (
-                          <div className="text-[10px] sm:text-xs text-gray-500 mt-0.5 line-clamp-2">
+                          <div className={`text-[10px] sm:text-xs mt-0.5 ${isSelected ? 'text-pink-100' : 'text-gray-500'}`}>
                             {v.description}
                           </div>
                         )}
-                        <div className="mt-1.5 sm:mt-2 text-sm sm:text-base font-bold text-red-600">₱{price.toFixed(0)}</div>
+                        <div className={`mt-1.5 sm:mt-2 text-sm sm:text-base font-bold ${isSelected ? 'text-white' : 'text-red-600'}`}>₱{price.toFixed(0)}</div>
                         {item.isOnDiscount && item.discountPercentage && (
-                          <div className="text-[10px] sm:text-xs text-gray-500 line-through">₱{v.price}</div>
+                          <div className={`text-[10px] sm:text-xs line-through ${isSelected ? 'text-pink-200' : 'text-gray-500'}`}>₱{v.price}</div>
                         )}
                       </button>
                     );
@@ -1072,14 +1043,15 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
               </div>
             )}
 
-            {/* Section 4: Upload Proof of Payment */}
-            <div ref={uploadSectionRef} className={stepCardClass}>
-              <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>4</div>
-                <h3 className="text-sm sm:text-base font-semibold text-gray-900">Upload Proof of Payment</h3>
-              </div>
-              <div className="space-y-2 sm:space-y-3">
-                {!receiptPreview ? (
+            {/* Section 4: Upload Proof of Payment (Only if order_option is place_order or undefined) */}
+            {(orderOption === 'place_order') && (
+              <div ref={uploadSectionRef} className={stepCardClass}>
+                <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                  <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>4</div>
+                  <h3 className="text-sm sm:text-base font-semibold text-gray-900">Upload Proof of Payment</h3>
+                </div>
+                <div className="space-y-2 sm:space-y-3">
+                  {!receiptPreview ? (
                   <label className="block border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6 text-center cursor-pointer hover:border-purple-400 hover:bg-purple-50/50 transition-colors">
                     <input
                       type="file"
@@ -1133,7 +1105,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                 {receiptError && (
                   <p className="text-xs sm:text-sm text-red-500">{receiptError}</p>
                 )}
-                {orderOption === 'place_order' ? (
+                {orderOption === 'place_order' && (
                   <button
                     type="button"
                     onClick={handlePlaceOrder}
@@ -1146,27 +1118,33 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                   >
                     {isPlacingOrder ? 'Placing Order...' : `Place Order - ₱${totalPrice.toFixed(0)}`}
                   </button>
-                ) : (
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={handleCopyOrderMessage}
-                      disabled={!isFormValid || isPlacingOrder}
-                      className={`w-full py-3 sm:py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${
-                        isFormValid && !isPlacingOrder
-                          ? 'bg-purple-500 hover:bg-purple-600 text-white'
-                          : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      }`}
-                    >
-                      {copiedOrderMessage ? <span>Copied!</span> : <><Copy className="h-4 w-4" /> Copy Order Message</>}
-                    </button>
-                    <p className="text-xs text-gray-500 text-center mt-1">
-                      Copy the order message, then open Messenger to send it.
-                    </p>
-                  </div>
                 )}
               </div>
             </div>
+            )}
+
+            {/* Section 4 (Alternative): Order Message Action (when not place_order) */}
+            {orderOption !== 'place_order' && (
+              <div ref={uploadSectionRef} className={stepCardClass}>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyOrderMessage}
+                    disabled={!isFormValid || isPlacingOrder}
+                    className={`w-full py-3 sm:py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${
+                      isFormValid && !isPlacingOrder
+                        ? 'bg-purple-500 hover:bg-purple-600 text-white'
+                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {copiedOrderMessage ? <span>Copied!</span> : <><Copy className="h-4 w-4" /> Copy Order Message</>}
+                  </button>
+                  <p className="text-xs text-gray-500 text-center mt-1">
+                    Copy the order message, then open Messenger to send it.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Section 5: Send Order (Order via Messenger only) */}
             {orderOption === 'order_via_messenger' && (
