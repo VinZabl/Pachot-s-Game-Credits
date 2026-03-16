@@ -786,7 +786,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                           {v.name}
                         </div>
                         {v.description && (
-                          <div className={`text-[10px] sm:text-xs mt-0.5 ${isSelected ? 'text-pink-100' : 'text-gray-500'}`}>
+                          <div className={`text-[10px] sm:text-xs mt-0.5 whitespace-pre-wrap ${isSelected ? 'text-pink-100' : 'text-gray-500'}`}>
                             {v.description}
                           </div>
                         )}
