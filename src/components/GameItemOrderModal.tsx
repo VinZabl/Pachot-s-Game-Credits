@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { X, Upload, HelpCircle, Copy, Download, Plus, Trash2, MessageCircle, Check } from 'lucide-react';
+import { X, Upload, HelpCircle, Copy, Download, Plus, Trash2, MessageCircle, Check, Receipt } from 'lucide-react';
 import { MenuItem, Variation, CartItem, Member } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useImageUpload } from '../hooks/useImageUpload';
@@ -944,6 +944,18 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
               {paymentMethods.length === 0 && (
                 <p className="text-xs sm:text-sm text-gray-500">No payment methods available</p>
               )}
+
+              {/* Total Computation Display */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex flex-col items-center justify-center p-3 sm:p-4 bg-purple-50 rounded-xl border border-purple-100 shadow-sm">
+                  <div className="flex items-center justify-center mb-1">
+                    <span className="text-sm font-medium text-purple-600">Total Amount to Pay</span>
+                  </div>
+                  <div className="text-3xl sm:text-4xl font-bold text-gray-900">
+                    ₱{totalPrice.toFixed(0)}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Payment Details (below Section 3, before Section 4) */}
@@ -1137,10 +1149,10 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                         : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                     }`}
                   >
-                    {copiedOrderMessage ? <span>Copied!</span> : <><Copy className="h-4 w-4" /> Copy Order Message</>}
+                    {copiedOrderMessage ? <span>Copied!</span> : <><Copy className="h-4 w-4" /> Copy Order Form</>}
                   </button>
                   <p className="text-xs text-gray-500 text-center mt-1">
-                    Copy the order message, then open Messenger to send it.
+                    Copy the order form, then open Messenger to send it.
                   </p>
                 </div>
               </div>
@@ -1163,8 +1175,16 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                       : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                   }`}
                 >
-                  <MessageCircle className="h-4 w-4" /> Send Order
+                  <MessageCircle className="h-4 w-4" /> Send Order to PGCShop
                 </button>
+                <div className="mt-4 p-3 sm:p-4 rounded-lg border border-pink-200 bg-pink-50 text-pink-900 shadow-sm">
+                  <p className="text-sm font-bold flex items-center gap-2 mb-1">
+                     Please read
+                  </p>
+                  <p className="text-xs sm:text-sm text-pink-800/90 leading-relaxed">
+                    Pay using any of the methods above → screenshot the receipt → then send to our Messenger after submitting your order.
+                  </p>
+                </div>
               </div>
             )}
           </div>
