@@ -151,6 +151,16 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
     }
   }, [paymentMethodId]);
 
+  // Auto-select GCash by default
+  useEffect(() => {
+    if (paymentMethods.length > 0 && !paymentMethodId) {
+      const gcashMethod = paymentMethods.find((m) => m.name.toLowerCase().includes('gcash'));
+      if (gcashMethod) {
+        setPaymentMethodId(gcashMethod.id);
+      }
+    }
+  }, [paymentMethods, paymentMethodId]);
+
   const getDiscountedPrice = (basePrice: number, variation?: Variation): number => {
     if (currentMember && variation) {
       const isReseller = currentMember.user_type === 'reseller';
@@ -945,115 +955,97 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                 <p className="text-xs sm:text-sm text-gray-500">No payment methods available</p>
               )}
 
+              {/* Payment Details */}
+              {selectedPaymentMethod && (
+                <div ref={paymentDetailsRef} className="mt-4 pt-4 border-t border-gray-200">
+                  <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-2 sm:mb-3">
+                    {selectedPaymentMethod.name.replace(/ payment/i, '')} Payment Details
+                  </h3>
+                  <div className="space-y-3 sm:space-y-4">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
+                          <p className="text-xs sm:text-sm text-gray-500">Acc. Name:</p>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyAccountName(selectedPaymentMethod.account_name)}
+                            className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-purple-50 hover:border-purple-300 text-xs sm:text-sm font-medium text-gray-700 transition-colors"
+                            title="Copy account name"
+                          >
+                            {copiedAccountName ? (
+                              <span className="text-green-600">Copied!</span>
+                            ) : (
+                              <span className="flex items-center gap-1"><Copy className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Copy</span>
+                            )}
+                          </button>
+                        </div>
+                        <p className="text-sm sm:text-base text-pink-600 font-bold truncate">{selectedPaymentMethod.account_name}</p>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
+                          <p className="text-xs sm:text-sm text-gray-500">Acc. Num#</p>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyAccountNumber(selectedPaymentMethod.account_number)}
+                            className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-purple-50 hover:border-purple-300 text-xs sm:text-sm font-medium text-gray-700 transition-colors"
+                            title="Copy account number"
+                          >
+                            {copiedAccountNumber ? (
+                              <span className="text-green-600">Copied!</span>
+                            ) : (
+                              <span className="flex items-center gap-1"><Copy className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Copy</span>
+                            )}
+                          </button>
+                        </div>
+                        <p className="font-mono text-pink-600 font-bold text-base sm:text-xl truncate tracking-wide">{selectedPaymentMethod.account_number}</p>
+                      </div>
+                    </div>
+                    <div className="pt-6 sm:pt-8 mt-2 sm:mt-4">
+                      <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2 text-center">Other Option</p>
+                      {selectedPaymentMethod.qr_code_url ? (
+                        <div className="flex flex-col items-center gap-1.5 sm:gap-2">
+                          {!isMessengerBrowser && (
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadQRCode(selectedPaymentMethod.qr_code_url, selectedPaymentMethod.name)}
+                              className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-purple-50 hover:border-purple-300 text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-1.5 sm:gap-2 transition-colors"
+                              title="Download QR code"
+                            >
+                              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                              Download QR
+                            </button>
+                          )}
+                          {isMessengerBrowser && (
+                            <p className="text-[10px] sm:text-xs text-gray-500 text-center">Long-press the QR code to save</p>
+                          )}
+                          <img
+                            src={selectedPaymentMethod.qr_code_url}
+                            alt={`${selectedPaymentMethod.name} QR Code`}
+                            className="w-28 h-28 sm:w-32 sm:h-32 rounded-lg border-2 border-gray-200 object-contain"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-lg border-2 border-gray-200 bg-gray-50 flex items-center justify-center mx-auto">
+                          <p className="text-xs sm:text-sm text-gray-500 text-center px-2">QR code not available</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Total Computation Display */}
               <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="flex flex-col items-center justify-center p-3 sm:p-4 bg-purple-50 rounded-xl border border-purple-100 shadow-sm">
-                  <div className="flex items-center justify-center mb-1">
-                    <span className="text-sm font-medium text-purple-600">Total Amount to Pay</span>
+                <div className="flex flex-col items-center justify-center p-2 sm:p-3 bg-purple-50 rounded-xl border border-purple-100 shadow-sm">
+                  <div className="flex items-center justify-center mb-0.5">
+                    <span className="text-xs sm:text-sm font-medium text-purple-600">Total Amount to Pay</span>
                   </div>
-                  <div className="text-3xl sm:text-4xl font-bold text-gray-900">
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900">
                     ₱{totalPrice.toFixed(0)}
                   </div>
                 </div>
               </div>
             </div>
-
-            {/* Payment Details (below Section 3, before Section 4) */}
-            {selectedPaymentMethod && (
-              <div ref={paymentDetailsRef} className={stepCardClass}>
-                <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-2 sm:mb-3">Payment Details</h3>
-                <div className="space-y-3 sm:space-y-4">
-                  <div>
-                    <p className="text-sm sm:text-lg font-semibold text-gray-900">{selectedPaymentMethod.name}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
-                        <p className="text-xs sm:text-sm text-gray-500">Account Name:</p>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyAccountName(selectedPaymentMethod.account_name)}
-                          className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-purple-50 hover:border-purple-300 text-xs sm:text-sm font-medium text-gray-700 transition-colors"
-                          title="Copy account name"
-                        >
-                          {copiedAccountName ? (
-                            <span className="text-green-600">Copied!</span>
-                          ) : (
-                            <span className="flex items-center gap-1"><Copy className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Copy</span>
-                          )}
-                        </button>
-                      </div>
-                      <p className="text-sm sm:text-base text-gray-900 font-medium truncate">{selectedPaymentMethod.account_name}</p>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
-                        <p className="text-xs sm:text-sm text-gray-500">Account Number:</p>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyAccountNumber(selectedPaymentMethod.account_number)}
-                          className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-purple-50 hover:border-purple-300 text-xs sm:text-sm font-medium text-gray-700 transition-colors"
-                          title="Copy account number"
-                        >
-                          {copiedAccountNumber ? (
-                            <span className="text-green-600">Copied!</span>
-                          ) : (
-                            <span className="flex items-center gap-1"><Copy className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Copy</span>
-                          )}
-                        </button>
-                      </div>
-                      <p className="font-mono text-gray-900 font-medium text-base sm:text-xl truncate">{selectedPaymentMethod.account_number}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2 text-center">Other Option</p>
-                    {selectedPaymentMethod.qr_code_url ? (
-                      <div className="flex flex-col items-center gap-1.5 sm:gap-2">
-                        {!isMessengerBrowser && (
-                          <button
-                            type="button"
-                            onClick={() => handleDownloadQRCode(selectedPaymentMethod.qr_code_url, selectedPaymentMethod.name)}
-                            className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-purple-50 hover:border-purple-300 text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-1.5 sm:gap-2 transition-colors"
-                            title="Download QR code"
-                          >
-                            <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            Download QR
-                          </button>
-                        )}
-                        {isMessengerBrowser && (
-                          <p className="text-[10px] sm:text-xs text-gray-500 text-center">Long-press the QR code to save</p>
-                        )}
-                        <img
-                          src={selectedPaymentMethod.qr_code_url}
-                          alt={`${selectedPaymentMethod.name} QR Code`}
-                          className="w-28 h-28 sm:w-32 sm:h-32 rounded-lg border-2 border-gray-200 object-contain"
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-lg border-2 border-gray-200 bg-gray-50 flex items-center justify-center mx-auto">
-                        <p className="text-xs sm:text-sm text-gray-500 text-center px-2">QR code not available</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="pt-2 border-t border-gray-200">
-                    <p className="text-base sm:text-lg font-semibold text-gray-900">Amount: ₱{totalPrice.toFixed(0)}</p>
-                    {accounts.length > 1 && Object.keys(userSelections).length > 0 && (
-                      <div className="text-xs text-gray-500 mt-1 space-y-0.5">
-                        {Object.entries(userSelections).map(([idx, sel]) => (
-                          <p key={idx}>
-                            {firstFieldLabel} #{parseInt(idx, 10) + 1}: {sel.variation.name} × {sel.quantity}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                    {accounts.length === 1 && selectedVariation && (quantity > 1) && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {selectedVariation.name} × {quantity}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Section 4: Upload Proof of Payment (Only if order_option is place_order or undefined) */}
             {(orderOption === 'place_order') && (
@@ -1138,6 +1130,18 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
             {/* Section 4 (Alternative): Order Message Action (when not place_order) */}
             {orderOption !== 'place_order' && (
               <div ref={uploadSectionRef} className={stepCardClass}>
+                <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                  <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>4</div>
+                  <h3 className="text-sm sm:text-base font-semibold text-gray-900">Copy Order Form</h3>
+                </div>
+                <div className="mb-4 p-3 sm:p-4 rounded-lg border border-pink-200 bg-pink-50 text-pink-900 shadow-sm">
+                  <p className="text-sm font-bold flex items-center gap-2 mb-1">
+                     Please read
+                  </p>
+                  <p className="text-xs sm:text-sm text-pink-800/90 leading-relaxed">
+                    Pay using any of the methods above → screenshot the receipt → then send to our Messenger after submitting your order.
+                  </p>
+                </div>
                 <div className="space-y-2">
                   <button
                     type="button"
@@ -1177,14 +1181,6 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                 >
                   <MessageCircle className="h-4 w-4" /> Send Order to PGCShop
                 </button>
-                <div className="mt-4 p-3 sm:p-4 rounded-lg border border-pink-200 bg-pink-50 text-pink-900 shadow-sm">
-                  <p className="text-sm font-bold flex items-center gap-2 mb-1">
-                     Please read
-                  </p>
-                  <p className="text-xs sm:text-sm text-pink-800/90 leading-relaxed">
-                    Pay using any of the methods above → screenshot the receipt → then send to our Messenger after submitting your order.
-                  </p>
-                </div>
               </div>
             )}
           </div>
