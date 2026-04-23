@@ -135,7 +135,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   useEffect(() => {
     if (!selectedVariation || accounts.length > 1) return;
     setTimeout(() => {
-      paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      quantityApplyToRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 150);
   }, [selectedVariation, accounts.length]);
 
@@ -776,8 +776,8 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                             assignPackageToUser(activeUserIdx, v, userSelections[activeUserIdx]?.quantity ?? 1);
                           } else {
                             setSelectedVariation(v);
-                            if (accounts.length === 1 && paymentSectionRef.current) {
-                              setTimeout(() => paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+                            if (accounts.length === 1 && quantityApplyToRef.current) {
+                              setTimeout(() => quantityApplyToRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
                             }
                           }
                         }}
@@ -817,11 +817,20 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
               ) : (
                 <p className="text-xs sm:text-sm text-gray-500">No packages available</p>
               )}
-              {(selectedVariation || accounts.length > 1) && (
-                <div ref={quantityApplyToRef} className="mt-4 pt-4 border-t border-gray-200 space-y-3">
+            </div>
+
+            {/* Section 3: Quantity / Your Selections */}
+            {(selectedVariation || accounts.length > 1) && (
+              <div ref={quantityApplyToRef} className={stepCardClass}>
+                <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                  <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>3</div>
+                  <h3 className="text-sm sm:text-base font-semibold text-gray-900">
+                    {accounts.length === 1 ? 'Quantity' : 'Your Selections'}
+                  </h3>
+                </div>
+                <div className="space-y-3">
                   {accounts.length === 1 ? (
                     <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Quantity</label>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
@@ -849,7 +858,6 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                     </div>
                   ) : (
                     <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Your selections</label>
                       <div className="space-y-2">
                         {accounts.map((_, idx) => {
                           const sel = userSelections[idx];
@@ -914,13 +922,13 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                     </div>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* Section 3: Select Payment */}
+            {/* Section 4: Select Payment */}
             <div ref={paymentSectionRef} className={stepCardClass}>
               <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>3</div>
+                <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>4</div>
                 <h3 className="text-sm sm:text-base font-semibold text-gray-900">Select Payment</h3>
               </div>
               <div className="grid grid-cols-5 gap-2 sm:gap-3">
@@ -1051,7 +1059,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
             {(orderOption === 'place_order') && (
               <div ref={uploadSectionRef} className={stepCardClass}>
                 <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                  <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>4</div>
+                  <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>5</div>
                   <h3 className="text-sm sm:text-base font-semibold text-gray-900">Upload Proof of Payment</h3>
                 </div>
                 <div className="space-y-2 sm:space-y-3">
@@ -1131,7 +1139,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
             {orderOption !== 'place_order' && (
               <div ref={uploadSectionRef} className={stepCardClass}>
                 <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                  <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>4</div>
+                  <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>5</div>
                   <h3 className="text-sm sm:text-base font-semibold text-gray-900">Copy Order Form</h3>
                 </div>
                 <div className="mb-4 p-3 sm:p-4 rounded-lg border border-pink-200 bg-pink-50 text-pink-900 shadow-sm">
@@ -1139,7 +1147,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                      Please read
                   </p>
                   <p className="text-xs sm:text-sm text-pink-800/90 leading-relaxed">
-                    Pay using any of the methods above → screenshot the receipt → then send to our Messenger after submitting your order.
+                    Pay first → screenshot receipt → copy order form → send order form + receipt to Messenger.
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -1166,7 +1174,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
             {orderOption === 'order_via_messenger' && (
               <div className={stepCardClass}>
                 <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                  <div className={stepNumClass} style={{ backgroundColor: '#EC4899' }}>5</div>
+                  <div className={stepNumClass} style={{ backgroundColor: '#EC4899' }}>6</div>
                   <h3 className="text-sm sm:text-base font-semibold text-gray-900">Send Order</h3>
                 </div>
                 <button
