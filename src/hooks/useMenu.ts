@@ -58,7 +58,9 @@ export const useMenu = () => {
             description: v.description || undefined,
             sort_order: v.sort_order != null ? Number(v.sort_order) : 0,
             category: v.category || undefined,
-            sort: v.sort !== null && v.sort !== undefined ? v.sort : undefined
+            sort: v.sort !== null && v.sort !== undefined ? v.sort : undefined,
+            badge_text: v.badge_text || undefined,
+            badge_color: v.badge_color || undefined
           })) || []).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
           customFields: (item.custom_fields as CustomField[]) || [],
           subtitle: item.subtitle || undefined,
@@ -119,7 +121,9 @@ export const useMenu = () => {
               description: v.description || null,
               sort_order: v.sort_order != null ? Number(v.sort_order) : index,
               category: v.category || null,
-              sort: v.sort !== null && v.sort !== undefined ? v.sort : null
+              sort: v.sort !== null && v.sort !== undefined ? v.sort : null,
+              badge_text: v.badge_text || null,
+              badge_color: v.badge_color || null
             }))
           );
 
@@ -181,7 +185,9 @@ export const useMenu = () => {
               description: v.description || null,
               sort_order: v.sort_order != null ? Number(v.sort_order) : index,
               category: v.category || null,
-              sort: v.sort !== null && v.sort !== undefined ? v.sort : null
+              sort: v.sort !== null && v.sort !== undefined ? v.sort : null,
+              badge_text: v.badge_text || null,
+              badge_color: v.badge_color || null
             }))
           );
 
@@ -242,7 +248,9 @@ export const useMenu = () => {
           description: v.description,
           sort_order: v.sort_order || 0,
           category: v.category,
-          sort: v.sort
+          sort: v.sort,
+          badge_text: v.badge_text,
+          badge_color: v.badge_color
         })) || [],
         customFields: originalItem.customFields || [],
         subtitle: originalItem.subtitle,

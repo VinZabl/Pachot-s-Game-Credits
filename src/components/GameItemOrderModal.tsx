@@ -744,8 +744,14 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                     acc[key].push(v);
                     return acc;
                   }, {}); // initial {} so acc is never a variation object
-                  // Order categories by minimum sort_order of their variations so first package (e.g. Lite 1x) shows first
+                  // Order categories by: 1. Presence of labeled packages, 2. Minimum sort_order
                   const categoryOrder = Object.keys(grouped).sort((a, b) => {
+                    const hasBadgeA = grouped[a].some(v => !!v.badge_text);
+                    const hasBadgeB = grouped[b].some(v => !!v.badge_text);
+                    
+                    if (hasBadgeA && !hasBadgeB) return -1;
+                    if (!hasBadgeA && hasBadgeB) return 1;
+                    
                     const minA = Math.min(...(grouped[a] || []).map((v) => v.sort_order ?? 999));
                     const minB = Math.min(...(grouped[b] || []).map((v) => v.sort_order ?? 999));
                     return minA - minB;
@@ -753,8 +759,14 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                   return (
                     <div className="space-y-4">
                       {categoryOrder.map((catKey) => {
-                        // Sort variations by sort_order so first package is never skipped
-                        const variations = (grouped[catKey] || []).sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
+                        // Sort variations by badge presence first, then by sort_order
+                        const variations = (grouped[catKey] || []).sort((a, b) => {
+                          // Labeled packages come first
+                          if (a.badge_text && !b.badge_text) return -1;
+                          if (!a.badge_text && b.badge_text) return 1;
+                          // Then sort by sort_order
+                          return (a.sort_order ?? 999) - (b.sort_order ?? 999);
+                        });
                         const categoryName = catKey === '\u200b' ? null : catKey;
                         return (
                           <div key={catKey}>
@@ -781,12 +793,24 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                             }
                           }
                         }}
-                        className={`relative p-2.5 sm:p-4 rounded-lg border-2 text-left transition-all ${
+                        className={`relative rounded-lg border-2 text-left transition-all ${
+                          v.badge_text 
+                            ? 'pt-7 sm:pt-8 pb-2.5 sm:pb-4 px-2.5 sm:px-4' 
+                            : 'p-2.5 sm:p-4'
+                        } ${
                           isSelected
                             ? 'border-pink-500 bg-pink-500 text-white shadow-md'
                             : 'border-gray-200 bg-gray-50 hover:border-pink-500 hover:bg-pink-50'
                         }`}
                       >
+                        {v.badge_text && (
+                          <div 
+                            className="absolute top-0 left-0 z-20 px-1.5 py-0.5 rounded-br-lg shadow-sm overflow-hidden"
+                            style={{ backgroundColor: v.badge_color || '#EC4899', color: 'white' }}
+                          >
+                            <span className="text-[8px] font-bold uppercase tracking-wider block leading-tight">{v.badge_text}</span>
+                          </div>
+                        )}
                         {isSelected && (
                           <div className="absolute top-2 right-2 bg-white text-pink-500 rounded-full p-1 shadow-sm">
                             <Check className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={3} />

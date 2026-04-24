@@ -1403,6 +1403,49 @@ const AdminDashboard: React.FC = () => {
                                         className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs font-semibold disabled:bg-gray-100 disabled:cursor-not-allowed text-black"
                                         placeholder="Category name (e.g., Category 1)"
                                       />
+                                      <div className="flex items-center gap-3 ml-2 flex-shrink-0">
+                                        <label className="flex items-center gap-1.5 cursor-pointer group">
+                                          <div className="relative flex items-center">
+                                            <input
+                                              type="checkbox"
+                                              checked={!!categoryVariations.find(v => v.badge_text)?.badge_text}
+                                              onChange={(e) => {
+                                                const isChecked = e.target.checked;
+                                                const defaultText = isChecked ? 'PROMO' : null;
+                                                const defaultColor = isChecked ? '#EC4899' : null;
+                                                
+                                                const variationIds = new Set(categoryVariations.map(v => v.id));
+                                                const updatedVariations = (formData.variations || []).map(v => 
+                                                  variationIds.has(v.id) 
+                                                    ? { ...v, badge_text: defaultText, badge_color: v.badge_color || defaultColor } 
+                                                    : v
+                                                );
+                                                setFormData({ ...formData, variations: updatedVariations });
+                                              }}
+                                              className="sr-only peer"
+                                            />
+                                            <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-green-600"></div>
+                                          </div>
+                                          <span className="text-[10px] font-medium text-gray-600 group-hover:text-gray-800 transition-colors">Badge</span>
+                                        </label>
+
+                                        {categoryVariations.some(v => v.badge_text) && (
+                                          <input
+                                            type="text"
+                                            value={categoryVariations.find(v => v.badge_text)?.badge_text || ''}
+                                            onChange={(e) => {
+                                              const text = e.target.value;
+                                              const variationIds = new Set(categoryVariations.map(v => v.id));
+                                              const updatedVariations = (formData.variations || []).map(v => 
+                                                variationIds.has(v.id) ? { ...v, badge_text: text } : v
+                                              );
+                                              setFormData({ ...formData, variations: updatedVariations });
+                                            }}
+                                            className="w-20 px-2 py-1 border border-gray-300 rounded text-[10px] text-black focus:ring-1 focus:ring-green-500 focus:border-transparent"
+                                            placeholder="Label text"
+                                          />
+                                        )}
+                                      </div>
                                   </div>
                                   {!isReadOnly && (
                                     <button

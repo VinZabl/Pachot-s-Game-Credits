@@ -9,6 +9,8 @@ export interface Variation {
   sort_order?: number;
   category?: string;
   sort?: number;
+  badge_text?: string;
+  badge_color?: string;
 }
 
 export interface CustomField {

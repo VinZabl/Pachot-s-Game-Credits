@@ -333,7 +333,15 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
 
         {/* Regular category sections */}
         {(Array.isArray(categories) ? categories : []).map((category) => {
-          const categoryItems = menuItemsSafe.filter(item => item.category === category.id);
+          const categoryItems = menuItemsSafe
+            .filter(item => item.category === category.id)
+            .sort((a, b) => {
+              // Items with badges come first
+              if (a.badge_text && !b.badge_text) return -1;
+              if (!a.badge_text && b.badge_text) return 1;
+              // Then sort by sort_order
+              return (a.sort_order ?? 999) - (b.sort_order ?? 999);
+            });
           
           if (categoryItems.length === 0) return null;
           
