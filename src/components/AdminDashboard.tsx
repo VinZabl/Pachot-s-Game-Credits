@@ -290,7 +290,9 @@ const AdminDashboard: React.FC = () => {
     popular: false,
     available: true,
     variations: [],
-    customFields: []
+    customFields: [],
+    badge_text: '',
+    badge_color: '#EC4899'
   });
 
   const toggleSection = (section: string) => {
@@ -313,7 +315,9 @@ const AdminDashboard: React.FC = () => {
       popular: false,
       available: true,
       variations: [],
-      customFields: []
+      customFields: [],
+      badge_text: '',
+      badge_color: '#EC4899'
     });
   };
 
@@ -786,7 +790,7 @@ const AdminDashboard: React.FC = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-xs text-black"
                 placeholder="Enter admin password"
                 required
               />
@@ -886,7 +890,7 @@ const AdminDashboard: React.FC = () => {
                   type="text"
                   value={formData.name || ''}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-xs text-black"
                         placeholder="Enter game name (e.g., Wild Rift, Mobile Legends)"
                 />
                         </div>
@@ -896,7 +900,7 @@ const AdminDashboard: React.FC = () => {
                             type="number"
                             value={formData.sort_order !== undefined ? formData.sort_order : ''}
                             onChange={(e) => setFormData({ ...formData, sort_order: e.target.value === '' ? undefined : parseInt(e.target.value) || 0 })}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-xs"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-xs text-black"
                             placeholder="Sort"
                             min="0"
                             step="1"
@@ -910,7 +914,7 @@ const AdminDashboard: React.FC = () => {
                 <select
                   value={formData.category || ''}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-xs text-black"
                 >
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
@@ -949,7 +953,7 @@ const AdminDashboard: React.FC = () => {
                     <textarea
                       value={formData.description || ''}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent resize-none text-black"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent resize-none text-xs text-black"
                       placeholder="Enter game description (this will be displayed below the game title in the modal)"
                       rows={4}
                     />
@@ -963,10 +967,44 @@ const AdminDashboard: React.FC = () => {
                       type="text"
                       value={formData.subtitle || ''}
                       onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-black"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-xs text-black"
                       placeholder="Enter custom text to display below the game title (optional)"
                     />
                     <p className="text-xs text-gray-500 mt-1">This text will appear below the game title on the customer side. Leave empty to show no text.</p>
+                  </div>
+
+                  {/* Badge Text and Color Fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-black mb-2">Badge Overlay Text (e.g. PROMO, SALE)</label>
+                      <input
+                        type="text"
+                        value={formData.badge_text || ''}
+                        onChange={(e) => setFormData({ ...formData, badge_text: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-xs text-black"
+                        placeholder="e.g. SALE"
+                        maxLength={10}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Overlay badge on top-left of game icon.</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-black mb-2">Badge Color</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="color"
+                          value={formData.badge_color || '#EC4899'}
+                          onChange={(e) => setFormData({ ...formData, badge_color: e.target.value })}
+                          className="h-10 w-10 border border-gray-300 rounded focus:ring-2 focus:ring-black"
+                        />
+                        <input
+                          type="text"
+                          value={formData.badge_color || '#EC4899'}
+                          onChange={(e) => setFormData({ ...formData, badge_color: e.target.value })}
+                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black text-xs text-black"
+                          placeholder="#EC4899"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   {/* Discount Pricing Section - trish-devion style */}
@@ -1646,7 +1684,7 @@ const AdminDashboard: React.FC = () => {
                     type="text"
                             value={customField.label || ''}
                             onChange={(e) => updateCustomField(index, 'label', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-black"
+                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
                             placeholder="e.g., ID with tag, UID, Server"
                           />
                         </div>
@@ -1656,7 +1694,7 @@ const AdminDashboard: React.FC = () => {
                             type="text"
                             value={customField.placeholder || ''}
                             onChange={(e) => updateCustomField(index, 'placeholder', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-black"
+                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
                             placeholder="e.g., ID with tag (If Riot ID)"
                           />
                         </div>
@@ -1845,7 +1883,7 @@ const AdminDashboard: React.FC = () => {
                           e.target.value = ''; // Reset selection
                         }
                       }}
-                      className="flex-1 px-2 py-1.5 md:px-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs md:text-sm text-black"
+                      className="flex-1 px-2 py-1.5 md:px-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs text-black"
                       disabled={isProcessing}
                     >
                       <option value="">Select Category</option>

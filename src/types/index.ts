@@ -51,6 +51,9 @@ export interface MenuItem {
   customFields?: CustomField[];
   // Custom text to display below game title
   subtitle?: string;
+  // Badge text (overlay on top-left of image, e.g. "PROMO", "SALE")
+  badge_text?: string;
+  badge_color?: string; // HEX or color name
 }
 
 export interface CartItem extends MenuItem {

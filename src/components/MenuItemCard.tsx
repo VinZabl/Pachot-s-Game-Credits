@@ -31,6 +31,16 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, currentMember }) => {
             </div>
           )}
 
+          {/* Badge Overlay */}
+          {item.badge_text && (
+            <div 
+              className="absolute top-0 left-0 z-20 px-1.5 py-0.5 rounded-br-lg shadow-sm"
+              style={{ backgroundColor: item.badge_color || '#EC4899', color: 'white' }}
+            >
+              <span className="text-[8px] font-bold uppercase tracking-wider">{item.badge_text}</span>
+            </div>
+          )}
+
           <div className="relative w-full aspect-square overflow-hidden rounded-lg bg-gray-100">
             {item.image ? (
               <img

@@ -27,7 +27,9 @@ function MainApp() {
   const { siteSettings } = useSiteSettings();
   const navigate = useNavigate();
   const location = useLocation();
-  const storeClosed = siteSettings?.store_closed === true;
+  // Check if we're on localhost to allow development even when store is closed in production
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const storeClosed = siteSettings?.store_closed === true && !isLocalhost;
   const navState = location.state as { justLoggedIn?: boolean } | null;
 
   const [selectedCategory, setSelectedCategory] = React.useState<string>(() => {
