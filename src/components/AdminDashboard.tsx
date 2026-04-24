@@ -1363,56 +1363,58 @@ const AdminDashboard: React.FC = () => {
                                       <ChevronUp className="h-5 w-5 text-gray-600" />
                                     )}
                                   </button>
-                                  <div className="flex-1 min-w-0 flex items-center gap-2">
-                                    <label className="text-xs font-medium text-gray-500 whitespace-nowrap hidden sm:block">Category Name</label>
-                                    <input
-                                          type="text"
-                                          value={displayCategoryName}
-                                          onChange={(e) => {
-                                          // Allow editing all categories including "Unnamed Category"
-                                          if (isReadOnly) {
-                                            return;
-                                          }
-                                          
-                                          const newCategoryName = e.target.value;
-                                          // Find all variations in this category using the original category key
-                                          // We need to match variations that belong to this category group
-                                          const categoryVariationIds = new Set(categoryVariations.map(v => v.id));
-                                          
-                                          const updatedVariations = formData.variations!.map(v => {
-                                            // Check if this variation belongs to this category group
-                                            if (categoryVariationIds.has(v.id)) {
-                                              // If empty (after trimming), use a unique identifier based on first variation ID to keep this group separate
-                                              // Otherwise, set to the new name (preserve all spaces including leading/trailing)
-                                              if (newCategoryName.trim() === '') {
-                                                // Use the first variation ID as a temporary category identifier
-                                                // This ensures the category doesn't vanish - it will be grouped by this temp ID
-                                                const tempCategoryId = `__temp_empty_${categoryVariations[0]?.id || 'default'}__`;
-                                                return { ...v, category: tempCategoryId };
-                                              } else {
-                                                // If user types a name, preserve all spaces (including leading/trailing)
-                                                // Only trim when checking if empty, but preserve the actual value
-                                                return { ...v, category: newCategoryName };
-                                              }
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <label className="text-xs font-medium text-gray-500 whitespace-nowrap hidden sm:block">Category Name</label>
+                                      <input
+                                            type="text"
+                                            value={displayCategoryName}
+                                            onChange={(e) => {
+                                            // Allow editing all categories including "Unnamed Category"
+                                            if (isReadOnly) {
+                                              return;
                                             }
-                                            return v;
-                                          });
-                                          setFormData({ ...formData, variations: updatedVariations });
-                                        }}
-                                        disabled={isReadOnly}
-                                        className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs font-semibold disabled:bg-gray-100 disabled:cursor-not-allowed text-black"
-                                        placeholder="Category name (e.g., Category 1)"
-                                      />
-                                      <div className="flex items-center gap-3 ml-2 flex-shrink-0">
-                                        <label className="flex items-center gap-1.5 cursor-pointer group">
-                                          <div className="relative flex items-center">
-                                            <input
-                                              type="checkbox"
-                                              checked={!!categoryVariations.find(v => v.badge_text)?.badge_text}
-                                              onChange={(e) => {
-                                                const isChecked = e.target.checked;
-                                                const defaultText = isChecked ? 'PROMO' : null;
-                                                const defaultColor = isChecked ? '#EC4899' : null;
+                                            
+                                            const newCategoryName = e.target.value;
+                                            // Find all variations in this category using the original category key
+                                            // We need to match variations that belong to this category group
+                                            const categoryVariationIds = new Set(categoryVariations.map(v => v.id));
+                                            
+                                            const updatedVariations = formData.variations!.map(v => {
+                                              // Check if this variation belongs to this category group
+                                              if (categoryVariationIds.has(v.id)) {
+                                                // If empty (after trimming), use a unique identifier based on first variation ID to keep this group separate
+                                                // Otherwise, set to the new name (preserve all spaces including leading/trailing)
+                                                if (newCategoryName.trim() === '') {
+                                                  // Use the first variation ID as a temporary category identifier
+                                                  // This ensures the category doesn't vanish - it will be grouped by this temp ID
+                                                  const tempCategoryId = `__temp_empty_${categoryVariations[0]?.id || 'default'}__`;
+                                                  return { ...v, category: tempCategoryId };
+                                                } else {
+                                                  // If user types a name, preserve all spaces (including leading/trailing)
+                                                  // Only trim when checking if empty, but preserve the actual value
+                                                  return { ...v, category: newCategoryName };
+                                                }
+                                              }
+                                              return v;
+                                            });
+                                            setFormData({ ...formData, variations: updatedVariations });
+                                          }}
+                                          disabled={isReadOnly}
+                                          className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs font-semibold disabled:bg-gray-100 disabled:cursor-not-allowed text-black"
+                                          placeholder="Category name (e.g., Category 1)"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-1.5 sm:ml-[104px]">
+                                      <label className="flex items-center gap-1.5 cursor-pointer group">
+                                        <div className="relative flex items-center">
+                                          <input
+                                            type="checkbox"
+                                            checked={!!categoryVariations.find(v => v.badge_text)?.badge_text}
+                                            onChange={(e) => {
+                                              const isChecked = e.target.checked;
+                                              const defaultText = isChecked ? 'PROMO' : null;
+                                              const defaultColor = isChecked ? '#EC4899' : null;
                                                 
                                                 const variationIds = new Set(categoryVariations.map(v => v.id));
                                                 const updatedVariations = (formData.variations || []).map(v => 
