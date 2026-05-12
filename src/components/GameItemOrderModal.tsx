@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { X, Upload, HelpCircle, Copy, Download, Plus, Trash2, MessageCircle, Check, Receipt } from 'lucide-react';
+import { X, Upload, HelpCircle, Copy, Download, Plus, Trash2, MessageCircle, Check, Receipt, ArrowLeft, ChevronUp, ChevronDown } from 'lucide-react';
 import { MenuItem, Variation, CartItem, Member } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useImageUpload } from '../hooks/useImageUpload';
@@ -47,6 +47,8 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   const [copiedOrderMessage, setCopiedOrderMessage] = useState(false);
   const [savedOrderId, setSavedOrderId] = useState<string | null>(null);
   const [generatedInvoiceNumber, setGeneratedInvoiceNumber] = useState<string | null>(null);
+  const [showQrFullscreen, setShowQrFullscreen] = useState(false);
+  const [paymentDetailsOpen, setPaymentDetailsOpen] = useState(true);
   const section2Ref = useRef<HTMLDivElement>(null);
   const packageGridRef = useRef<HTMLDivElement>(null);
   const quantityApplyToRef = useRef<HTMLDivElement>(null);
@@ -846,20 +848,22 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
             {/* Section 3: Quantity / Your Selections */}
             {(selectedVariation || accounts.length > 1) && (
               <div ref={quantityApplyToRef} className={stepCardClass}>
-                <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                  <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>3</div>
-                  <h3 className="text-sm sm:text-base font-semibold text-gray-900">
-                    {accounts.length === 1 ? 'Quantity' : 'Your Selections'}
-                  </h3>
-                </div>
+                {accounts.length > 1 && (
+                  <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                    <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>3</div>
+                    <h3 className="text-sm sm:text-base font-semibold text-gray-900">Your Selections</h3>
+                  </div>
+                )}
                 <div className="space-y-3">
                   {accounts.length === 1 ? (
-                    <div>
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>3</div>
+                      <h3 className="text-sm sm:text-base font-semibold text-gray-900 flex-1">Quantity</h3>
+                      <div className="flex items-center gap-0 rounded-xl overflow-hidden border border-gray-200 shadow-sm">
                         <button
                           type="button"
                           onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                          className="w-9 h-9 rounded-lg border border-gray-200 hover:bg-purple-50 font-medium text-gray-700"
+                          className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-gray-100 hover:bg-purple-100 active:bg-purple-200 text-gray-700 hover:text-purple-700 font-bold text-lg transition-colors border-r border-gray-200"
                         >
                           −
                         </button>
@@ -869,12 +873,12 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                           max={99}
                           value={quantity}
                           onChange={(e) => setQuantity(Math.max(1, Math.min(99, parseInt(e.target.value, 10) || 1)))}
-                          className="w-14 text-center py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="w-12 sm:w-14 text-center py-2 bg-white text-base font-bold text-gray-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none"
                         />
                         <button
                           type="button"
                           onClick={() => setQuantity((q) => Math.min(99, q + 1))}
-                          className="w-9 h-9 rounded-lg border border-gray-200 hover:bg-purple-50 font-medium text-gray-700"
+                          className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-gray-100 hover:bg-purple-100 active:bg-purple-200 text-gray-700 hover:text-purple-700 font-bold text-lg transition-colors border-l border-gray-200"
                         >
                           +
                         </button>
@@ -987,96 +991,158 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                 <p className="text-xs sm:text-sm text-gray-500">No payment methods available</p>
               )}
 
-              {/* Payment Details */}
+              {/* Payment Details Card */}
               {selectedPaymentMethod && (
-                <div ref={paymentDetailsRef} className="mt-4 pt-4 border-t border-gray-200">
-                  <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-2 sm:mb-3">
-                    {selectedPaymentMethod.name.replace(/ payment/i, '')} Payment Details
-                  </h3>
-                  <div className="space-y-3 sm:space-y-4">
-                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
-                          <p className="text-xs sm:text-sm text-gray-500">Acc. Name:</p>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyAccountName(selectedPaymentMethod.account_name)}
-                            className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-purple-50 hover:border-purple-300 text-xs sm:text-sm font-medium text-gray-700 transition-colors"
-                            title="Copy account name"
-                          >
-                            {copiedAccountName ? (
-                              <span className="text-green-600">Copied!</span>
-                            ) : (
-                              <span className="flex items-center gap-1"><Copy className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Copy</span>
-                            )}
-                          </button>
-                        </div>
-                        <p className="text-sm sm:text-base text-pink-600 font-bold truncate">{selectedPaymentMethod.account_name}</p>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
-                          <p className="text-xs sm:text-sm text-gray-500">Acc. Num#</p>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyAccountNumber(selectedPaymentMethod.account_number)}
-                            className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-purple-50 hover:border-purple-300 text-xs sm:text-sm font-medium text-gray-700 transition-colors"
-                            title="Copy account number"
-                          >
-                            {copiedAccountNumber ? (
-                              <span className="text-green-600">Copied!</span>
-                            ) : (
-                              <span className="flex items-center gap-1"><Copy className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Copy</span>
-                            )}
-                          </button>
-                        </div>
-                        <p className="font-mono text-pink-600 font-bold text-base sm:text-xl truncate tracking-wide">{selectedPaymentMethod.account_number}</p>
-                      </div>
-                    </div>
-                    <div className="pt-6 sm:pt-8 mt-2 sm:mt-4">
-                      <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2 text-center">Other Option</p>
+                <div
+                  ref={paymentDetailsRef}
+                  className="mt-4 rounded-xl overflow-hidden"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(45,27,78,0.85) 0%, rgba(26,15,46,0.9) 100%)',
+                    border: '1px solid rgba(139,92,246,0.35)',
+                  }}
+                >
+                  {/* Collapsible Header */}
+                  <button
+                    type="button"
+                    onClick={() => setPaymentDetailsOpen((o) => !o)}
+                    className="w-full flex items-center justify-between px-3 py-2 transition-colors hover:bg-white/5"
+                    style={{ borderBottom: paymentDetailsOpen ? '1px solid rgba(139,92,246,0.2)' : 'none' }}
+                  >
+                    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#EC4899' }}>
+                      Payment Details
+                    </p>
+                    {paymentDetailsOpen
+                      ? <ChevronUp className="h-3.5 w-3.5" style={{ color: '#EC4899' }} />
+                      : <ChevronDown className="h-3.5 w-3.5" style={{ color: '#EC4899' }} />
+                    }
+                  </button>
+
+                  {/* Card Body — QR left, details right */}
+                  {paymentDetailsOpen && (
+                    <div className="flex items-center gap-3 p-3">
+                      {/* QR Code (tappable) */}
                       {selectedPaymentMethod.qr_code_url ? (
-                        <div className="flex flex-col items-center gap-1.5 sm:gap-2">
-                          {!isMessengerBrowser && (
-                            <button
-                              type="button"
-                              onClick={() => handleDownloadQRCode(selectedPaymentMethod.qr_code_url, selectedPaymentMethod.name)}
-                              className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-purple-50 hover:border-purple-300 text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-1.5 sm:gap-2 transition-colors"
-                              title="Download QR code"
-                            >
-                              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                              Download QR
-                            </button>
-                          )}
-                          {isMessengerBrowser && (
-                            <p className="text-[10px] sm:text-xs text-gray-500 text-center">Long-press the QR code to save</p>
-                          )}
+                        <button
+                          type="button"
+                          onClick={() => setShowQrFullscreen(true)}
+                          className="flex-shrink-0 rounded-xl overflow-hidden p-1.5 transition-opacity hover:opacity-80 active:opacity-60"
+                          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(139,92,246,0.25)' }}
+                          title="Tap to view full QR"
+                        >
                           <img
                             src={selectedPaymentMethod.qr_code_url}
                             alt={`${selectedPaymentMethod.name} QR Code`}
-                            className="w-28 h-28 sm:w-32 sm:h-32 rounded-lg border-2 border-gray-200 object-contain"
+                            className="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-lg"
                           />
-                        </div>
+                          <p className="text-[9px] text-purple-400 text-center mt-1">Tap to expand</p>
+                        </button>
                       ) : (
-                        <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-lg border-2 border-gray-200 bg-gray-50 flex items-center justify-center mx-auto">
-                          <p className="text-xs sm:text-sm text-gray-500 text-center px-2">QR code not available</p>
+                        <div
+                          className="flex-shrink-0 w-24 h-24 rounded-xl flex items-center justify-center"
+                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(139,92,246,0.2)' }}
+                        >
+                          <p className="text-[10px] text-purple-300 text-center px-2">No QR</p>
                         </div>
                       )}
+
+                      {/* Right: badge + centered copy buttons */}
+                      <div className="flex-1 min-w-0 flex flex-col items-center gap-1.5">
+                        {/* Total */}
+                        <p className="text-sm sm:text-base font-bold text-white tracking-widest mb-1">
+                          TOTAL: ₱{totalPrice.toFixed(0)}
+                        </p>
+
+                        {/* Method badge */}
+                        <div
+                          className="px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-white mb-0.5"
+                          style={{ backgroundColor: '#8B5CF6' }}
+                        >
+                          {selectedPaymentMethod.name.replace(/ payment/i, '')}
+                        </div>
+
+                        {/* Copy Name */}
+                        {selectedPaymentMethod.account_name && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopyAccountName(selectedPaymentMethod.account_name)}
+                            className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors w-full"
+                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(139,92,246,0.2)' }}
+                            title="Copy account name"
+                          >
+                            {copiedAccountName ? (
+                              <span className="text-green-400 text-[11px] font-semibold">Copied!</span>
+                            ) : (
+                              <>
+                                <Copy className="h-2.5 w-2.5 text-purple-400 flex-shrink-0" />
+                                <span className="text-[11px] text-purple-200 truncate">{selectedPaymentMethod.account_name}</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+
+                        {/* Copy Number */}
+                        <button
+                          type="button"
+                          onClick={() => handleCopyAccountNumber(selectedPaymentMethod.account_number)}
+                          className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors w-full"
+                          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(139,92,246,0.2)' }}
+                          title="Copy account number"
+                        >
+                          {copiedAccountNumber ? (
+                            <span className="text-green-400 text-[11px] font-semibold">Copied!</span>
+                          ) : (
+                            <>
+                              <Copy className="h-2.5 w-2.5 text-purple-400 flex-shrink-0" />
+                              <span className="font-mono font-bold text-[11px] sm:text-xs tracking-widest text-white">
+                                {selectedPaymentMethod.account_number}
+                              </span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
-              {/* Total Computation Display */}
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="flex flex-col items-center justify-center p-2 sm:p-3 bg-purple-50 rounded-xl border border-purple-100 shadow-sm">
-                  <div className="flex items-center justify-center mb-0.5">
-                    <span className="text-xs sm:text-sm font-medium text-purple-600">Total Amount to Pay</span>
+              {/* Fullscreen QR Viewer */}
+              {showQrFullscreen && selectedPaymentMethod?.qr_code_url && (
+                <div
+                  className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
+                  style={{ background: 'rgba(10,5,20,0.97)' }}
+                >
+                  {/* Back button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowQrFullscreen(false)}
+                    className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors"
+                    style={{ background: 'rgba(139,92,246,0.25)', border: '1px solid rgba(139,92,246,0.4)' }}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back
+                  </button>
+
+                  {/* QR image */}
+                  <div
+                    className="rounded-2xl overflow-hidden p-4"
+                    style={{ background: 'white', boxShadow: '0 0 60px rgba(139,92,246,0.4)' }}
+                  >
+                    <img
+                      src={selectedPaymentMethod.qr_code_url}
+                      alt={`${selectedPaymentMethod.name} QR Code`}
+                      className="w-72 h-72 sm:w-80 sm:h-80 object-contain"
+                    />
                   </div>
-                  <div className="text-xl sm:text-2xl font-bold text-gray-900">
-                    ₱{totalPrice.toFixed(0)}
-                  </div>
+
+                  {/* Label */}
+                  <p className="mt-5 text-xs font-bold uppercase tracking-widest" style={{ color: '#8B5CF6' }}>
+                    {selectedPaymentMethod.name.replace(/ payment/i, '')} — Scan to Pay
+                  </p>
+                  <p className="mt-1 text-xs text-purple-300/60">Take a screenshot to save this QR code</p>
                 </div>
-              </div>
+              )}
+
+
             </div>
 
             {/* Section 4: Upload Proof of Payment (Only if order_option is place_order or undefined) */}
@@ -1166,13 +1232,33 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                   <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>5</div>
                   <h3 className="text-sm sm:text-base font-semibold text-gray-900">Copy Order Form</h3>
                 </div>
-                <div className="mb-4 p-3 sm:p-4 rounded-lg border border-pink-200 bg-pink-50 text-pink-900 shadow-sm">
-                  <p className="text-sm font-bold flex items-center gap-2 mb-1">
-                     Please read
+                <div
+                  className="mb-4 rounded-xl p-3 sm:p-4 space-y-2.5"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(45,27,78,0.9) 0%, rgba(26,15,46,0.95) 100%)',
+                    border: '1px solid rgba(236, 72, 153, 0.35)',
+                  }}
+                >
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#EC4899' }}>
+                    How it works
                   </p>
-                  <p className="text-xs sm:text-sm text-pink-800/90 leading-relaxed">
-                    Pay first → screenshot receipt → copy order form → send order form + receipt to Messenger.
-                  </p>
+                  {[
+                    'Send payment via GCash or Maya to the number shown above.',
+                    <>Screenshot your <span className="font-bold text-white">receipt</span> as proof of payment.</>,
+                    'Copy the order form below and send it + receipt to our Messenger.',
+                  ].map((step, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div
+                        className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white mt-0.5"
+                        style={{ backgroundColor: '#8B5CF6' }}
+                      >
+                        {i + 1}
+                      </div>
+                      <p className="text-xs sm:text-sm leading-snug" style={{ color: 'rgba(233,213,255,0.85)' }}>
+                        {step}
+                      </p>
+                    </div>
+                  ))}
                 </div>
                 <div className="space-y-2">
                   <button
