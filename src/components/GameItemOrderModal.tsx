@@ -614,15 +614,14 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex-shrink-0 p-3 sm:p-6 flex items-center justify-between border-b border-pink-500/20">
-            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-              {item.image && (
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="h-10 w-10 sm:h-14 sm:w-14 rounded-lg object-cover flex-shrink-0"
-                />
-              )}
+          <div className="relative flex-shrink-0 p-3 sm:p-6 flex items-center justify-between border-b border-pink-500/20 overflow-hidden">
+            {item.image && (
+              <div 
+                className="absolute inset-0 z-0 opacity-20 bg-cover bg-center"
+                style={{ backgroundImage: `url(${item.image})` }}
+              />
+            )}
+            <div className="relative z-10 flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
               <div className="flex-1 min-w-0">
                 <h2 className="text-base sm:text-xl font-bold text-white">{item.name}</h2>
                 {item.subtitle && (
@@ -635,7 +634,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
             </div>
             <button
               onClick={handleClose}
-              className="p-1.5 sm:p-2 hover:bg-pink-500/20 rounded-full transition-colors flex-shrink-0"
+              className="relative z-10 p-1.5 sm:p-2 hover:bg-pink-500/20 rounded-full transition-colors flex-shrink-0"
             >
               <X className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
             </button>
@@ -646,11 +645,16 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
             {/* Section 1: Enter ID / Customer Info (Only show if fields exist) */}
             {hasCustomFields && item.customFields && item.customFields.length > 0 && (
               <div className={stepCardClass}>
-                <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                  <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>1</div>
-                  <h3 className="text-sm sm:text-base font-semibold text-gray-900">
-                    {item.customFields[0].label}
-                  </h3>
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>1</div>
+                    <h3 className="text-sm sm:text-base font-semibold text-gray-900">
+                      {item.customFields[0].label}
+                    </h3>
+                  </div>
+                  <p className="text-[11px] text-gray-500 ml-9 italic">
+                    To add multiple UID'S and ORDERS click " ADD NEW {firstFieldLabel.toUpperCase()} "
+                  </p>
                 </div>
                 <div className="space-y-4">
                   {accounts.map((acc, accIdx) => (
@@ -1243,7 +1247,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                     How it works
                   </p>
                   {[
-                    'Send payment via GCash or Maya to the number shown above.',
+                    'Send payment via E-WALLET, BANK OR REMITLY ABROAD.',
                     <>Screenshot your <span className="font-bold text-white">receipt</span> as proof of payment.</>,
                     'Copy the order form below and send it + receipt to our Messenger.',
                   ].map((step, i) => (
