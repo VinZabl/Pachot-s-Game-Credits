@@ -653,7 +653,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                     </h3>
                   </div>
                   <p className="text-[11px] text-gray-500 ml-9 italic">
-                    To add multiple UID'S and ORDERS click " ADD NEW {firstFieldLabel.toUpperCase()} "
+                    To add multiple UID'S and ORDERS click " <span className="font-bold">ADD NEW {firstFieldLabel.toUpperCase()}</span> "
                   </p>
                 </div>
                 <div className="space-y-4">
