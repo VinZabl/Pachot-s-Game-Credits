@@ -10,9 +10,10 @@ const EDGE_CLICK_WIDTH = '33%'; // left/right third for prev/next
 const Hero: React.FC<HeroProps> = ({ images }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
-  // Filter out empty images
-  const validImages = images.filter(img => img && img.trim() !== '');
+  // Filter out empty images and failed images
+  const validImages = images.filter(img => img && img.trim() !== '' && !failedImages[img]);
 
   const goNext = useCallback(() => {
     if (validImages.length <= 1) return;
@@ -24,8 +25,11 @@ const Hero: React.FC<HeroProps> = ({ images }) => {
     setCurrentIndex((prev) => (prev - 1 + validImages.length) % validImages.length);
   }, [validImages.length]);
 
-  // Don't render if no images
-  if (validImages.length === 0) return null;
+  const handleImageError = (src: string) => {
+    setFailedImages(prev => ({ ...prev, [src]: true }));
+  };
+
+
 
   // Auto-advance every 5 seconds (loops: last -> first)
   useEffect(() => {
@@ -56,6 +60,9 @@ const Hero: React.FC<HeroProps> = ({ images }) => {
     else if (x > width * 0.67) goNext();
   };
 
+  // Don't render if no images
+  if (validImages.length === 0) return null;
+
   return (
     <div className="relative w-full mb-4 md:mb-6 rounded-xl overflow-hidden select-none">
       <div
@@ -85,6 +92,7 @@ const Hero: React.FC<HeroProps> = ({ images }) => {
                 alt={`Hero ${index + 1}`}
                 className="w-full h-full object-cover"
                 draggable={false}
+                onError={() => handleImageError(src)}
               />
             </div>
           ))}

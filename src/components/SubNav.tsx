@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, X, Coins } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { useCategories } from '../hooks/useCategories';
 import { Member } from '../types';
 
@@ -12,102 +12,113 @@ interface SubNavProps {
   currentMember?: Member | null;
 }
 
-const SubNav: React.FC<SubNavProps> = ({ selectedCategory, onCategoryClick, searchQuery, onSearchChange, hasPopularItems, currentMember }) => {
+const SubNav: React.FC<SubNavProps> = ({ selectedCategory, onCategoryClick, searchQuery, onSearchChange, hasPopularItems }) => {
   const { categories, loading } = useCategories();
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
 
   return (
     <div className="w-full" style={{ background: 'transparent' }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 pb-3">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-          {/* Search Bar */}
-          <div className="flex-1 sm:flex-initial sm:w-64">
-            <div className="relative">
-              <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 transition-colors duration-200 ${
-                isSearchFocused || searchQuery 
-                  ? 'text-white' 
-                  : 'text-pink-500/60'
-              }`} />
-              <input
-                type="text"
-                placeholder="Search games..."
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                onFocus={() => setIsSearchFocused(true)}
-                onBlur={() => setIsSearchFocused(false)}
-                className={`w-full pl-10 pr-10 py-1.5 rounded-full text-sm transition-all duration-200 border flex-shrink-0 ${
-                  isSearchFocused || searchQuery
-                    ? 'text-white border-transparent'
-                    : 'bg-transparent border-pink-500/30 hover:border-pink-500 hover:bg-black/50'
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-3 pb-3">
+
+        {/* Search Bar — full width, styled like the reference image */}
+        <div className="relative mb-3">
+          <Search
+            className={`absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 ${
+              isSearchFocused || searchQuery ? 'text-white' : 'text-gray-400'
+            }`}
+          />
+          <input
+            type="text"
+            placeholder="Search game..."
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
+            className="w-full pl-10 pr-10 py-2.5 rounded-xl text-sm text-white placeholder-gray-400 border transition-all duration-200 focus:outline-none"
+            style={{
+              background: isSearchFocused || searchQuery
+                ? 'rgba(45, 45, 55, 0.95)'
+                : 'rgba(30, 30, 38, 0.85)',
+              borderColor: isSearchFocused || searchQuery
+                ? 'rgba(255, 105, 180, 0.5)'
+                : 'rgba(255, 255, 255, 0.08)',
+            }}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => onSearchChange('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Category Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide flex-nowrap">
+          {loading ? (
+            <div className="flex space-x-2 flex-nowrap">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="h-7 w-16 rounded-full bg-white/5 animate-pulse flex-shrink-0" />
+              ))}
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={() => onCategoryClick('all')}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex-shrink-0 whitespace-nowrap ${
+                  selectedCategory === 'all'
+                    ? 'text-white'
+                    : 'text-gray-400 hover:text-white'
                 }`}
-                style={isSearchFocused || searchQuery 
-                  ? { backgroundColor: '#FF69B4', color: 'white' } 
-                  : { color: '#FF69B4', backgroundColor: 'rgba(13, 13, 13, 0.5)' }
+                style={
+                  selectedCategory === 'all'
+                    ? { backgroundColor: '#FF69B4', boxShadow: '0 0 12px rgba(255,105,180,0.4)' }
+                    : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }
                 }
-              />
-              {searchQuery && (
+              >
+                All
+              </button>
+
+              {hasPopularItems && (
                 <button
-                  onClick={() => onSearchChange('')}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/80 hover:text-white transition-colors"
+                  onClick={() => onCategoryClick('popular')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex-shrink-0 whitespace-nowrap ${
+                    selectedCategory === 'popular'
+                      ? 'text-white'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                  style={
+                    selectedCategory === 'popular'
+                      ? { backgroundColor: '#FF69B4', boxShadow: '0 0 12px rgba(255,105,180,0.4)' }
+                      : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }
+                  }
                 >
-                  <X className="h-4 w-4" />
+                  Popular
                 </button>
               )}
-            </div>
-          </div>
 
-          {/* Category Buttons */}
-          <div className="flex items-center space-x-2 sm:space-x-3 overflow-x-auto scrollbar-hide flex-nowrap">
-            {loading ? (
-              <div className="flex space-x-4 flex-nowrap">
-                {[1,2,3,4,5].map(i => (
-                  <div key={i} className="h-8 w-20 glass rounded animate-pulse flex-shrink-0" />
-                ))}
-              </div>
-            ) : (
-              <>
+              {categories.map((c) => (
                 <button
-                  onClick={() => onCategoryClick('all')}
-                  className={`px-3 py-1.5 rounded-full text-sm transition-all duration-200 border flex-shrink-0 whitespace-nowrap ${
-                    selectedCategory === 'all'
-                      ? 'text-white border-transparent'
-                      : 'bg-transparent text-white border-pink-500/30 hover:border-pink-500 hover:bg-black/50'
+                  key={c.id}
+                  onClick={() => onCategoryClick(c.id)}
+                  title={c.name}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex-shrink-0 whitespace-nowrap max-w-[7rem] truncate ${
+                    selectedCategory === c.id
+                      ? 'text-white'
+                      : 'text-gray-400 hover:text-white'
                   }`}
-                  style={selectedCategory === 'all' ? { backgroundColor: '#FF69B4' } : {}}
+                  style={
+                    selectedCategory === c.id
+                      ? { backgroundColor: '#FF69B4', boxShadow: '0 0 12px rgba(255,105,180,0.4)' }
+                      : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }
+                  }
                 >
-                  All
+                  {c.name}
                 </button>
-                {hasPopularItems && (
-                  <button
-                    onClick={() => onCategoryClick('popular')}
-                    className={`px-3 py-1.5 rounded-full text-sm transition-all duration-200 border flex-shrink-0 whitespace-nowrap ${
-                      selectedCategory === 'popular'
-                        ? 'text-white border-transparent'
-                        : 'bg-transparent text-white border-pink-500/30 hover:border-pink-500 hover:bg-black/50'
-                    }`}
-                    style={selectedCategory === 'popular' ? { backgroundColor: '#FF69B4' } : {}}
-                  >
-                    Popular
-                  </button>
-                )}
-                {categories.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => onCategoryClick(c.id)}
-                    title={c.name}
-                    className={`px-2.5 py-1.5 rounded-full text-xs transition-all duration-200 border flex-shrink-0 whitespace-nowrap max-w-[6.5rem] truncate ${
-                      selectedCategory === c.id
-                        ? 'text-white border-transparent'
-                        : 'bg-transparent text-white border-pink-500/30 hover:border-pink-500 hover:bg-black/50'
-                    }`}
-                    style={selectedCategory === c.id ? { backgroundColor: '#FF69B4' } : {}}
-                  >
-                    {c.name}
-                  </button>
-                ))}
-              </>
-            )}
-          </div>
+              ))}
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -115,5 +126,3 @@ const SubNav: React.FC<SubNavProps> = ({ selectedCategory, onCategoryClick, sear
 };
 
 export default SubNav;
-
-

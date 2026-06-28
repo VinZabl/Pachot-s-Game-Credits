@@ -7,15 +7,15 @@ import { useOrderStatus } from '../contexts/OrderStatusContext';
 import MenuItemCard from './MenuItemCard';
 import Hero from './Hero';
 
-// Preload images for better performance
-const preloadImages = (items: MenuItem[]) => {
-  items.forEach(item => {
-    if (item.image) {
-      const img = new Image();
-      img.src = item.image;
-    }
-  });
-};
+// Section header component (SELECT GAME style)
+const SectionHeader: React.FC<{ title: string; count?: number }> = ({ title, count }) => (
+  <div className="flex items-center justify-between mb-3 px-1">
+    <h2 className="text-xs font-bold tracking-[0.2em] uppercase text-white/90">{title}</h2>
+    {count !== undefined && count > 0 && (
+      <span className="text-[10px] text-gray-500">{count} games</span>
+    )}
+  </div>
+);
 
 interface MenuProps {
   menuItems: MenuItem[];
@@ -51,36 +51,6 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
       }
     });
   }, [processingOrderId, fetchOrderById, clearOrderStatus]);
-
-  // Preload images when menu items change
-  React.useEffect(() => {
-    if (menuItemsSafe.length > 0) {
-      // Preload images for visible category first
-      let visibleItems: MenuItem[];
-      if (selectedCategory === 'popular') {
-        visibleItems = menuItemsSafe.filter(item => Boolean(item.popular) === true);
-      } else if (selectedCategory === 'all') {
-        visibleItems = menuItemsSafe;
-      } else {
-        visibleItems = menuItemsSafe.filter(item => item.category === activeCategory);
-      }
-      preloadImages(visibleItems);
-      
-      // Then preload other images after a short delay
-      setTimeout(() => {
-        const otherItems = menuItemsSafe.filter(item => {
-          if (selectedCategory === 'popular') {
-            return item.popular !== true;
-          } else if (selectedCategory === 'all') {
-            return false; // Already loaded all
-          } else {
-            return item.category !== activeCategory;
-          }
-        });
-        preloadImages(otherItems);
-      }, 1000);
-    }
-  }, [menuItemsSafe, activeCategory, selectedCategory]);
 
   const handleCategoryClick = (categoryId: string) => {
     setActiveCategory(categoryId);
@@ -147,7 +117,11 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
       siteSettings.hero_image_3,
       siteSettings.hero_image_4,
       siteSettings.hero_image_5,
-    ].filter((img): img is string => typeof img === 'string' && img.trim() !== '');
+    ].filter((img): img is string => {
+      if (typeof img !== 'string') return false;
+      const t = img.trim();
+      return t.startsWith('http://') || t.startsWith('https://') || t.startsWith('/');
+    });
   }, [siteSettings, selectedCategory]);
 
   // Helper function to render menu items
@@ -221,13 +195,9 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
       return (
         <>
           <OrderStatusBanner />
-          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6 min-h-screen bg-[#0d0d0d]">
-            <section className="mb-6 md:mb-8">
-              <div className="flex items-center mb-3 md:mb-4">
-                <h3 className="text-3xl font-medium text-white">Search Results</h3>
-              </div>
-              <p className="text-gray-400">No games found matching "{searchQuery}"</p>
-            </section>
+          <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 md:py-6 min-h-screen bg-[#0d0d0d]">
+            <SectionHeader title="SEARCH RESULTS" count={0} />
+            <p className="text-gray-400 text-sm px-1">No games found matching "{searchQuery}"</p>
           </main>
         </>
       );
@@ -236,19 +206,11 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
     return (
       <>
         <OrderStatusBanner />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 min-h-screen bg-[#0d0d0d]">
-          <section className="mb-16">
-            <div className="flex items-center mb-8">
-              <h3 className="text-3xl font-medium text-white">
-                Search Results for "{searchQuery}"
-              </h3>
-              <span className="ml-4 text-sm text-gray-400">({menuItems.length} {menuItems.length === 1 ? 'game' : 'games'})</span>
-            </div>
-            
-            <div className="grid grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
-              {renderMenuItems(menuItems)}
-            </div>
-          </section>
+        <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 min-h-screen bg-[#0d0d0d]">
+          <SectionHeader title="SEARCH RESULTS" count={menuItems.length} />
+          <div className="grid grid-cols-2 gap-2">
+            {renderMenuItems(menuItems)}
+          </div>
         </main>
       </>
     );
@@ -261,12 +223,10 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
       return (
         <>
           <OrderStatusBanner />
-          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6 min-h-screen bg-[#0d0d0d]">
+          <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 md:py-6 min-h-screen bg-[#0d0d0d]">
             <section id="popular" className="mb-6 md:mb-8">
-              <div className="flex items-center mb-3 md:mb-4">
-                <h3 className="text-xl font-medium text-white">Popular</h3>
-              </div>
-              <p className="text-gray-400">No popular items available at the moment.</p>
+              <SectionHeader title="POPULAR" />
+              <p className="text-gray-400 text-sm">No popular items available at the moment.</p>
             </section>
           </main>
         </>
@@ -276,13 +236,10 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
     return (
       <>
         <OrderStatusBanner />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6 min-h-screen bg-[#0d0d0d]">
+        <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 md:py-6 min-h-screen bg-[#0d0d0d]">
           <section id="popular" className="mb-6 md:mb-8">
-            <div className="flex items-center mb-3 md:mb-4">
-              <h3 className="text-xl font-medium text-white">Popular</h3>
-            </div>
-            
-            <div className="grid grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
+            <SectionHeader title="POPULAR" count={menuItems.length} />
+            <div className="grid grid-cols-2 gap-2">
               {renderMenuItems(menuItems)}
             </div>
           </section>
@@ -296,13 +253,22 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
   const popularItems = menuItemsSafe.filter(item => Boolean(item?.popular) === true);
   const showPopularSection = selectedCategory === 'all' && popularItems.length > 0 && searchQuery.trim() === '';
 
+  // All items flat list for 'all' view
+  const allItemsSorted = React.useMemo(() => {
+    if (selectedCategory !== 'all') return [];
+    return [...menuItemsSafe].sort((a, b) => {
+      if (a.badge_text && !b.badge_text) return -1;
+      if (!a.badge_text && b.badge_text) return 1;
+      return (a.sort_order ?? 999) - (b.sort_order ?? 999);
+    });
+  }, [menuItemsSafe, selectedCategory]);
+
   return (
     <>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-5 pb-4 md:pb-6 min-h-screen bg-[#0d0d0d]">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-3 md:pt-4 pb-6 min-h-screen bg-[#0d0d0d]">
         {/* Welcome message for logged-in members */}
-        {/* Welcome back card - Mobile only */}
         {currentMember && (
-          <div className="mb-4 md:hidden flex justify-center">
+          <div className="mb-3 md:hidden flex justify-center">
             <div className="rounded-lg px-3 py-2 inline-block border border-pink-500/30 bg-white/5">
               <div className="flex items-center justify-center">
                 <p className="text-sm text-white">
@@ -320,38 +286,40 @@ const Menu: React.FC<MenuProps> = ({ menuItems, selectedCategory, searchQuery = 
         
         {/* Show Popular section when viewing "All" */}
         {showPopularSection && (
-          <section id="popular" className="mb-8 md:mb-12">
-            <div className="flex items-center mb-3 md:mb-4">
-              <h3 className="text-xl font-medium text-white">Popular</h3>
-            </div>
-            
-            <div className="grid grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
+          <section id="popular" className="mb-6">
+            <SectionHeader title="POPULAR" count={popularItems.length} />
+            <div className="grid grid-cols-2 gap-2">
               {renderMenuItems(popularItems)}
             </div>
           </section>
         )}
 
+        {/* All games flat section */}
+        {selectedCategory === 'all' && (
+          <section className="mb-6">
+            <SectionHeader title="SELECT GAME" count={allItemsSorted.length} />
+            <div className="grid grid-cols-2 gap-2">
+              {renderMenuItems(allItemsSorted)}
+            </div>
+          </section>
+        )}
+
         {/* Regular category sections */}
-        {(Array.isArray(categories) ? categories : []).map((category) => {
+        {selectedCategory !== 'all' && (Array.isArray(categories) ? categories : []).map((category) => {
           const categoryItems = menuItemsSafe
             .filter(item => item.category === category.id)
             .sort((a, b) => {
-              // Items with badges come first
               if (a.badge_text && !b.badge_text) return -1;
               if (!a.badge_text && b.badge_text) return 1;
-              // Then sort by sort_order
               return (a.sort_order ?? 999) - (b.sort_order ?? 999);
             });
           
           if (categoryItems.length === 0) return null;
           
           return (
-            <section key={category.id} id={category.id} className="mb-8 md:mb-12">
-            <div className="flex items-center mb-3 md:mb-4">
-              <h3 className="text-xl font-medium text-white">{category.name}</h3>
-            </div>
-              
-              <div className="grid grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-2.5">
+            <section key={category.id} id={category.id} className="mb-6">
+              <SectionHeader title={category.name.toUpperCase()} count={categoryItems.length} />
+              <div className="grid grid-cols-2 gap-2">
                 {renderMenuItems(categoryItems)}
               </div>
             </section>

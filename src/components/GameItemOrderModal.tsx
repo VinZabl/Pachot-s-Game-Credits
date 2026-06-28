@@ -55,6 +55,9 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   const paymentSectionRef = useRef<HTMLDivElement>(null);
   const paymentDetailsRef = useRef<HTMLDivElement>(null);
   const uploadSectionRef = useRef<HTMLDivElement>(null);
+  const [activeStep, setActiveStep] = useState(1);
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const isMessengerBrowser = useMemo(
     () => /FBAN|FBAV/i.test(navigator.userAgent) || /FB_IAB/i.test(navigator.userAgent),
@@ -162,6 +165,63 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       }
     }
   }, [paymentMethods, paymentMethodId]);
+
+  // Monitor scroll to update progress bar step
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || !isOpen) return;
+
+    const handleScroll = () => {
+      if (paymentCompleted) {
+        setActiveStep(3);
+        return;
+      }
+
+      const containerRect = container.getBoundingClientRect();
+      const threshold = containerRect.top + 120; // threshold is 120px down from container top
+
+      let step = 1;
+
+      // Check PAYMENT section first (is paymentSectionRef visible/reached?)
+      if (paymentSectionRef.current) {
+        const rect = paymentSectionRef.current.getBoundingClientRect();
+        if (rect.top <= threshold) {
+          step = 3;
+        }
+      }
+
+      // Check PRODUCT section if step is still 1
+      if (step < 3) {
+        if (section2Ref.current) {
+          const rect = section2Ref.current.getBoundingClientRect();
+          if (rect.top <= threshold) {
+            step = 2;
+          }
+        }
+        if (quantityApplyToRef.current) {
+          const rect = quantityApplyToRef.current.getBoundingClientRect();
+          if (rect.top <= threshold) {
+            step = 2;
+          }
+        }
+      }
+
+      // Force Step 3 if scrolled to bottom
+      const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+      if (isAtBottom) {
+        step = 3;
+      }
+
+      setActiveStep(step);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    handleScroll(); // initial call
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, [isOpen, paymentCompleted, hasCustomFields]);
 
   const getDiscountedPrice = (basePrice: number, variation?: Variation): number => {
     if (currentMember && variation) {
@@ -351,6 +411,8 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
     setSavedOrderId(null);
     setGeneratedInvoiceNumber(null);
     handleReceiptRemove();
+    setPaymentCompleted(false);
+    setActiveStep(1);
   };
 
   // Philippine timezone helper for invoice number
@@ -509,6 +571,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       });
       if (didCopy) {
         setCopiedOrderMessage(true);
+        setPaymentCompleted(true);
         setTimeout(() => setCopiedOrderMessage(false), 2000);
       }
     } catch (err) {
@@ -595,6 +658,19 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Determine the active progress step:
+  // Step 1 = GAME (always active — we're already in a game's modal)
+  // Step 2 = PRODUCT (package selected)
+  // Step 3 = DETAILS (payment method chosen)
+  // Step 4 = PAYMENT (receipt uploaded OR order placed)
+  const currentStep = paymentCompleted ? 3 : activeStep;
+
+  const PROGRESS_STEPS = [
+    { num: 1, label: 'DETAILS' },
+    { num: 2, label: 'PRODUCT' },
+    { num: 3, label: 'PAYMENT' },
+  ];
+
   const stepCardClass = 'bg-white rounded-xl p-3 sm:p-5 shadow-md border border-gray-100';
   const stepNumClass = 'w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold text-white flex-shrink-0';
   const inputClass = 'w-full px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-gray-900 text-sm';
@@ -615,12 +691,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
         >
           {/* Header */}
           <div className="relative flex-shrink-0 p-3 sm:p-6 flex items-center justify-between border-b border-pink-500/20 overflow-hidden">
-            {item.image && (
-              <div 
-                className="absolute inset-0 z-0 opacity-20 bg-cover bg-center"
-                style={{ backgroundImage: `url(${item.image})` }}
-              />
-            )}
+
             <div className="relative z-10 flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
               <div className="flex-1 min-w-0">
                 <h2 className="text-base sm:text-xl font-bold text-white">{item.name}</h2>
@@ -640,8 +711,76 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
             </button>
           </div>
 
+          {/* Progress Steps Bar */}
+          <div className="flex-shrink-0 px-4 pt-3 pb-3 border-b border-white/5">
+            <div className="flex items-center justify-between max-w-xs mx-auto">
+              {PROGRESS_STEPS.map((step, idx) => {
+                const isDone = currentStep > step.num;
+                const isActive = currentStep === step.num;
+                const isLast = idx === PROGRESS_STEPS.length - 1;
+                return (
+                  <React.Fragment key={step.num}>
+                    <div className="flex flex-col items-center gap-0.5">
+                      {/* Circle */}
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300"
+                        style={{
+                          background: isDone
+                            ? '#FF69B4'
+                            : isActive
+                            ? 'transparent'
+                            : 'transparent',
+                          border: isDone
+                            ? '2px solid #FF69B4'
+                            : isActive
+                            ? '2px solid #FF69B4'
+                            : '2px solid rgba(255,255,255,0.15)',
+                          color: isDone
+                            ? '#1a0f2e'
+                            : isActive
+                            ? '#FF69B4'
+                            : 'rgba(255,255,255,0.3)',
+                          boxShadow: isActive ? '0 0 10px rgba(255,105,180,0.5)' : 'none',
+                        }}
+                      >
+                        {step.num}
+                      </div>
+                      {/* Label */}
+                      <span
+                        className="text-[9px] font-bold tracking-wider transition-colors duration-300"
+                        style={{
+                          color: isDone
+                            ? '#FF69B4'
+                            : isActive
+                            ? '#FF69B4'
+                            : 'rgba(255,255,255,0.25)',
+                        }}
+                      >
+                        {step.label}
+                      </span>
+                    </div>
+                    {/* Connector line */}
+                    {!isLast && (
+                      <div
+                        className="flex-1 h-px mx-1 mb-3 transition-all duration-300"
+                        style={{
+                          background: currentStep > step.num
+                            ? '#FF69B4'
+                            : 'rgba(255,255,255,0.1)',
+                        }}
+                      />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Scrollable content */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-3 sm:space-y-4">
+          <div
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-3 sm:space-y-4"
+          >
             {/* Section 1: Enter ID / Customer Info (Only show if fields exist) */}
             {hasCustomFields && item.customFields && item.customFields.length > 0 && (
               <div className={stepCardClass}>

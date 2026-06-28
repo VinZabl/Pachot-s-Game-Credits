@@ -1405,49 +1405,6 @@ const AdminDashboard: React.FC = () => {
                                           placeholder="Category name (e.g., Category 1)"
                                         />
                                     </div>
-                                    <div className="flex items-center gap-3 mt-1.5 sm:ml-[104px]">
-                                      <label className="flex items-center gap-1.5 cursor-pointer group">
-                                        <div className="relative flex items-center">
-                                          <input
-                                            type="checkbox"
-                                            checked={!!categoryVariations.find(v => v.badge_text)?.badge_text}
-                                            onChange={(e) => {
-                                              const isChecked = e.target.checked;
-                                              const defaultText = isChecked ? 'PROMO' : null;
-                                              const defaultColor = isChecked ? '#EC4899' : null;
-                                                
-                                                const variationIds = new Set(categoryVariations.map(v => v.id));
-                                                const updatedVariations = (formData.variations || []).map(v => 
-                                                  variationIds.has(v.id) 
-                                                    ? { ...v, badge_text: defaultText, badge_color: v.badge_color || defaultColor } 
-                                                    : v
-                                                );
-                                                setFormData({ ...formData, variations: updatedVariations });
-                                              }}
-                                              className="sr-only peer"
-                                            />
-                                            <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-green-600"></div>
-                                          </div>
-                                          <span className="text-[10px] font-medium text-gray-600 group-hover:text-gray-800 transition-colors">Badge</span>
-                                        </label>
-
-                                        {categoryVariations.some(v => v.badge_text) && (
-                                          <input
-                                            type="text"
-                                            value={categoryVariations.find(v => v.badge_text)?.badge_text || ''}
-                                            onChange={(e) => {
-                                              const text = e.target.value;
-                                              const variationIds = new Set(categoryVariations.map(v => v.id));
-                                              const updatedVariations = (formData.variations || []).map(v => 
-                                                variationIds.has(v.id) ? { ...v, badge_text: text } : v
-                                              );
-                                              setFormData({ ...formData, variations: updatedVariations });
-                                            }}
-                                            className="w-20 px-2 py-1 border border-gray-300 rounded text-[10px] text-black focus:ring-1 focus:ring-green-500 focus:border-transparent"
-                                            placeholder="Label text"
-                                          />
-                                        )}
-                                      </div>
                                   </div>
                                   {!isReadOnly && (
                                     <button
@@ -1627,10 +1584,53 @@ const AdminDashboard: React.FC = () => {
                                         <textarea
                                           value={variation.description || ''}
                                           onChange={(e) => updateVariation(index, 'description', e.target.value)}
-                                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs resize-y text-black"
+                                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs resize-y text-black mb-2"
                                           placeholder="Package description (optional)"
                                           rows={2}
                                         />
+
+                                        {/* Package Badge Settings */}
+                                        <div className="flex flex-wrap items-center gap-4 pt-1">
+                                          <label className="flex items-center gap-2 cursor-pointer group">
+                                            <div className="relative flex items-center">
+                                              <input
+                                                type="checkbox"
+                                                checked={!!variation.badge_text}
+                                                onChange={(e) => {
+                                                  const isChecked = e.target.checked;
+                                                  updateVariation(index, 'badge_text', isChecked ? 'PROMO' : null);
+                                                  if (isChecked && !variation.badge_color) {
+                                                    updateVariation(index, 'badge_color', '#EC4899');
+                                                  }
+                                                }}
+                                                className="sr-only peer"
+                                              />
+                                              <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-green-600"></div>
+                                            </div>
+                                            <span className="text-[10px] font-medium text-gray-600 group-hover:text-gray-800 transition-colors">Badge</span>
+                                          </label>
+
+                                          {variation.badge_text !== null && variation.badge_text !== undefined && (
+                                            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-1 duration-200">
+                                              <input
+                                                type="text"
+                                                value={variation.badge_text || ''}
+                                                onChange={(e) => updateVariation(index, 'badge_text', e.target.value)}
+                                                className="w-24 px-2 py-1 border border-gray-300 rounded text-[10px] text-black focus:ring-1 focus:ring-green-500 focus:border-transparent"
+                                                placeholder="Label (e.g. SALE)"
+                                              />
+                                              <div className="flex items-center gap-1.5">
+                                                <input
+                                                  type="color"
+                                                  value={variation.badge_color || '#EC4899'}
+                                                  onChange={(e) => updateVariation(index, 'badge_color', e.target.value)}
+                                                  className="h-5 w-5 border-0 p-0 bg-transparent cursor-pointer rounded-sm overflow-hidden"
+                                                />
+                                                <span className="text-[9px] text-gray-500 font-mono uppercase">{variation.badge_color || '#EC4899'}</span>
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
                                     );
                                   })}
