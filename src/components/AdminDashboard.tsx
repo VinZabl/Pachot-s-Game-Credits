@@ -314,6 +314,8 @@ const AdminDashboard: React.FC = () => {
       category: defaultCategory,
       popular: false,
       available: true,
+      image: '',
+      guide_image_url: '',
       variations: [],
       customFields: [],
       badge_text: '',
@@ -1104,13 +1106,23 @@ const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Game Icon Upload */}
-                  <div>
-                    <ImageUpload
-                      label="Game Icon upload"
-                      currentImage={formData.image}
-                      onImageChange={(imageUrl) => setFormData({ ...formData, image: imageUrl })}
-                    />
+                  {/* Game Icon & Guide Image Upload */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <ImageUpload
+                        label="Game Icon upload"
+                        currentImage={formData.image}
+                        onImageChange={(imageUrl) => setFormData({ ...formData, image: imageUrl })}
+                      />
+                    </div>
+                    <div>
+                      <ImageUpload
+                        label="Guide Image upload"
+                        currentImage={formData.guide_image_url}
+                        onImageChange={(imageUrl) => setFormData({ ...formData, guide_image_url: imageUrl || '' })}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">This image will be displayed when a user clicks the question mark (Guide) next to Player Details in the order modal.</p>
+                    </div>
                   </div>
                 </div>
               )}

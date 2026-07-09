@@ -65,7 +65,8 @@ export const useMenu = () => {
           customFields: (item.custom_fields as CustomField[]) || [],
           subtitle: item.subtitle || undefined,
           badge_text: item.badge_text || undefined,
-          badge_color: item.badge_color || undefined
+          badge_color: item.badge_color || undefined,
+          guide_image_url: item.guide_image_url || undefined
         };
       }) || [];
 
@@ -99,7 +100,8 @@ export const useMenu = () => {
           custom_fields: item.customFields || [],
           subtitle: item.subtitle || null,
           badge_text: item.badge_text || null,
-          badge_color: item.badge_color || null
+          badge_color: item.badge_color || null,
+          guide_image_url: item.guide_image_url || null
         })
         .select()
         .single();
@@ -161,7 +163,8 @@ export const useMenu = () => {
           custom_fields: updates.customFields !== undefined ? updates.customFields : undefined,
           subtitle: updates.subtitle !== undefined ? (updates.subtitle || null) : undefined,
           badge_text: updates.badge_text !== undefined ? (updates.badge_text || null) : undefined,
-          badge_color: updates.badge_color !== undefined ? (updates.badge_color || null) : undefined
+          badge_color: updates.badge_color !== undefined ? (updates.badge_color || null) : undefined,
+          guide_image_url: updates.guide_image_url !== undefined ? (updates.guide_image_url || null) : undefined
         })
         .eq('id', id);
 
@@ -255,7 +258,8 @@ export const useMenu = () => {
         customFields: originalItem.customFields || [],
         subtitle: originalItem.subtitle,
         badge_text: originalItem.badge_text,
-        badge_color: originalItem.badge_color
+        badge_color: originalItem.badge_color,
+        guide_image_url: originalItem.guide_image_url
       };
 
       // Use addMenuItem to create the duplicate with all variations

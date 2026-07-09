@@ -1,117 +1,182 @@
 import React from 'react';
-import { Facebook, Instagram, Twitter, Youtube } from 'lucide-react';
 import { useSiteSettings } from '../hooks/useSiteSettings';
+import { usePaymentMethods } from '../hooks/usePaymentMethods';
 
-const Footer: React.FC = () => {
+interface FooterProps {
+  compact?: boolean;
+}
+
+const Footer: React.FC<FooterProps> = ({ compact }) => {
   const { siteSettings } = useSiteSettings();
+  const { paymentMethods, loading } = usePaymentMethods();
 
-  const socialLinks = [
-    { icon: Facebook, url: siteSettings?.footer_social_1, label: 'Facebook' },
-    { icon: Instagram, url: siteSettings?.footer_social_2, label: 'Instagram' },
-    { icon: Twitter, url: siteSettings?.footer_social_3, label: 'Twitter' },
-    { icon: Youtube, url: siteSettings?.footer_social_4, label: 'YouTube' },
-  ].filter(link => link.url && link.url.trim() !== '');
+  // Get Facebook link or default to a placeholder
+  const facebookUrl = siteSettings?.footer_social_1 || 'https://www.facebook.com/PachotsGameCredits';
 
-  // Footer link columns - can be made configurable through site settings later
-  const footerColumns = [
-    {
-      title: siteSettings?.site_name || "Pachot's Game Credits",
-      links: [
-        { label: siteSettings?.site_description || 'Welcome to PGCSHOP — Your perfect game credits destination', url: '#' },
-      ]
-    },
-    {
-      title: 'SUPPORT',
-      links: [
-        { label: 'FAQ', url: '#' },
-        { label: 'Contact Us', url: siteSettings?.footer_support_url || '#' },
-        { label: 'Submit a Ticket', url: '#' },
-      ]
-    },
-    {
-      title: 'SERVICES',
-      links: [
-        { label: 'Game Credits', url: '#' },
-        { label: 'Top Up', url: '#' },
-      ]
-    },
-    {
-      title: 'SHOWCASE',
-      links: [
-        { label: 'Popular Games', url: '#' },
-        { label: 'All Games', url: '#' },
-      ]
-    },
-    {
-      title: 'ABOUT US',
-      links: [
-        { label: 'About', url: '#' },
-        { label: 'Terms of Service', url: '#' },
-        { label: 'Privacy Policy', url: '#' },
-        { label: 'Resources', url: '#' },
-      ]
-    },
-  ];
+  const renderPaymentBadge = (method: any) => {
+    const name = (method.name || '').toLowerCase();
+    const id = (method.id || '').toLowerCase();
+
+    if (id.includes('gcash') || name.includes('gcash')) {
+      return (
+        <div key={method.uuid_id || method.id} className="px-4 py-2 rounded-xl bg-[#161922] border border-gray-800/50 flex items-center justify-center gap-1.5 shadow-sm">
+          <div className="w-3.5 h-3.5 rounded-full bg-[#005cff] flex items-center justify-center text-[8px] font-bold text-white shadow-sm">G</div>
+          <span className="text-[#005cff] font-extrabold text-xs sm:text-sm tracking-tight">
+            GCash
+          </span>
+        </div>
+      );
+    }
+
+    if (id.includes('maya') || name.includes('maya')) {
+      return (
+        <div key={method.uuid_id || method.id} className="px-4 py-2 rounded-xl bg-[#161922] border border-gray-800/50 flex items-center justify-center shadow-sm">
+          <span className="text-[#00ff87] font-extrabold text-xs sm:text-sm tracking-tight">
+            maya
+          </span>
+        </div>
+      );
+    }
+
+    if (id.includes('shopee') || name.includes('shopee') || id.includes('spay') || name.includes('spay')) {
+      return (
+        <div key={method.uuid_id || method.id} className="px-4 py-2 rounded-xl bg-[#161922] border border-gray-800/50 flex items-center justify-center gap-1.5 shadow-sm">
+          <span className="text-[#ee4d2d] font-bold text-xs sm:text-sm tracking-tight flex items-center">
+            <span className="w-3.5 h-3.5 bg-[#ee4d2d] text-white rounded-md flex items-center justify-center text-[8px] font-black mr-1 shadow-sm">S</span>
+            Pay
+          </span>
+        </div>
+      );
+    }
+
+    if (id.includes('coins') || name.includes('coins')) {
+      return (
+        <div key={method.uuid_id || method.id} className="px-4 py-2 rounded-xl bg-[#161922] border border-gray-800/50 flex items-center justify-center gap-1.5 shadow-sm">
+          <span className="text-[#0a5da6] font-extrabold text-xs sm:text-sm tracking-tight">
+            coins.ph
+          </span>
+        </div>
+      );
+    }
+
+    if (id.includes('gotyme') || name.includes('gotyme')) {
+      return (
+        <div key={method.uuid_id || method.id} className="px-4 py-2 rounded-xl bg-[#161922] border border-gray-800/50 flex items-center justify-center gap-1.5 shadow-sm">
+          <div className="w-3.5 h-3.5 rounded-full border border-[#00d0c6] flex items-center justify-center bg-transparent shadow-sm">
+            <div className="w-2 h-2 rounded-full bg-[#00d0c6]"></div>
+          </div>
+          <span className="text-[#00d0c6] font-extrabold text-xs sm:text-sm tracking-tight">
+            GoTyme
+          </span>
+        </div>
+      );
+    }
+
+    // Fallback for other payment methods
+    return (
+      <div key={method.uuid_id || method.id} className="px-4 py-2 rounded-xl bg-[#161922] border border-gray-800/50 flex items-center justify-center shadow-sm">
+        <span className="text-gray-300 font-bold text-xs sm:text-sm uppercase tracking-wider">
+          {method.name}
+        </span>
+      </div>
+    );
+  };
+
+  if (compact) {
+    return (
+      <div className="w-full flex flex-col items-center pt-4 space-y-4 border-t border-gray-900/60 mt-4">
+        {/* SUPPORTED PAYMENTS Header */}
+        <div className="text-center mb-1">
+          <h4 className="text-[10px] sm:text-xs font-extrabold tracking-widest text-[#ff007f] uppercase">
+            Supported Payments
+          </h4>
+        </div>
+
+        {/* Payment Badges Grid/Row (Loaded Dynamically) */}
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-2 max-w-sm">
+          {loading ? (
+            <div className="text-[10px] text-gray-500 animate-pulse">Loading payments...</div>
+          ) : paymentMethods.length > 0 ? (
+            paymentMethods.map(renderPaymentBadge)
+          ) : (
+            <div className="text-[10px] text-gray-500">No payment methods available</div>
+          )}
+        </div>
+
+        {/* Facebook Page with Verified Checkmark */}
+        <a
+          href={facebookUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity duration-200 text-center px-4"
+        >
+          {/* Facebook Icon */}
+          <svg className="h-4 w-4 text-white fill-current flex-shrink-0" viewBox="0 0 24 24">
+            <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c4.56-.93 8-4.96 8-9.75z" />
+          </svg>
+          
+          <span className="text-[10px] sm:text-xs text-gray-400 font-medium">
+            Official Facebook Page:{' '}
+            <span className="text-[#ff007f] font-bold inline-flex items-center gap-1">
+              Pachot's Game Credits
+              {/* Verified Badge Checkmark SVG */}
+              <svg className="h-3.5 w-3.5 text-[#1877f2] fill-current flex-shrink-0" viewBox="0 0 24 24">
+                <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+              </svg>
+            </span>
+          </span>
+        </a>
+      </div>
+    );
+  }
 
   return (
-    <footer className="mt-16" style={{ backgroundColor: '#0d0d0d', borderTop: '1px solid rgba(255, 105, 180, 0.2)' }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
-        {/* Top Section - Multi-column Links */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 mb-8">
-          {footerColumns.map((column, index) => (
-            <div key={index} className="flex flex-col">
-              <h4 className="text-sm font-bold text-white uppercase mb-4">
-                {column.title}
-              </h4>
-              <ul className="space-y-2">
-                {column.links.map((link, linkIndex) => (
-                  <li key={linkIndex}>
-                    <a
-                      href={link.url}
-                      className="text-xs text-gray-400 hover:text-pink-500 transition-colors duration-200"
-                    >
-                      {link.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+    <footer className="w-full bg-[#0d0d0d] pt-8 pb-12 px-4 sm:px-6 lg:px-8 border-t border-gray-900/60 mt-12">
+      <div className="max-w-7xl mx-auto flex flex-col items-center">
+        {/* Divider line at the top of footer elements */}
+        <div id="footer-separator" className="w-full border-t border-gray-800/80 mb-8"></div>
+
+        {/* SUPPORTED PAYMENTS Header */}
+        <div className="text-center mb-5">
+          <h4 className="text-xs sm:text-sm font-extrabold tracking-widest text-[#ff007f] uppercase">
+            Supported Payments
+          </h4>
         </div>
 
-        {/* Separator Line */}
-        <div id="footer-separator" className="border-t border-pink-500/30 my-8"></div>
-
-        {/* Bottom Section - Social Media & Copyright */}
-        <div className="flex flex-col items-center gap-6">
-          {/* Social Media Icons - Centered */}
-          {socialLinks.length > 0 && (
-            <div className="flex items-center justify-center gap-4">
-              {socialLinks.map((link, index) => {
-                const Icon = link.icon;
-                return (
-                  <a
-                    key={index}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-10 h-10 rounded-full border-2 border-pink-500/50 flex items-center justify-center hover:bg-pink-500 hover:border-pink-500 transition-all duration-200"
-                    aria-label={link.label}
-                  >
-                    <Icon className="h-5 w-5 text-white" />
-                  </a>
-                );
-              })}
-            </div>
+        {/* Payment Badges Grid/Row (Loaded Dynamically) */}
+        <div className="flex flex-wrap items-center justify-center gap-3 mb-10 max-w-2xl">
+          {loading ? (
+            <div className="text-xs text-gray-500 animate-pulse">Loading payments...</div>
+          ) : paymentMethods.length > 0 ? (
+            paymentMethods.map(renderPaymentBadge)
+          ) : (
+            <div className="text-xs text-gray-500">No payment methods available</div>
           )}
-
-          {/* Copyright - Centered at the bottom */}
-          <div className="text-center">
-            <p className="text-sm text-gray-400">
-              © {new Date().getFullYear()} {siteSettings?.site_name || "Pachot's Game Credits"}. All rights reserved.
-            </p>
-          </div>
         </div>
+
+        {/* Facebook Page with Verified Checkmark */}
+        <a
+          href={facebookUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center flex-wrap gap-2 hover:opacity-90 transition-opacity duration-200 text-center px-4"
+        >
+          {/* Facebook Icon */}
+          <svg className="h-5 w-5 text-white fill-current flex-shrink-0" viewBox="0 0 24 24">
+            <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c4.56-.93 8-4.96 8-9.75z" />
+          </svg>
+          
+          <span className="text-xs sm:text-sm text-gray-400 font-medium">
+            Official Facebook Page:{' '}
+            <span className="text-[#ff007f] font-bold inline-flex items-center gap-1">
+              Pachot's Game Credits
+              {/* Verified Badge Checkmark SVG */}
+              <svg className="h-4 w-4 text-[#1877f2] fill-current flex-shrink-0" viewBox="0 0 24 24">
+                <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+              </svg>
+            </span>
+          </span>
+        </a>
       </div>
     </footer>
   );

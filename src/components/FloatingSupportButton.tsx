@@ -6,8 +6,24 @@ const FloatingSupportButton: React.FC = () => {
   const { siteSettings } = useSiteSettings();
   const supportLink = siteSettings?.footer_support_url;
   const [bottomPosition, setBottomPosition] = useState(24); // 6 * 4 = 24px (bottom-6)
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const lastScrollY = useRef(0);
   const isLocked = useRef(false);
+
+  useEffect(() => {
+    const checkModal = () => {
+      const modal = document.getElementById('game-item-order-modal');
+      setIsModalOpen(!!modal);
+    };
+
+    checkModal();
+
+    // Set up MutationObserver to check when modal gets added/removed from DOM
+    const observer = new MutationObserver(checkModal);
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -47,7 +63,7 @@ const FloatingSupportButton: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  if (!supportLink) return null;
+  if (!supportLink || isModalOpen) return null;
 
   return (
     <a

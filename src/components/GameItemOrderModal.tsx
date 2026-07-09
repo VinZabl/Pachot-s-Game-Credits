@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { X, Upload, HelpCircle, Copy, Download, Plus, Trash2, MessageCircle, Check, Receipt, ArrowLeft, ChevronUp, ChevronDown } from 'lucide-react';
+import { X, Upload, HelpCircle, Copy, Download, Plus, Trash2, MessageCircle, Check, Receipt, ArrowLeft, ChevronUp, ChevronDown, Clock } from 'lucide-react';
 import { MenuItem, Variation, CartItem, Member } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useImageUpload } from '../hooks/useImageUpload';
@@ -30,11 +30,15 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   const { siteSettings } = useSiteSettings();
   const orderOption = siteSettings?.order_option || 'place_order';
 
-  const [selectedVariation, setSelectedVariation] = useState<Variation | undefined>(undefined);
+  // Navigation page state: 'details' | 'products' | 'order_details' | 'payment' | 'submitted'
+  const [activePage, setActivePage] = useState<'details' | 'products' | 'order_details' | 'payment' | 'submitted'>('details');
+
+  // Player accounts data: array of custom fields
   const [accounts, setAccounts] = useState<Record<string, string>[]>([{}]);
-  const [quantity, setQuantity] = useState(1);
-  const [userSelections, setUserSelections] = useState<Record<number, { variation: Variation; quantity: number }>>({});
-  const [activeUserIdx, setActiveUserIdx] = useState<number | null>(null);
+
+  // Selections state: maps account index to Record<variationId, quantity>
+  const [selections, setSelections] = useState<Record<number, Record<string, number>>>({ 0: {} });
+
   const [paymentMethodId, setPaymentMethodId] = useState<string | null>(null);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptImageUrl, setReceiptImageUrl] = useState<string | null>(null);
@@ -48,21 +52,98 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   const [savedOrderId, setSavedOrderId] = useState<string | null>(null);
   const [generatedInvoiceNumber, setGeneratedInvoiceNumber] = useState<string | null>(null);
   const [showQrFullscreen, setShowQrFullscreen] = useState(false);
-  const [paymentDetailsOpen, setPaymentDetailsOpen] = useState(true);
-  const section2Ref = useRef<HTMLDivElement>(null);
-  const packageGridRef = useRef<HTMLDivElement>(null);
-  const quantityApplyToRef = useRef<HTMLDivElement>(null);
-  const paymentSectionRef = useRef<HTMLDivElement>(null);
-  const paymentDetailsRef = useRef<HTMLDivElement>(null);
-  const uploadSectionRef = useRef<HTMLDivElement>(null);
-  const [activeStep, setActiveStep] = useState(1);
-  const [paymentCompleted, setPaymentCompleted] = useState(false);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showGuideFullscreen, setShowGuideFullscreen] = useState(false);
+  const [selectedCategoryTab, setSelectedCategoryTab] = useState<string>('');
+  const [showInstructionsModal, setShowInstructionsModal] = useState(false);
 
   const isMessengerBrowser = useMemo(
     () => /FBAN|FBAV/i.test(navigator.userAgent) || /FB_IAB/i.test(navigator.userAgent),
     []
   );
+
+  const hasCustomFields = item.customFields && item.customFields.length > 0;
+  const firstFieldLabel = hasCustomFields ? item.customFields![0].label : 'Account';
+
+  // Extract variation categories dynamically
+  const categories = useMemo(() => {
+    if (!item.variations) return [];
+    const cats = new Set<string>();
+    item.variations.forEach((v) => {
+      if (v.category) cats.add(v.category.trim());
+    });
+    return Array.from(cats);
+  }, [item.variations]);
+
+  // Set default category tab
+  useEffect(() => {
+    if (categories.length > 0 && !selectedCategoryTab) {
+      setSelectedCategoryTab(categories[0]);
+    }
+  }, [categories, selectedCategoryTab]);
+
+  // Auto-select GCash by default
+  useEffect(() => {
+    if (paymentMethods.length > 0 && !paymentMethodId) {
+      const gcashMethod = paymentMethods.find((m) => m.name.toLowerCase().includes('gcash'));
+      if (gcashMethod) {
+        setPaymentMethodId(gcashMethod.id);
+      } else {
+        setPaymentMethodId(paymentMethods[0].id);
+      }
+    }
+  }, [paymentMethods, paymentMethodId]);
+
+  const selectedPaymentMethod = paymentMethods.find((m) => m.id === paymentMethodId);
+
+  const getDiscountedPrice = (basePrice: number, variation?: Variation): number => {
+    if (currentMember && variation) {
+      const isReseller = currentMember.user_type === 'reseller';
+      if (isReseller && variation.reseller_price !== undefined) return variation.reseller_price;
+      if (!isReseller && currentMember.user_type === 'end_user' && variation.member_price !== undefined) return variation.member_price;
+    }
+    if (item.isOnDiscount && item.discountPercentage !== undefined) {
+      return basePrice * (1 - item.discountPercentage);
+    }
+    return basePrice;
+  };
+
+  // Calculate total price of all selections across all accounts
+  const totalPrice = useMemo(() => {
+    let sum = 0;
+    Object.entries(selections).forEach(([accIdxStr, vMap]) => {
+      const accIdx = parseInt(accIdxStr, 10);
+      if (!accounts[accIdx]) return;
+      Object.entries(vMap).forEach(([vId, qty]) => {
+        const v = item.variations?.find((x) => x.id === vId);
+        if (v) {
+          sum += getDiscountedPrice(v.price, v) * qty;
+        }
+      });
+    });
+    return sum;
+  }, [selections, accounts, item.variations, currentMember]);
+
+  // Check if player details form is filled
+  const isDetailsValid = useMemo(() => {
+    if (!hasCustomFields) return true;
+    return accounts.every((acc) => {
+      return item.customFields!.every((f) => !f.required || !!acc[f.key]?.trim());
+    });
+  }, [accounts, hasCustomFields, item.customFields]);
+
+  // Check if at least one product is selected
+  const isProductsSelected = useMemo(() => {
+    return Object.values(selections).some((vMap) => {
+      return Object.values(vMap).some((qty) => qty > 0);
+    });
+  }, [selections]);
+
+  // Form validity for submission
+  const isFormValid = useMemo(() => {
+    if (!paymentMethodId) return false;
+    if (orderOption === 'place_order' && !receiptImageUrl) return false;
+    return isDetailsValid && isProductsSelected;
+  }, [paymentMethodId, receiptImageUrl, isDetailsValid, isProductsSelected, orderOption]);
 
   const handleCopyAccountName = async (accountName: string) => {
     try {
@@ -84,199 +165,61 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
     }
   };
 
-  const handleDownloadQRCode = async (qrCodeUrl: string, paymentMethodName: string) => {
-    if (isMessengerBrowser) return;
-    try {
-      const response = await fetch(qrCodeUrl, { mode: 'cors', cache: 'no-cache' });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `qr-code-${paymentMethodName.toLowerCase().replace(/\s+/g, '-')}.png`;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      setTimeout(() => {
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-      }, 100);
-    } catch (err) {
-      console.error('Download failed:', err);
-      try {
-        const link = document.createElement('a');
-        link.href = qrCodeUrl;
-        link.download = `qr-code-${paymentMethodName.toLowerCase().replace(/\s+/g, '-')}.png`;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => document.body.removeChild(link), 100);
-      } catch (fallbackErr) {
-        console.error('Fallback download failed:', fallbackErr);
-      }
-    }
+  const addAccount = () => {
+    setAccounts((prev) => [...prev, {}]);
+    setSelections((prev) => ({ ...prev, [prev.length || 0]: {} }));
   };
 
-  const hasCustomFields = item.customFields && item.customFields.length > 0;
-  const selectedPaymentMethod = paymentMethods.find((m) => m.id === paymentMethodId);
-
-  // Set activeUserIdx to first unassigned when in multi-account mode (Option B: "Selecting for" flow)
-  useEffect(() => {
-    if (accounts.length <= 1) {
-      setActiveUserIdx(null);
-      return;
-    }
-    const firstUnassigned = accounts.findIndex((_, idx) => !userSelections[idx]);
-    if (firstUnassigned >= 0) {
-      setActiveUserIdx(firstUnassigned);
-    } else {
-      setActiveUserIdx(null); // All assigned
-    }
-  }, [accounts.length, userSelections]);
-
-  // When user selects a package (single account only): scroll to payment
-  useEffect(() => {
-    if (!selectedVariation || accounts.length > 1) return;
-    setTimeout(() => {
-      quantityApplyToRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 150);
-  }, [selectedVariation, accounts.length]);
-
-  // Auto-scroll to payment details when payment method is selected
-  useEffect(() => {
-    if (paymentMethodId && paymentDetailsRef.current) {
-      setTimeout(() => {
-        paymentDetailsRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-        });
-      }, 100);
-    }
-  }, [paymentMethodId]);
-
-  // Auto-select GCash by default
-  useEffect(() => {
-    if (paymentMethods.length > 0 && !paymentMethodId) {
-      const gcashMethod = paymentMethods.find((m) => m.name.toLowerCase().includes('gcash'));
-      if (gcashMethod) {
-        setPaymentMethodId(gcashMethod.id);
-      }
-    }
-  }, [paymentMethods, paymentMethodId]);
-
-  // Monitor scroll to update progress bar step
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container || !isOpen) return;
-
-    const handleScroll = () => {
-      if (paymentCompleted) {
-        setActiveStep(3);
-        return;
-      }
-
-      const containerRect = container.getBoundingClientRect();
-      const threshold = containerRect.top + 120; // threshold is 120px down from container top
-
-      let step = 1;
-
-      // Check PAYMENT section first (is paymentSectionRef visible/reached?)
-      if (paymentSectionRef.current) {
-        const rect = paymentSectionRef.current.getBoundingClientRect();
-        if (rect.top <= threshold) {
-          step = 3;
+  const removeAccount = (idx: number) => {
+    setAccounts((prev) => prev.filter((_, i) => i !== idx));
+    setSelections((prev) => {
+      const next = { ...prev };
+      delete next[idx];
+      // Re-key remaining
+      const rekeyed: Record<number, Record<string, number>> = {};
+      Object.keys(next).forEach((k) => {
+        const numericKey = parseInt(k, 10);
+        if (numericKey > idx) {
+          rekeyed[numericKey - 1] = next[numericKey];
+        } else if (numericKey < idx) {
+          rekeyed[numericKey] = next[numericKey];
         }
-      }
-
-      // Check PRODUCT section if step is still 1
-      if (step < 3) {
-        if (section2Ref.current) {
-          const rect = section2Ref.current.getBoundingClientRect();
-          if (rect.top <= threshold) {
-            step = 2;
-          }
-        }
-        if (quantityApplyToRef.current) {
-          const rect = quantityApplyToRef.current.getBoundingClientRect();
-          if (rect.top <= threshold) {
-            step = 2;
-          }
-        }
-      }
-
-      // Force Step 3 if scrolled to bottom
-      const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
-      if (isAtBottom) {
-        step = 3;
-      }
-
-      setActiveStep(step);
-    };
-
-    container.addEventListener('scroll', handleScroll);
-    handleScroll(); // initial call
-
-    return () => {
-      container.removeEventListener('scroll', handleScroll);
-    };
-  }, [isOpen, paymentCompleted, hasCustomFields]);
-
-  const getDiscountedPrice = (basePrice: number, variation?: Variation): number => {
-    if (currentMember && variation) {
-      const isReseller = currentMember.user_type === 'reseller';
-      if (isReseller && variation.reseller_price !== undefined) return variation.reseller_price;
-      if (!isReseller && currentMember.user_type === 'end_user' && variation.member_price !== undefined) return variation.member_price;
-    }
-    if (item.isOnDiscount && item.discountPercentage !== undefined) {
-      // discountPercentage is stored as decimal 0-1 (e.g. 0.10 = 10% off)
-      return basePrice * (1 - item.discountPercentage);
-    }
-    return basePrice;
-  };
-
-  const unitPrice = useMemo(() => {
-    if (!selectedVariation) return 0;
-    return getDiscountedPrice(selectedVariation.price, selectedVariation);
-  }, [selectedVariation, item.isOnDiscount, item.discountPercentage, currentMember]);
-
-  const totalPrice = useMemo(() => {
-    if (accounts.length === 1) {
-      if (!selectedVariation) return 0;
-      const up = getDiscountedPrice(selectedVariation.price, selectedVariation);
-      return up * quantity;
-    }
-    return Object.entries(userSelections).reduce((sum, [, sel]) => {
-      const up = getDiscountedPrice(sel.variation.price, sel.variation);
-      return sum + up * sel.quantity;
-    }, 0);
-  }, [accounts.length, selectedVariation, quantity, userSelections, item.isOnDiscount, item.discountPercentage, currentMember]);
-
-  const isFormValid = useMemo(() => {
-    if (!paymentMethodId) return false;
-    if (orderOption === 'place_order' && !receiptImageUrl) return false;
-    if (accounts.length === 1) {
-      if (!selectedVariation) return false;
-      const acc = accounts[0];
-      if (hasCustomFields && item.customFields) {
-        if (!item.customFields.every((f) => !f.required || !!acc[f.key]?.trim())) return false;
-      }
-      return true;
-    }
-    const selectionEntries = Object.entries(userSelections);
-    if (selectionEntries.length === 0) return false;
-    return selectionEntries.every(([accIdxStr, sel]) => {
-      const accIdx = parseInt(accIdxStr, 10);
-      const acc = accounts[accIdx];
-      if (!sel.variation) return false;
-      if (hasCustomFields && item.customFields) {
-        if (!acc) return false;
-        return item.customFields.every((f) => !f.required || !!acc[f.key]?.trim());
-      }
-      return true;
+      });
+      return rekeyed;
     });
-  }, [selectedVariation, paymentMethodId, receiptImageUrl, hasCustomFields, item.customFields, accounts, userSelections]);
+  };
+
+  const updateAccountField = (accIdx: number, key: string, value: string) => {
+    setAccounts((prev) => {
+      const next = [...prev];
+      next[accIdx] = { ...next[accIdx], [key]: value };
+      return next;
+    });
+  };
+
+  const handleProductToggle = (accIdx: number, variationId: string, checked: boolean) => {
+    setSelections((prev) => {
+      const next = { ...prev };
+      if (!next[accIdx]) next[accIdx] = {};
+      if (checked) {
+        next[accIdx][variationId] = 1;
+      } else {
+        delete next[accIdx][variationId];
+      }
+      return next;
+    });
+  };
+
+  const handleQuantityChange = (accIdx: number, variationId: string, delta: number) => {
+    setSelections((prev) => {
+      const next = { ...prev };
+      if (!next[accIdx]) next[accIdx] = {};
+      const currentQty = next[accIdx][variationId] || 0;
+      const nextQty = Math.max(1, currentQty + delta);
+      next[accIdx][variationId] = nextQty;
+      return next;
+    });
+  };
 
   const handleReceiptUpload = async (file: File) => {
     try {
@@ -302,120 +245,6 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
     setReceiptError(null);
   };
 
-  const handlePlaceOrder = async () => {
-    if (!selectedPaymentMethod || !receiptImageUrl) return;
-
-    try {
-      setIsPlacingOrder(true);
-      setReceiptError(null);
-
-      const customerInfo: Record<string, string | unknown> = {};
-      customerInfo['Payment Method'] = selectedPaymentMethod.name;
-
-      const orderItems: CartItem[] = [];
-      const multipleAccountsData: { game: string; package: string; fields: Record<string, string> }[] = [];
-
-      if (accounts.length === 1) {
-        const acc = accounts[0];
-        const variation = selectedVariation!;
-        const unitP = getDiscountedPrice(variation.price, variation);
-        const fields: Record<string, string> = {};
-        if (hasCustomFields && item.customFields) {
-          item.customFields.forEach((field) => {
-            const val = acc[field.key];
-            if (val) fields[field.label] = val;
-          });
-        }
-        if (Object.keys(fields).length > 0) {
-          multipleAccountsData.push({ game: item.name, package: variation.name, fields });
-        }
-        for (let q = 0; q < quantity; q++) {
-          orderItems.push({
-            ...item,
-            id: `${item.id}:::CART:::${Date.now()}-0-${q}-${Math.random().toString(36).slice(2)}`,
-            quantity: 1,
-            selectedVariation: variation,
-            totalPrice: unitP,
-          });
-        }
-      } else {
-        for (const [accIdxStr, sel] of Object.entries(userSelections)) {
-          const accIdx = parseInt(accIdxStr, 10);
-          const acc = accounts[accIdx];
-          if (!acc || !sel.variation) continue;
-          const unitP = getDiscountedPrice(sel.variation.price, sel.variation);
-          const fields: Record<string, string> = {};
-          if (hasCustomFields && item.customFields) {
-            item.customFields.forEach((field) => {
-              const val = acc?.[field.key];
-              if (val) fields[field.label] = val;
-            });
-          }
-          if (Object.keys(fields).length > 0) {
-            multipleAccountsData.push({ game: item.name, package: sel.variation.name, fields });
-          }
-          for (let q = 0; q < sel.quantity; q++) {
-            orderItems.push({
-              ...item,
-              id: `${item.id}:::CART:::${Date.now()}-${accIdx}-${q}-${Math.random().toString(36).slice(2)}`,
-              quantity: 1,
-              selectedVariation: sel.variation,
-              totalPrice: unitP,
-            });
-          }
-        }
-      }
-
-      if (multipleAccountsData.length > 0) {
-        customerInfo['Multiple Accounts'] = multipleAccountsData;
-      }
-
-      const customerInfoForOrder = multipleAccountsData.length > 0
-        ? multipleAccountsData
-        : Object.fromEntries(Object.entries(customerInfo).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
-
-      const invoiceNumber = await generateInvoiceNumber(true);
-
-      const newOrder = await createOrder({
-        order_items: orderItems,
-        customer_info: customerInfoForOrder,
-        payment_method_id: selectedPaymentMethod.id,
-        receipt_url: receiptImageUrl,
-        total_price: totalPrice,
-        member_id: currentMember?.id,
-        order_option: 'place_order',
-        invoice_number: invoiceNumber,
-      });
-
-      if (newOrder) {
-        setOrderPlaced(newOrder.id);
-        onOrderPlaced?.();
-        handleClose();
-      }
-    } catch (err) {
-      console.error('Error placing order:', err);
-      setReceiptError('Failed to place order. Please try again.');
-    } finally {
-      setIsPlacingOrder(false);
-    }
-  };
-
-  const handleClose = () => {
-    onClose();
-    setSelectedVariation(undefined);
-    setAccounts([{}]);
-    setQuantity(1);
-    setUserSelections({});
-    setActiveUserIdx(null);
-    setPaymentMethodId(null);
-    setSavedOrderId(null);
-    setGeneratedInvoiceNumber(null);
-    handleReceiptRemove();
-    setPaymentCompleted(false);
-    setActiveStep(1);
-  };
-
-  // Philippine timezone helper for invoice number
   const getPhilippineDate = () => {
     const now = new Date();
     const ph = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
@@ -453,94 +282,78 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   };
 
   const buildOrderMessage = (): string => {
-    const lines: string[] = [`GAME: ${item.name}`];
-    if (accounts.length === 1 && accounts[0]) {
-      const acc = accounts[0];
+    const lines: string[] = [];
+    accounts.forEach((acc, accIdx) => {
+      lines.push(`GAME: ${item.name}`);
+      const accSelections = selections[accIdx] || {};
+      const orderNames: string[] = [];
+      Object.entries(accSelections).forEach(([vId, qty]) => {
+        const v = item.variations?.find((x) => x.id === vId);
+        if (v) {
+          orderNames.push(`${v.name} ${qty}x`);
+        }
+      });
+      lines.push(`ORDER: ${orderNames.join(', ')}`);
+      
       if (hasCustomFields && item.customFields) {
+        const ids: string[] = [];
         item.customFields.forEach((f) => {
           const v = acc[f.key];
-          if (v) lines.push(`${f.label}: ${v}`);
+          if (v) ids.push(v);
         });
+        lines.push(`PLAYER ID: ${ids.join(' ')}`);
       }
-      if (selectedVariation) {
-        lines.push(`ORDER: ${selectedVariation.name} x${quantity} - ₱${totalPrice}`);
+      lines.push(`PAYMENT: ${selectedPaymentMethod?.name || ''}`);
+      if (accIdx < accounts.length - 1) {
+        lines.push('---------------------------');
       }
-    } else {
-      Object.entries(userSelections).forEach(([idxStr, sel]) => {
-        const acc = accounts[parseInt(idxStr, 10)];
-        if (!acc) return;
-        if (hasCustomFields && item.customFields) {
-          item.customFields.forEach((f) => {
-            const v = acc?.[f.key];
-            if (v) lines.push(`${f.label}: ${v}`);
-          });
-        }
-        lines.push(`ORDER: ${sel.variation.name} x${sel.quantity} - ₱${getDiscountedPrice(sel.variation.price, sel.variation) * sel.quantity}`);
-      });
-    }
-    lines.push(`PAYMENT: ${selectedPaymentMethod?.name || ''}${selectedPaymentMethod?.account_name ? ` - ${selectedPaymentMethod.account_name}` : ''}`);
-    lines.push(`TOTAL: ₱${totalPrice}`, '', 'PAYMENT RECEIPT:');
-    if (receiptImageUrl) lines.push(receiptImageUrl);
+    });
     return lines.join('\n');
   };
 
   const saveOrderAndGetMessage = async (): Promise<string> => {
     if (!selectedPaymentMethod) throw new Error('Please select a payment method');
-    if (orderOption === 'place_order' && !receiptImageUrl) throw new Error('Please upload receipt');
+    
     const invoiceNumber = savedOrderId && generatedInvoiceNumber
       ? generatedInvoiceNumber
       : await generateInvoiceNumber(true);
-    const customerInfo: Record<string, string | unknown> = { 'Payment Method': selectedPaymentMethod.name };
+
     const orderItems: CartItem[] = [];
     const multipleAccountsData: { game: string; package: string; fields: Record<string, string> }[] = [];
-    if (accounts.length === 1) {
-      const acc = accounts[0];
-      const variation = selectedVariation!;
-      const unitP = getDiscountedPrice(variation.price, variation);
+
+    accounts.forEach((acc, accIdx) => {
+      const accSelections = selections[accIdx] || {};
       const fields: Record<string, string> = {};
       if (hasCustomFields && item.customFields) {
-        item.customFields.forEach((f) => { const v = acc[f.key]; if (v) fields[f.label] = v; });
-      }
-      if (Object.keys(fields).length > 0) multipleAccountsData.push({ game: item.name, package: variation.name, fields });
-      for (let q = 0; q < quantity; q++) {
-        orderItems.push({
-          ...item,
-          id: `${item.id}:::CART:::${Date.now()}-0-${q}-${Math.random().toString(36).slice(2)}`,
-          quantity: 1,
-          selectedVariation: variation,
-          totalPrice: unitP,
+        item.customFields.forEach((f) => {
+          const v = acc[f.key];
+          if (v) fields[f.label] = v;
         });
       }
-    } else {
-      for (const [accIdxStr, sel] of Object.entries(userSelections)) {
-        const accIdx = parseInt(accIdxStr, 10);
-        const acc = accounts[accIdx];
-        if (!acc || !sel.variation) continue;
-        const unitP = getDiscountedPrice(sel.variation.price, sel.variation);
-        const fields: Record<string, string> = {};
-        if (hasCustomFields && item.customFields) {
-          item.customFields.forEach((f) => { const v = acc?.[f.key]; if (v) fields[f.label] = v; });
-        }
-        if (Object.keys(fields).length > 0) multipleAccountsData.push({ game: item.name, package: sel.variation.name, fields });
-        for (let q = 0; q < sel.quantity; q++) {
+
+      Object.entries(accSelections).forEach(([vId, qty]) => {
+        const v = item.variations?.find((x) => x.id === vId);
+        if (!v) return;
+        const unitP = getDiscountedPrice(v.price, v);
+        
+        multipleAccountsData.push({ game: item.name, package: v.name, fields });
+
+        for (let q = 0; q < qty; q++) {
           orderItems.push({
             ...item,
-            id: `${item.id}:::CART:::${Date.now()}-${accIdx}-${q}-${Math.random().toString(36).slice(2)}`,
+            id: `${item.id}:::CART:::${Date.now()}-${accIdx}-${vId}-${q}-${Math.random().toString(36).slice(2)}`,
             quantity: 1,
-            selectedVariation: sel.variation,
+            selectedVariation: v,
             totalPrice: unitP,
           });
         }
-      }
-    }
-    if (multipleAccountsData.length > 0) customerInfo['Multiple Accounts'] = multipleAccountsData;
-    const customerInfoForOrder = multipleAccountsData.length > 0
-      ? multipleAccountsData
-      : Object.fromEntries(Object.entries(customerInfo).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
+      });
+    });
+
     if (!savedOrderId) {
       const newOrder = await createOrder({
         order_items: orderItems,
-        customer_info: customerInfoForOrder,
+        customer_info: multipleAccountsData,
         payment_method_id: selectedPaymentMethod.id,
         receipt_url: receiptImageUrl || '',
         total_price: totalPrice,
@@ -571,11 +384,75 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       });
       if (didCopy) {
         setCopiedOrderMessage(true);
-        setPaymentCompleted(true);
         setTimeout(() => setCopiedOrderMessage(false), 2000);
       }
     } catch (err) {
       setReceiptError(err instanceof Error ? err.message : 'Failed to prepare order');
+    } finally {
+      setIsPlacingOrder(false);
+    }
+  };
+
+  const handlePlaceOrder = async () => {
+    if (!selectedPaymentMethod || !receiptImageUrl) return;
+
+    try {
+      setIsPlacingOrder(true);
+      setReceiptError(null);
+
+      const orderItems: CartItem[] = [];
+      const multipleAccountsData: { game: string; package: string; fields: Record<string, string> }[] = [];
+
+      accounts.forEach((acc, accIdx) => {
+        const accSelections = selections[accIdx] || {};
+        const fields: Record<string, string> = {};
+        if (hasCustomFields && item.customFields) {
+          item.customFields.forEach((f) => {
+            const v = acc[f.key];
+            if (v) fields[f.label] = v;
+          });
+        }
+
+        Object.entries(accSelections).forEach(([vId, qty]) => {
+          const v = item.variations?.find((x) => x.id === vId);
+          if (!v) return;
+          const unitP = getDiscountedPrice(v.price, v);
+
+          multipleAccountsData.push({ game: item.name, package: v.name, fields });
+
+          for (let q = 0; q < qty; q++) {
+            orderItems.push({
+              ...item,
+              id: `${item.id}:::CART:::${Date.now()}-${accIdx}-${vId}-${q}-${Math.random().toString(36).slice(2)}`,
+              quantity: 1,
+              selectedVariation: v,
+              totalPrice: unitP,
+            });
+          }
+        });
+      });
+
+      const invoiceNumber = await generateInvoiceNumber(true);
+
+      const newOrder = await createOrder({
+        order_items: orderItems,
+        customer_info: multipleAccountsData,
+        payment_method_id: selectedPaymentMethod.id,
+        receipt_url: receiptImageUrl,
+        total_price: totalPrice,
+        member_id: currentMember?.id,
+        order_option: 'place_order',
+        invoice_number: invoiceNumber,
+      });
+
+      if (newOrder) {
+        setOrderPlaced(newOrder.id);
+        onOrderPlaced?.();
+        setActivePage('submitted');
+      }
+    } catch (err) {
+      console.error('Error placing order:', err);
+      setReceiptError('Failed to place order. Please try again.');
     } finally {
       setIsPlacingOrder(false);
     }
@@ -591,7 +468,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       const pageId = m ? m[1] : 'pachotsgamecredits';
       const messengerUrl = `https://m.me/${pageId}?text=${encodeURIComponent(message)}`;
       window.open(messengerUrl, '_blank');
-      handleClose();
+      setActivePage('submitted');
     } catch (err) {
       setReceiptError(err instanceof Error ? err.message : 'Failed to open Messenger');
     } finally {
@@ -599,855 +476,933 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
     }
   };
 
-  const firstFieldLabel = hasCustomFields && item.customFields?.[0] ? item.customFields[0].label : 'User ID';
-
-  const addAccount = () => setAccounts((prev) => [...prev, {}]);
-
-  const removeAccount = (idx: number) => {
-    if (accounts.length <= 1) return;
-    setAccounts((prev) => prev.filter((_, i) => i !== idx));
-    setUserSelections((prev) => {
-      const next: Record<number, { variation: Variation; quantity: number }> = {};
-      Object.entries(prev).forEach(([k, v]) => {
-        const i = parseInt(k, 10);
-        if (i < idx) next[i] = v;
-        else if (i > idx) next[i - 1] = v;
-      });
-      return next;
-    });
+  const handleBuyAgain = () => {
+    setAccounts([{}]);
+    setSelections({ 0: {} });
+    setPaymentMethodId(null);
+    setSavedOrderId(null);
+    setGeneratedInvoiceNumber(null);
+    handleReceiptRemove();
+    setActivePage('details');
   };
 
-  // Option B: Assign package directly to user (from package click)
-  const assignPackageToUser = (accIdx: number, variation: Variation, qty: number = 1) => {
-    const hasAnotherUnassigned = accounts.some((_, idx) => idx !== accIdx && !userSelections[idx]);
-    setUserSelections((prev) => ({ ...prev, [accIdx]: { variation, quantity: qty } }));
-    // activeUserIdx is updated by useEffect when userSelections changes
-    setTimeout(() => {
-      if (hasAnotherUnassigned) {
-        // Scroll to top of Section 2 so "Select package for User ID #X" banner is visible
-        section2Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else if (quantityApplyToRef.current) {
-        quantityApplyToRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 150);
-  };
-
-  const handleChangePackageFor = (accIdx: number) => {
-    setActiveUserIdx(accIdx);
-    setTimeout(() => {
-      section2Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
-  };
-
-  const updateUserQuantity = (accIdx: number, newQty: number) => {
-    const clamped = Math.max(1, Math.min(99, newQty));
-    setUserSelections((prev) => {
-      const sel = prev[accIdx];
-      if (!sel) return prev;
-      return { ...prev, [accIdx]: { ...sel, quantity: clamped } };
-    });
-  };
-
-  const updateAccountField = (accIdx: number, key: string, value: string) => {
-    setAccounts((prev) => {
-      const next = [...prev];
-      next[accIdx] = { ...next[accIdx], [key]: value };
-      return next;
-    });
+  const handleClose = () => {
+    onClose();
+    setAccounts([{}]);
+    setSelections({ 0: {} });
+    setPaymentMethodId(null);
+    setSavedOrderId(null);
+    setGeneratedInvoiceNumber(null);
+    handleReceiptRemove();
+    setActivePage('details');
   };
 
   if (!isOpen) return null;
 
-  // Determine the active progress step:
-  // Step 1 = GAME (always active — we're already in a game's modal)
-  // Step 2 = PRODUCT (package selected)
-  // Step 3 = DETAILS (payment method chosen)
-  // Step 4 = PAYMENT (receipt uploaded OR order placed)
-  const currentStep = paymentCompleted ? 3 : activeStep;
+  // Determine active step circle representation (1, 2, 3)
+  const getStepNumberState = (step: number) => {
+    if (step === 1) {
+      return activePage === 'details' ? 'active' : 'done';
+    }
+    if (step === 2) {
+      if (activePage === 'details') return 'pending';
+      return activePage === 'products' ? 'active' : 'done';
+    }
+    if (step === 3) {
+      if (activePage === 'details' || activePage === 'products') return 'pending';
+      return 'active';
+    }
+    return 'pending';
+  };
 
   const PROGRESS_STEPS = [
-    { num: 1, label: 'DETAILS' },
-    { num: 2, label: 'PRODUCT' },
-    { num: 3, label: 'PAYMENT' },
+    { num: 1, label: 'Details' },
+    { num: 2, label: 'Products' },
+    { num: 3, label: 'Payment' },
   ];
-
-  const stepCardClass = 'bg-white rounded-xl p-3 sm:p-5 shadow-md border border-gray-100';
-  const stepNumClass = 'w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold text-white flex-shrink-0';
-  const inputClass = 'w-full px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-gray-900 text-sm';
 
   return (
     <>
       <div
-        className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        id="game-item-order-modal"
+        className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4"
         onClick={handleClose}
       >
         <div
-          className="flex flex-col rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl"
+          className="flex flex-col rounded-2xl max-w-lg w-full max-h-[95vh] overflow-hidden shadow-2xl"
           style={{
-            background: 'linear-gradient(180deg, #2d1b4e 0%, #1a0f2e 100%)',
-            border: '1.5px solid rgba(255, 105, 180, 0.3)',
+            background: 'linear-gradient(180deg, #161922 0%, #0d0d0d 100%)',
+            border: '1px solid rgba(255, 105, 180, 0.25)',
           }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="relative flex-shrink-0 p-3 sm:p-6 flex items-center justify-between border-b border-pink-500/20 overflow-hidden">
-
-            <div className="relative z-10 flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-              <div className="flex-1 min-w-0">
-                <h2 className="text-base sm:text-xl font-bold text-white">{item.name}</h2>
-                {item.subtitle && (
-                  <p className="text-xs text-pink-200/80 mt-0.5">{item.subtitle}</p>
-                )}
-                {item.description && (
-                  <p className="text-xs text-white/70 mt-1 whitespace-pre-wrap">{item.description}</p>
-                )}
-              </div>
+          <div className="relative flex-shrink-0 p-4 sm:p-5 flex flex-col gap-3 border-b border-gray-900">
+            <div className="flex items-center justify-between">
+              {activePage !== 'details' && activePage !== 'submitted' && (
+                <button
+                  onClick={() => {
+                    if (activePage === 'products') setActivePage('details');
+                    else if (activePage === 'order_details') setActivePage('products');
+                    else if (activePage === 'payment') setActivePage('order_details');
+                  }}
+                  className="p-1 hover:bg-white/5 rounded-full text-gray-400 hover:text-white transition-colors"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+              )}
+              <h2 className="text-base sm:text-lg font-black text-pink-500 uppercase tracking-wide flex-1 text-center">
+                {activePage === 'submitted' ? '' : item.name.replace(/^[🟢\s]+/, '').trim()}
+              </h2>
+              <button
+                onClick={handleClose}
+                className="p-1.5 hover:bg-white/5 rounded-full text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-            <button
-              onClick={handleClose}
-              className="relative z-10 p-1.5 sm:p-2 hover:bg-pink-500/20 rounded-full transition-colors flex-shrink-0"
-            >
-              <X className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-            </button>
-          </div>
 
-          {/* Progress Steps Bar */}
-          <div className="flex-shrink-0 px-4 pt-3 pb-3 border-b border-white/5">
-            <div className="flex items-center justify-between max-w-xs mx-auto">
-              {PROGRESS_STEPS.map((step, idx) => {
-                const isDone = currentStep > step.num;
-                const isActive = currentStep === step.num;
-                const isLast = idx === PROGRESS_STEPS.length - 1;
-                return (
-                  <React.Fragment key={step.num}>
-                    <div className="flex flex-col items-center gap-0.5">
-                      {/* Circle */}
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300"
-                        style={{
-                          background: isDone
-                            ? '#FF69B4'
-                            : isActive
-                            ? 'transparent'
-                            : 'transparent',
-                          border: isDone
-                            ? '2px solid #FF69B4'
-                            : isActive
-                            ? '2px solid #FF69B4'
-                            : '2px solid rgba(255,255,255,0.15)',
-                          color: isDone
-                            ? '#1a0f2e'
-                            : isActive
-                            ? '#FF69B4'
-                            : 'rgba(255,255,255,0.3)',
-                          boxShadow: isActive ? '0 0 10px rgba(255,105,180,0.5)' : 'none',
-                        }}
-                      >
-                        {step.num}
-                      </div>
-                      {/* Label */}
-                      <span
-                        className="text-[9px] font-bold tracking-wider transition-colors duration-300"
-                        style={{
-                          color: isDone
-                            ? '#FF69B4'
-                            : isActive
-                            ? '#FF69B4'
-                            : 'rgba(255,255,255,0.25)',
-                        }}
-                      >
-                        {step.label}
-                      </span>
-                    </div>
-                    {/* Connector line */}
-                    {!isLast && (
-                      <div
-                        className="flex-1 h-px mx-1 mb-3 transition-all duration-300"
-                        style={{
-                          background: currentStep > step.num
-                            ? '#FF69B4'
-                            : 'rgba(255,255,255,0.1)',
-                        }}
-                      />
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Scrollable content */}
-          <div
-            ref={scrollContainerRef}
-            className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-3 sm:space-y-4"
-          >
-            {/* Section 1: Enter ID / Customer Info (Only show if fields exist) */}
-            {hasCustomFields && item.customFields && item.customFields.length > 0 && (
-              <div className={stepCardClass}>
-                <div className="mb-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>1</div>
-                    <h3 className="text-sm sm:text-base font-semibold text-gray-900">
-                      {item.customFields[0].label}
-                    </h3>
-                  </div>
-                  <p className="text-[11px] text-gray-500 ml-9 italic">
-                    To add multiple UID'S and ORDERS click " <span className="font-bold">ADD NEW {firstFieldLabel.toUpperCase()}</span> "
-                  </p>
+            {activePage !== 'submitted' && (
+              <>
+                {/* Processing Time Banner */}
+                <div className="flex items-center justify-center gap-1.5 py-1 px-4 bg-gray-900/40 border border-gray-800/80 rounded-full text-[10px] sm:text-xs text-gray-400 max-w-xs mx-auto">
+                  <Clock className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                  <span>Processing Time : 10m - 1hr</span>
                 </div>
-                <div className="space-y-4">
-                  {accounts.map((acc, accIdx) => (
-                    <div key={accIdx} className="relative">
-                      {accIdx > 0 && (
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-medium text-gray-500">
-                            {firstFieldLabel} #{accIdx + 1}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => removeAccount(accIdx)}
-                            className="p-1 rounded hover:bg-red-100 text-gray-500 hover:text-red-600"
+
+                {/* Steps Progress Header */}
+                <div className="flex items-center justify-between max-w-xs w-full mx-auto mt-2">
+                  {PROGRESS_STEPS.map((step, idx) => {
+                    const state = getStepNumberState(step.num);
+                    const isLast = idx === PROGRESS_STEPS.length - 1;
+                    return (
+                      <React.Fragment key={step.num}>
+                        <div className="flex flex-col items-center gap-1">
+                          <div
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300"
+                            style={{
+                              background: state === 'done'
+                                ? '#ff007f'
+                                : state === 'active'
+                                ? 'transparent'
+                                : 'transparent',
+                              border: state === 'done'
+                                ? '2px solid #ff007f'
+                                : state === 'active'
+                                ? '2px solid #ff007f'
+                                : '2px solid rgba(255,255,255,0.12)',
+                              color: state === 'done'
+                                ? '#0d0d0d'
+                                : state === 'active'
+                                ? '#ff007f'
+                                : 'rgba(255,255,255,0.25)',
+                              boxShadow: state === 'active' ? '0 0 10px rgba(255,0,127,0.3)' : 'none',
+                            }}
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      )}
-                      
-                      <div className="space-y-2 sm:space-y-3">
-                        {item.customFields!.map((field) => (
-                          <div key={field.key}>
-                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                              {field.label} {field.required && <span className="text-red-500">*</span>}
-                            </label>
-                            <div className="relative">
-                              <input
-                                type="text"
-                                value={acc[field.key] || ''}
-                                onChange={(e) => updateAccountField(accIdx, field.key, e.target.value)}
-                                placeholder={field.placeholder || field.label}
-                                className={inputClass}
-                              />
-                              {field.placeholder?.toLowerCase().includes('id') && (
-                                <button
-                                  type="button"
-                                  onClick={() => setShowIdHelp(!showIdHelp)}
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-500 hover:text-purple-600"
-                                >
-                                  <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-                                </button>
-                              )}
-                            </div>
-                            {showIdHelp && field.placeholder?.toLowerCase().includes('id') && (
-                              <p className="mt-2 text-xs text-gray-500">
-                                To find your ID, click on the character icon. Your User ID is listed below your character name. Example: '5363266446'.
-                              </p>
-                            )}
+                            {state === 'done' ? <Check className="w-3.5 h-3.5 stroke-[3px]" /> : step.num}
                           </div>
-                        ))}
+                          <span
+                            className="text-[9px] font-bold tracking-widest uppercase transition-colors duration-300"
+                            style={{
+                              color: state === 'done' || state === 'active'
+                                ? '#ff007f'
+                                : 'rgba(255,255,255,0.25)',
+                            }}
+                          >
+                            {step.label}
+                          </span>
+                        </div>
+                        {!isLast && (
+                          <div
+                            className="flex-1 h-0.5 mx-1 mb-4 transition-all duration-300"
+                            style={{
+                              background: state === 'done'
+                                ? '#ff007f'
+                                : 'rgba(255,255,255,0.08)',
+                            }}
+                          />
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Content Area */}
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+            
+            {/* PAGE 1: PLAYER DETAILS */}
+            {activePage === 'details' && (
+              <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 min-h-0">
+                  <div className="bg-[#161922]/90 border border-gray-800/80 rounded-xl p-4 sm:p-5 shadow-lg relative">
+                    {/* Card Title Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#ff007f] shadow-[0_0_6px_#ff007f]"></span>
+                        <h3 className="text-xs sm:text-sm font-extrabold tracking-widest uppercase text-white">
+                          Player Details
+                        </h3>
+                      </div>
+                      <div className="flex items-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (item.guide_image_url) {
+                              setShowGuideFullscreen(true);
+                            } else {
+                              setShowIdHelp(!showIdHelp);
+                            }
+                          }}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 border border-pink-500/30 rounded-lg text-[9px] font-bold text-pink-400 bg-pink-500/5 hover:bg-pink-500/10 hover:border-pink-500/50 transition-all cursor-pointer shadow-[0_0_8px_rgba(255,0,127,0.05)]"
+                        >
+                          <HelpCircle className="h-3.5 w-3.5" />
+                          <span>Guide</span>
+                        </button>
                       </div>
                     </div>
-                  ))}
-                  <div className="flex justify-center">
-                    <button
-                      type="button"
-                      onClick={addAccount}
-                      className="inline-flex items-center justify-center gap-2 py-2 px-4 rounded-lg border-2 border-dashed border-purple-300 text-purple-600 hover:bg-purple-50 hover:border-purple-400 text-sm font-medium transition-colors"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add new {firstFieldLabel}
-                    </button>
+
+                    {/* Input Fields */}
+                    <div className="space-y-4">
+                      {accounts.map((acc, accIdx) => (
+                        <div key={accIdx} className="space-y-3 p-3.5 bg-black/30 border border-gray-900 rounded-lg relative">
+                          {accounts.length > 1 && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
+                                {firstFieldLabel} #{accIdx + 1}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => removeAccount(accIdx)}
+                                className="p-1 hover:bg-red-500/10 text-gray-500 hover:text-red-500 rounded"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          )}
+
+                          <div className="space-y-3">
+                            {item.customFields?.map((field) => (
+                              <div key={field.key} className="space-y-1">
+                                <input
+                                  type="text"
+                                  placeholder={`Enter ${field.label}`}
+                                  value={acc[field.key] || ''}
+                                  onChange={(e) => updateAccountField(accIdx, field.key, e.target.value)}
+                                  className="w-full bg-[#0d0d0d] border border-gray-800/80 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-500/60 focus:ring-1 focus:ring-pink-500/40 transition-all duration-200"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+
+                      {showIdHelp && (
+                        <p className="text-[10px] sm:text-xs text-gray-400 leading-relaxed bg-black/40 p-3 rounded-lg border border-gray-900">
+                          To find your ID, tap your game avatar. Your User ID and Zone ID will be displayed on your profile. (e.g. ID: 12345678, Zone: 1234).
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Add New Order Helper */}
+                    <p className="text-[10px] sm:text-xs text-gray-400 italic text-center mt-4">
+                      I-click ang <span className="font-bold text-white">"ADD NEW ORDER"</span> kung nais mong mag-top up ng ibang User ID.
+                    </p>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Section 2: Select Recharge / Package */}
-            <div ref={section2Ref} className={stepCardClass}>
-              <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>2</div>
-                <h3 className="text-sm sm:text-base font-semibold text-gray-900">Select Recharge</h3>
-              </div>
-              {accounts.length > 1 && (
-                <div className="mb-3 p-2.5 rounded-lg bg-purple-50 border border-purple-200">
-                  {activeUserIdx !== null ? (
-                    <p className="text-sm font-medium text-purple-800">
-                      Select package for <span className="font-semibold">{firstFieldLabel} #{activeUserIdx + 1}</span>
-                    </p>
-                  ) : (
-                    <p className="text-sm font-medium text-green-700">✓ All users have packages</p>
+            {/* PAGE 2: CHOOSE PRODUCTS */}
+            {activePage === 'products' && (
+              <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                {/* Header (Non-scrollable Choose Products text & categories) */}
+                <div className="flex-shrink-0 p-4 sm:p-5 pb-2 border-b border-gray-900/60 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#ff007f] shadow-[0_0_6px_#ff007f]"></span>
+                    <h3 className="text-xs sm:text-sm font-extrabold tracking-widest uppercase text-white">
+                      Choose Products
+                    </h3>
+                  </div>
+
+                  {/* Category Tabs */}
+                  {categories.length > 0 && (
+                    <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2 flex-nowrap">
+                      {categories.map((catName) => (
+                        <button
+                          key={catName}
+                          type="button"
+                          onClick={() => setSelectedCategoryTab(catName)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-200 flex-shrink-0 ${
+                            selectedCategoryTab === catName
+                              ? 'text-pink-500 border-pink-500 shadow-[0_0_8px_rgba(255,0,127,0.15)] bg-transparent'
+                              : 'text-gray-400 border-gray-800/80 hover:text-white bg-transparent'
+                          }`}
+                        >
+                          {catName}
+                        </button>
+                      ))}
+                    </div>
                   )}
-                  <p className="text-xs text-gray-600 mt-0.5">
-                    {Object.keys(userSelections).length} of {accounts.length} assigned
+                </div>
+
+                {/* Game Items Grid (Only Scrollable Area) */}
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 min-h-0">
+                  <div className="space-y-3">
+                    {accounts.map((acc, accIdx) => {
+                      const accSelections = selections[accIdx] || {};
+                      const filteredVariations = (item.variations || []).filter(
+                        (v) => !v.category || v.category.trim() === selectedCategoryTab
+                      );
+
+                      if (filteredVariations.length === 0) return null;
+
+                      return (
+                        <div key={accIdx} className="space-y-3">
+                          {accounts.length > 1 && (
+                            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">
+                              Selecting for {firstFieldLabel} #{accIdx + 1}
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {filteredVariations.map((v) => {
+                              const price = getDiscountedPrice(v.price, v);
+                              const isChecked = !!accSelections[v.id];
+                              const qty = accSelections[v.id] || 0;
+
+                              return (
+                                <div
+                                  key={v.id}
+                                  className={`relative rounded-xl border p-3 flex items-center gap-3 transition-all duration-200 bg-[#0d0d0d] ${
+                                    isChecked
+                                      ? 'border-pink-500 bg-[#2c1524]/20'
+                                      : 'border-gray-800/80 hover:border-pink-500/50'
+                                  }`}
+                                >
+                                  {/* Checkbox wrapper */}
+                                  <label className="flex items-center justify-center w-5 h-5 rounded border border-gray-800 cursor-pointer bg-transparent relative flex-shrink-0">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={(e) => handleProductToggle(accIdx, v.id, e.target.checked)}
+                                      className="hidden"
+                                    />
+                                    {isChecked && (
+                                      <div className="absolute inset-0 bg-[#ff007f] rounded flex items-center justify-center">
+                                        <Check className="w-3.5 h-3.5 text-white stroke-[3px]" />
+                                      </div>
+                                    )}
+                                  </label>
+
+                                  {/* Product info */}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-xs sm:text-sm text-white truncate">
+                                      {v.name}
+                                    </p>
+                                    <p className="text-red-500 font-bold text-xs sm:text-sm mt-0.5">
+                                      ₱{price.toFixed(0)}
+                                    </p>
+                                  </div>
+
+                                  {/* Variation Badge (Inside card on the right-most) */}
+                                  {v.badge_text && !isChecked && (
+                                    <div
+                                      className="px-2 py-0.5 rounded border text-[7px] font-black uppercase tracking-widest flex-shrink-0"
+                                      style={{
+                                        borderColor: v.badge_color || '#ff007f',
+                                        color: v.badge_color || '#ff007f',
+                                        backgroundColor: 'rgba(255, 0, 127, 0.05)'
+                                      }}
+                                    >
+                                      {v.badge_text}
+                                    </div>
+                                  )}
+
+                                  {/* Quantity adjusters (Lalabas lang ang quantity kapag chineck nila ang box) */}
+                                  {isChecked && (
+                                    <div className="flex items-center gap-0 rounded-lg overflow-hidden border border-gray-800 bg-[#161922]/50 flex-shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuantityChange(accIdx, v.id, -1)}
+                                        className="w-7 h-7 flex items-center justify-center bg-gray-900/60 hover:bg-pink-500/10 text-gray-400 hover:text-pink-500 font-bold text-sm border-r border-gray-800 transition-colors"
+                                      >
+                                        −
+                                      </button>
+                                      <span className="w-7 text-center text-xs font-black text-white">
+                                        {qty}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuantityChange(accIdx, v.id, 1)}
+                                        className="w-7 h-7 flex items-center justify-center bg-gray-900/60 hover:bg-pink-500/10 text-gray-400 hover:text-pink-500 font-bold text-sm border-l border-gray-800 transition-colors"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <p className="text-[10px] text-gray-500 italic text-center mt-4">
+                    Lalabas lang ang quantity kapag chineck nila ang box.
                   </p>
                 </div>
-              )}
-              {item.variations && item.variations.length > 0 ? (
-                (() => {
-                  const grouped = item.variations.reduce<Record<string, Variation[]>>((acc, v) => {
-                    const key = (v.category && v.category.trim()) || '\u200b'; // \u200b = empty category label
-                    if (!acc[key]) acc[key] = [];
-                    acc[key].push(v);
-                    return acc;
-                  }, {}); // initial {} so acc is never a variation object
-                  // Order categories by: 1. Presence of labeled packages, 2. Minimum sort_order
-                  const categoryOrder = Object.keys(grouped).sort((a, b) => {
-                    const hasBadgeA = grouped[a].some(v => !!v.badge_text);
-                    const hasBadgeB = grouped[b].some(v => !!v.badge_text);
-                    
-                    if (hasBadgeA && !hasBadgeB) return -1;
-                    if (!hasBadgeA && hasBadgeB) return 1;
-                    
-                    const minA = Math.min(...(grouped[a] || []).map((v) => v.sort_order ?? 999));
-                    const minB = Math.min(...(grouped[b] || []).map((v) => v.sort_order ?? 999));
-                    return minA - minB;
-                  });
-                  return (
-                    <div className="space-y-4">
-                      {categoryOrder.map((catKey) => {
-                        // Sort variations by badge presence first, then by sort_order
-                        const variations = (grouped[catKey] || []).sort((a, b) => {
-                          // Labeled packages come first
-                          if (a.badge_text && !b.badge_text) return -1;
-                          if (!a.badge_text && b.badge_text) return 1;
-                          // Then sort by sort_order
-                          return (a.sort_order ?? 999) - (b.sort_order ?? 999);
-                        });
-                        const categoryName = catKey === '\u200b' ? null : catKey;
+              </div>
+            )}
+
+            {/* PAGE 3: ORDER DETAILS */}
+            {activePage === 'order_details' && (
+              <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 min-h-0">
+                  <div className="bg-[#161922]/90 border border-gray-800/80 rounded-xl p-4 sm:p-5 shadow-lg">
+                    {/* Card Title */}
+                    <h3 className="text-xs sm:text-sm font-extrabold tracking-widest uppercase text-[#ff007f] mb-4 pb-2 border-b border-pink-500/20">
+                      Order Details
+                    </h3>
+
+                    {/* Summary Rows */}
+                    <div className="space-y-5">
+                      {accounts.map((acc, accIdx) => {
+                        const accSelections = selections[accIdx] || {};
+                        const selectedVariationsList = Object.entries(accSelections)
+                          .map(([vId, qty]) => {
+                            const v = item.variations?.find((x) => x.id === vId);
+                            return v ? { name: v.name, qty } : null;
+                          })
+                          .filter(Boolean);
+
+                        if (selectedVariationsList.length === 0) return null;
+
+                        const ids: string[] = [];
+                        if (hasCustomFields && item.customFields) {
+                          item.customFields.forEach((f) => {
+                            const v = acc[f.key];
+                            if (v) ids.push(v);
+                          });
+                        }
+
                         return (
-                          <div key={catKey}>
-                            {categoryName && (
-                              <p className="text-xs font-medium text-gray-600 mb-2">{categoryName}</p>
-                            )}
-                            <div ref={packageGridRef} className="grid grid-cols-2 gap-2 sm:gap-3">
-                              {variations.map((v, idx) => {
-                    const price = getDiscountedPrice(v.price, v);
-                    const isSelected = accounts.length > 1 && activeUserIdx !== null
-                      ? userSelections[activeUserIdx]?.variation.id === v.id
-                      : selectedVariation?.id === v.id;
-                    return (
-                      <button
-                        key={`${v.id}-${idx}`}
-                        type="button"
-                        onClick={() => {
-                          if (accounts.length > 1 && activeUserIdx !== null) {
-                            assignPackageToUser(activeUserIdx, v, userSelections[activeUserIdx]?.quantity ?? 1);
-                          } else {
-                            setSelectedVariation(v);
-                            if (accounts.length === 1 && quantityApplyToRef.current) {
-                              setTimeout(() => quantityApplyToRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
-                            }
-                          }
-                        }}
-                        className={`relative rounded-lg border-2 text-left transition-all ${
-                          v.badge_text 
-                            ? 'pt-7 sm:pt-8 pb-2.5 sm:pb-4 px-2.5 sm:px-4' 
-                            : 'p-2.5 sm:p-4'
-                        } ${
-                          isSelected
-                            ? 'border-pink-500 bg-pink-500 text-white shadow-md'
-                            : 'border-gray-200 bg-gray-50 hover:border-pink-500 hover:bg-pink-50'
-                        }`}
-                      >
-                        {v.badge_text && (
-                          <div 
-                            className="absolute top-0 left-0 z-20 px-1.5 py-0.5 rounded-br-lg shadow-sm overflow-hidden"
-                            style={{ backgroundColor: v.badge_color || '#EC4899', color: 'white' }}
-                          >
-                            <span className="text-[8px] font-bold uppercase tracking-wider block leading-tight">{v.badge_text}</span>
-                          </div>
-                        )}
-                        {isSelected && (
-                          <div className="absolute top-2 right-2 bg-white text-pink-500 rounded-full p-1 shadow-sm">
-                            <Check className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={3} />
-                          </div>
-                        )}
-                        <div className={`font-semibold text-xs sm:text-base pr-6 ${isSelected ? 'text-white' : 'text-gray-900'}`}>
-                          {v.name}
-                        </div>
-                        {v.description && (
-                          <div className={`text-[10px] sm:text-xs mt-0.5 whitespace-pre-wrap ${isSelected ? 'text-pink-100' : 'text-gray-500'}`}>
-                            {v.description}
-                          </div>
-                        )}
-                        <div className={`mt-1.5 sm:mt-2 text-sm sm:text-base font-bold ${isSelected ? 'text-white' : 'text-red-600'}`}>₱{price.toFixed(0)}</div>
-                        {item.isOnDiscount && item.discountPercentage && (
-                          <div className={`text-[10px] sm:text-xs line-through ${isSelected ? 'text-pink-200' : 'text-gray-500'}`}>₱{v.price}</div>
-                        )}
-                      </button>
-                    );
-                  })}
+                          <div key={accIdx} className="space-y-2 text-xs sm:text-sm font-medium">
+                            <div className="grid grid-cols-3 gap-2">
+                              <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">Game:</span>
+                              <span className="text-white col-span-2">{item.name.replace(/^[🟢\s]+/, '').trim()}</span>
                             </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">Order:</span>
+                              <div className="text-white col-span-2 flex flex-col gap-0.5">
+                                {selectedVariationsList.map((sv, sIdx) => (
+                                  <span key={sIdx}>{sv?.name} {sv?.qty}x</span>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">Player ID:</span>
+                              <span className="text-white col-span-2 font-semibold">{ids.join(' ')}</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">Payment:</span>
+                              <span className="text-white col-span-2 uppercase font-bold text-pink-400">
+                                {selectedPaymentMethod?.name.replace(/ payment/i, '') || 'GCASH'}
+                              </span>
+                            </div>
+                            {accIdx < accounts.length - 1 && (
+                              <div className="border-t border-gray-900 my-4"></div>
+                            )}
                           </div>
                         );
                       })}
                     </div>
-                  );
-                })()
-              ) : (
-                <p className="text-xs sm:text-sm text-gray-500">No packages available</p>
-              )}
-            </div>
-
-            {/* Section 3: Quantity / Your Selections */}
-            {(selectedVariation || accounts.length > 1) && (
-              <div ref={quantityApplyToRef} className={stepCardClass}>
-                {accounts.length > 1 && (
-                  <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                    <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>3</div>
-                    <h3 className="text-sm sm:text-base font-semibold text-gray-900">Your Selections</h3>
                   </div>
-                )}
-                <div className="space-y-3">
-                  {accounts.length === 1 ? (
-                    <div className="flex items-center gap-2">
-                      <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>3</div>
-                      <h3 className="text-sm sm:text-base font-semibold text-gray-900 flex-1">Quantity</h3>
-                      <div className="flex items-center gap-0 rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-                        <button
-                          type="button"
-                          onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                          className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-gray-100 hover:bg-purple-100 active:bg-purple-200 text-gray-700 hover:text-purple-700 font-bold text-lg transition-colors border-r border-gray-200"
-                        >
-                          −
-                        </button>
-                        <input
-                          type="number"
-                          min={1}
-                          max={99}
-                          value={quantity}
-                          onChange={(e) => setQuantity(Math.max(1, Math.min(99, parseInt(e.target.value, 10) || 1)))}
-                          className="w-12 sm:w-14 text-center py-2 bg-white text-base font-bold text-gray-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setQuantity((q) => Math.min(99, q + 1))}
-                          className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-gray-100 hover:bg-purple-100 active:bg-purple-200 text-gray-700 hover:text-purple-700 font-bold text-lg transition-colors border-l border-gray-200"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="space-y-2">
-                        {accounts.map((_, idx) => {
-                          const sel = userSelections[idx];
-                          const isActive = activeUserIdx === idx;
-                          return (
-                            <div
-                              key={idx}
-                              className={`flex flex-wrap items-center gap-2 py-3 px-3 rounded-lg border transition-colors ${
-                                isActive ? 'bg-purple-50 border-purple-300 ring-1 ring-purple-200' : 'bg-gray-50 border-gray-200'
-                              }`}
-                            >
-                              <span className="text-sm font-medium text-gray-900 min-w-0">
-                                {firstFieldLabel} #{idx + 1}
-                                {sel ? (
-                                  <span className="ml-2 font-normal text-gray-700">
-                                    {sel.variation.name} (₱{(getDiscountedPrice(sel.variation.price, sel.variation) * sel.quantity).toFixed(0)})
-                                  </span>
-                                ) : (
-                                  <span className="ml-2 font-normal text-gray-500 italic">← Select package above</span>
-                                )}
-                              </span>
-                              {sel && (
-                                <div className="flex items-center gap-1 ml-auto sm:ml-2">
-                                  <span className="text-xs text-gray-600 mr-1">Qty:</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateUserQuantity(idx, sel.quantity - 1)}
-                                    className="w-8 h-8 rounded border border-gray-200 hover:bg-purple-50 font-medium text-gray-700 text-sm"
-                                  >
-                                    −
-                                  </button>
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    max={99}
-                                    value={sel.quantity}
-                                    onChange={(e) => updateUserQuantity(idx, parseInt(e.target.value, 10) || 1)}
-                                    className="w-12 text-center py-1 rounded border border-gray-200 text-sm font-medium text-gray-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => updateUserQuantity(idx, sel.quantity + 1)}
-                                    className="w-8 h-8 rounded border border-gray-200 hover:bg-purple-50 font-medium text-gray-700 text-sm"
-                                  >
-                                    +
-                                  </button>
-                                </div>
-                              )}
-                              {sel && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleChangePackageFor(idx)}
-                                  className="px-3 py-1 rounded-lg border border-purple-300 text-purple-700 text-xs font-medium hover:bg-purple-50 ml-auto"
-                                >
-                                  Change
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
 
-            {/* Section 4: Select Payment */}
-            <div ref={paymentSectionRef} className={stepCardClass}>
-              <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>4</div>
-                <h3 className="text-sm sm:text-base font-semibold text-gray-900">Select Payment</h3>
-              </div>
-              <div className="grid grid-cols-5 gap-2 sm:gap-3">
-                {paymentMethods.map((method) => {
-                  const isSelected = paymentMethodId === method.id;
-                  return (
-                    <button
-                      key={method.id}
-                      type="button"
-                      onClick={() => setPaymentMethodId(method.id)}
-                      title={method.name}
-                      className={`w-14 h-14 sm:w-16 sm:h-16 rounded-lg border-2 flex items-center justify-center p-1.5 transition-all ${
-                        isSelected
-                          ? 'border-purple-500 bg-purple-50'
-                          : 'border-gray-200 bg-gray-50 hover:border-purple-300'
-                      }`}
-                    >
-                      {method.icon_url ? (
-                        <img
-                          src={method.icon_url}
-                          alt={method.name}
-                          className="w-full h-full object-contain rounded"
-                        />
-                      ) : (
-                        <span className="text-xl sm:text-2xl">💳</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              {paymentMethods.length === 0 && (
-                <p className="text-xs sm:text-sm text-gray-500">No payment methods available</p>
-              )}
-
-              {/* Payment Details Card */}
-              {selectedPaymentMethod && (
-                <div
-                  ref={paymentDetailsRef}
-                  className="mt-4 rounded-xl overflow-hidden"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(45,27,78,0.85) 0%, rgba(26,15,46,0.9) 100%)',
-                    border: '1px solid rgba(139,92,246,0.35)',
-                  }}
-                >
-                  {/* Collapsible Header */}
-                  <button
-                    type="button"
-                    onClick={() => setPaymentDetailsOpen((o) => !o)}
-                    className="w-full flex items-center justify-between px-3 py-2 transition-colors hover:bg-white/5"
-                    style={{ borderBottom: paymentDetailsOpen ? '1px solid rgba(139,92,246,0.2)' : 'none' }}
-                  >
-                    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#EC4899' }}>
+            {/* PAGE 4: PAYMENT DETAILS */}
+            {activePage === 'payment' && (
+              <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 min-h-0">
+                  <div className="bg-[#161922]/90 border border-gray-800/80 rounded-xl p-4 sm:p-5 shadow-lg">
+                    {/* Title */}
+                    <h3 className="text-xs sm:text-sm font-extrabold tracking-widest uppercase text-[#ff007f] mb-4">
                       Payment Details
-                    </p>
-                    {paymentDetailsOpen
-                      ? <ChevronUp className="h-3.5 w-3.5" style={{ color: '#EC4899' }} />
-                      : <ChevronDown className="h-3.5 w-3.5" style={{ color: '#EC4899' }} />
-                    }
-                  </button>
+                    </h3>
 
-                  {/* Card Body — QR left, details right */}
-                  {paymentDetailsOpen && (
-                    <div className="flex items-center gap-3 p-3">
-                      {/* QR Code (tappable) */}
-                      {selectedPaymentMethod.qr_code_url ? (
-                        <button
-                          type="button"
-                          onClick={() => setShowQrFullscreen(true)}
-                          className="flex-shrink-0 rounded-xl overflow-hidden p-1.5 transition-opacity hover:opacity-80 active:opacity-60"
-                          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(139,92,246,0.25)' }}
-                          title="Tap to view full QR"
-                        >
-                          <img
-                            src={selectedPaymentMethod.qr_code_url}
-                            alt={`${selectedPaymentMethod.name} QR Code`}
-                            className="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-lg"
-                          />
-                          <p className="text-[9px] text-purple-400 text-center mt-1">Tap to expand</p>
-                        </button>
-                      ) : (
-                        <div
-                          className="flex-shrink-0 w-24 h-24 rounded-xl flex items-center justify-center"
-                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(139,92,246,0.2)' }}
-                        >
-                          <p className="text-[10px] text-purple-300 text-center px-2">No QR</p>
-                        </div>
-                      )}
-
-                      {/* Right: badge + centered copy buttons */}
-                      <div className="flex-1 min-w-0 flex flex-col items-center gap-1.5">
-                        {/* Total */}
-                        <p className="text-sm sm:text-base font-bold text-white tracking-widest mb-1">
-                          TOTAL: ₱{totalPrice.toFixed(0)}
-                        </p>
-
-                        {/* Method badge */}
-                        <div
-                          className="px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-white mb-0.5"
-                          style={{ backgroundColor: '#8B5CF6' }}
-                        >
-                          {selectedPaymentMethod.name.replace(/ payment/i, '')}
-                        </div>
-
-                        {/* Copy Name */}
-                        {selectedPaymentMethod.account_name && (
+                    {/* Payment Icons Selector */}
+                    <div className="flex flex-wrap items-center justify-center gap-2 mb-5">
+                      {paymentMethods.map((method) => {
+                        const isSelected = paymentMethodId === method.id;
+                        return (
                           <button
+                            key={method.id}
                             type="button"
-                            onClick={() => handleCopyAccountName(selectedPaymentMethod.account_name)}
-                            className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors w-full"
-                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(139,92,246,0.2)' }}
-                            title="Copy account name"
+                            onClick={() => setPaymentMethodId(method.id)}
+                            className={`w-14 h-14 sm:w-16 sm:h-16 rounded-lg border flex items-center justify-center p-1.5 transition-all flex-shrink-0 ${
+                              isSelected
+                                ? 'border-pink-500 bg-[#2c1524]/20'
+                                : 'border-gray-800 bg-transparent hover:border-pink-500/50'
+                            }`}
                           >
-                            {copiedAccountName ? (
-                              <span className="text-green-400 text-[11px] font-semibold">Copied!</span>
+                            {method.icon_url ? (
+                              <img
+                                src={method.icon_url}
+                                alt={method.name}
+                                className="w-full h-full object-contain rounded"
+                              />
                             ) : (
-                              <>
-                                <Copy className="h-2.5 w-2.5 text-purple-400 flex-shrink-0" />
-                                <span className="text-[11px] text-purple-200 truncate">{selectedPaymentMethod.account_name}</span>
-                              </>
+                              <span className="text-[10px] font-bold text-white uppercase truncate">{method.name}</span>
                             )}
                           </button>
-                        )}
+                        );
+                      })}
+                    </div>
 
-                        {/* Copy Number */}
-                        <button
-                          type="button"
-                          onClick={() => handleCopyAccountNumber(selectedPaymentMethod.account_number)}
-                          className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors w-full"
-                          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(139,92,246,0.2)' }}
-                          title="Copy account number"
-                        >
-                          {copiedAccountNumber ? (
-                            <span className="text-green-400 text-[11px] font-semibold">Copied!</span>
-                          ) : (
-                            <>
-                              <Copy className="h-2.5 w-2.5 text-purple-400 flex-shrink-0" />
-                              <span className="font-mono font-bold text-[11px] sm:text-xs tracking-widest text-white">
-                                {selectedPaymentMethod.account_number}
-                              </span>
-                            </>
-                          )}
-                        </button>
+                    {/* Selected Payment QR and Credentials details */}
+                    {selectedPaymentMethod && (
+                      <div className="space-y-4">
+                        <div className="flex flex-col sm:flex-row items-center gap-4 bg-black/30 p-4 border border-gray-900 rounded-xl">
+                          {/* QR Code image wrapper */}
+                          <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+                            {selectedPaymentMethod.qr_code_url ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowQrFullscreen(true)}
+                                  className="w-28 h-28 rounded-xl flex items-center justify-center hover:opacity-95 transition-opacity bg-transparent p-0"
+                                >
+                                  <img
+                                    src={selectedPaymentMethod.qr_code_url}
+                                    alt="Scan QR"
+                                    className="w-full h-full object-contain rounded-xl"
+                                  />
+                                </button>
+                                <span className="text-[9px] font-extrabold tracking-wider uppercase text-pink-500/80">
+                                  tap to view
+                                </span>
+                              </>
+                            ) : (
+                              <div className="w-28 h-28 bg-[#161922] border border-gray-800 rounded-xl flex items-center justify-center">
+                                <span className="text-[10px] text-gray-500">No QR Code</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Copyable Fields */}
+                          <div className="flex-1 w-full space-y-2 text-xs sm:text-sm font-semibold">
+                            <p className="text-white text-base font-bold uppercase mb-2">
+                              {selectedPaymentMethod.name.replace(/ payment/i, '')} Details
+                            </p>
+
+                            {selectedPaymentMethod.account_number && (
+                              <button
+                                type="button"
+                                onClick={() => handleCopyAccountNumber(selectedPaymentMethod.account_number)}
+                                className="flex items-center justify-between w-full bg-[#0d0d0d] border border-gray-800 rounded-xl px-4 py-2.5 text-gray-300 hover:text-white"
+                              >
+                                <span className="truncate">Number : {selectedPaymentMethod.account_number}</span>
+                                <Copy className="h-4 w-4 text-pink-500 flex-shrink-0" />
+                              </button>
+                            )}
+
+                            {selectedPaymentMethod.account_name && (
+                              <button
+                                type="button"
+                                onClick={() => handleCopyAccountName(selectedPaymentMethod.account_name)}
+                                className="flex items-center justify-between w-full bg-[#0d0d0d] border border-gray-800 rounded-xl px-4 py-2.5 text-gray-300 hover:text-white"
+                              >
+                                <span className="truncate">Name : {selectedPaymentMethod.account_name}</span>
+                                <Copy className="h-4 w-4 text-pink-500 flex-shrink-0" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Total payment display */}
+                        <div className="flex items-center justify-between bg-[#2c1524]/20 border border-[#ff007f]/30 rounded-xl px-5 py-4">
+                          <span className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-pink-500">
+                            Total Payment
+                          </span>
+                          <span className="text-xl sm:text-2xl font-black text-pink-500">
+                            ₱{totalPrice.toFixed(0)}
+                          </span>
+                        </div>
+
+                        {/* Warning policy */}
+                        <p className="text-[10px] sm:text-xs text-red-500 font-bold leading-relaxed text-center">
+                          ⚠️ No Receipt, No Top-Up Policy ! Fake receipts will result in account suspension.
+                        </p>
                       </div>
+                    )}
+                  </div>
+
+                  {/* Instructions card */}
+                  <div className="bg-[#161922]/90 border border-gray-800/80 rounded-xl p-4 sm:p-5 shadow-lg space-y-3">
+                    <ol className="list-decimal list-outside pl-4 text-xs sm:text-sm text-gray-400 space-y-2 leading-relaxed">
+                      <li>I-send ang payment at i-screenshot o picturan ang resibo.</li>
+                      <li>Pagkatapos magbayad, i-tap ang <span className="font-bold text-white">"COPY ORDER FORM"</span> at i-submit ang order.</li>
+                      <li>Madi-direct ka sa aming Facebook page, kung saan may lalabas na <span className="font-bold text-[#ff007f]">auto form</span>. I-send ito kasama ang resibo ng iyong bayad.</li>
+                    </ol>
+                  </div>
+
+                  {/* Proof Upload (place_order) */}
+                  {orderOption === 'place_order' && (
+                    <div className="space-y-2 bg-[#161922]/90 border border-gray-800/80 rounded-xl p-4">
+                      <p className="text-xs font-bold text-white uppercase mb-2">Upload Receipt Proof</p>
+                      {!receiptPreview ? (
+                        <label className="block border-2 border-dashed border-gray-800 rounded-xl p-4 text-center cursor-pointer hover:border-pink-500/50 hover:bg-white/5 transition-colors">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleReceiptUpload(f);
+                            }}
+                            className="hidden"
+                            disabled={uploadingReceipt}
+                          />
+                          {uploadingReceipt ? (
+                            <div className="text-xs text-gray-500 animate-pulse">Uploading receipt...</div>
+                          ) : (
+                            <div className="text-xs text-gray-400">Click to upload screenshot receipt</div>
+                          )}
+                        </label>
+                      ) : (
+                        <div className="flex items-center gap-3 p-2 bg-[#0d0d0d] border border-gray-800 rounded-xl">
+                          <img src={receiptPreview} alt="Receipt" className="w-10 h-10 object-cover rounded-lg" />
+                          <span className="text-xs text-gray-300 truncate flex-1">{receiptFile?.name}</span>
+                          <button type="button" onClick={handleReceiptRemove} className="p-1 hover:bg-red-500/10 text-red-500 rounded">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-
-              {/* Fullscreen QR Viewer */}
-              {showQrFullscreen && selectedPaymentMethod?.qr_code_url && (
-                <div
-                  className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
-                  style={{ background: 'rgba(10,5,20,0.97)' }}
-                >
-                  {/* Back button */}
-                  <button
-                    type="button"
-                    onClick={() => setShowQrFullscreen(false)}
-                    className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors"
-                    style={{ background: 'rgba(139,92,246,0.25)', border: '1px solid rgba(139,92,246,0.4)' }}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back
-                  </button>
-
-                  {/* QR image */}
-                  <div
-                    className="rounded-2xl overflow-hidden p-4"
-                    style={{ background: 'white', boxShadow: '0 0 60px rgba(139,92,246,0.4)' }}
-                  >
-                    <img
-                      src={selectedPaymentMethod.qr_code_url}
-                      alt={`${selectedPaymentMethod.name} QR Code`}
-                      className="w-72 h-72 sm:w-80 sm:h-80 object-contain"
-                    />
-                  </div>
-
-                  {/* Label */}
-                  <p className="mt-5 text-xs font-bold uppercase tracking-widest" style={{ color: '#8B5CF6' }}>
-                    {selectedPaymentMethod.name.replace(/ payment/i, '')} — Scan to Pay
-                  </p>
-                  <p className="mt-1 text-xs text-purple-300/60">Take a screenshot to save this QR code</p>
-                </div>
-              )}
-
-
-            </div>
-
-            {/* Section 4: Upload Proof of Payment (Only if order_option is place_order or undefined) */}
-            {(orderOption === 'place_order') && (
-              <div ref={uploadSectionRef} className={stepCardClass}>
-                <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                  <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>5</div>
-                  <h3 className="text-sm sm:text-base font-semibold text-gray-900">Upload Proof of Payment</h3>
-                </div>
-                <div className="space-y-2 sm:space-y-3">
-                  {!receiptPreview ? (
-                  <label className="block border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6 text-center cursor-pointer hover:border-purple-400 hover:bg-purple-50/50 transition-colors">
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) handleReceiptUpload(f);
-                      }}
-                      className="hidden"
-                      disabled={uploadingReceipt}
-                    />
-                    {uploadingReceipt ? (
-                      <>
-                        <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-2 border-purple-500 border-t-transparent mx-auto" />
-                        <p className="text-xs sm:text-sm text-gray-500 mt-1.5 sm:mt-2">Uploading...</p>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-8 w-8 sm:h-10 sm:w-10 text-purple-500 mx-auto" />
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 mt-1.5 sm:mt-2">
-                          Click to upload receipt
-                        </p>
-                        <p className="text-[10px] sm:text-xs text-gray-500">JPEG, PNG, WebP, GIF (Max 5MB)</p>
-                      </>
-                    )}
-                  </label>
-                ) : (
-                  <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border border-gray-200 bg-gray-50">
-                    <img
-                      src={receiptPreview}
-                      alt="Receipt"
-                      className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-lg"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
-                        {receiptFile?.name || 'Receipt uploaded'}
-                      </p>
-                      <p className="text-[10px] sm:text-xs text-green-600">
-                        {receiptImageUrl ? '✓ Uploaded' : 'Uploading...'}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleReceiptRemove}
-                      className="p-1.5 sm:p-2 rounded-lg hover:bg-red-100 text-gray-600 hover:text-red-600"
-                    >
-                      <X className="h-4 w-4 sm:h-5 sm:w-5" />
-                    </button>
-                  </div>
-                )}
-                {receiptError && (
-                  <p className="text-xs sm:text-sm text-red-500">{receiptError}</p>
-                )}
-                {orderOption === 'place_order' && (
-                  <button
-                    type="button"
-                    onClick={handlePlaceOrder}
-                    disabled={!isFormValid || isPlacingOrder}
-                    className={`w-full py-3 sm:py-4 rounded-xl font-semibold text-sm sm:text-lg transition-all ${
-                      isFormValid && !isPlacingOrder
-                        ? 'bg-pink-500 hover:bg-pink-600 text-white'
-                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {isPlacingOrder ? 'Placing Order...' : `Place Order - ₱${totalPrice.toFixed(0)}`}
-                  </button>
-                )}
               </div>
-            </div>
             )}
 
-            {/* Section 4 (Alternative): Order Message Action (when not place_order) */}
-            {orderOption !== 'place_order' && (
-              <div ref={uploadSectionRef} className={stepCardClass}>
-                <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                  <div className={stepNumClass} style={{ backgroundColor: '#8B5CF6' }}>5</div>
-                  <h3 className="text-sm sm:text-base font-semibold text-gray-900">Copy Order Form</h3>
-                </div>
-                <div
-                  className="mb-4 rounded-xl p-3 sm:p-4 space-y-2.5"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(45,27,78,0.9) 0%, rgba(26,15,46,0.95) 100%)',
-                    border: '1px solid rgba(236, 72, 153, 0.35)',
-                  }}
-                >
-                  <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#EC4899' }}>
-                    How it works
+            {/* PAGE 5: ORDER SUBMITTED SUCCESS PAGE */}
+            {activePage === 'submitted' && (
+              <div className="flex-1 flex flex-col justify-between p-4 sm:p-5 space-y-6 overflow-y-auto min-h-0">
+                <div className="space-y-6">
+                  {/* Header Title */}
+                  <div className="flex items-center justify-center gap-2 text-[#ff007f]">
+                    <h2 className="text-xl sm:text-2xl font-black uppercase tracking-wider">
+                      ORDER SUBMITTED
+                    </h2>
+                    <Check className="w-6 h-6 stroke-[3px]" />
+                  </div>
+
+                  {/* Summary Card Details */}
+                  <div className="bg-[#161922]/90 border border-gray-800/80 rounded-xl p-4 sm:p-5 shadow-lg space-y-4 text-xs sm:text-sm font-medium">
+                    {accounts.map((acc, accIdx) => {
+                      const accSelections = selections[accIdx] || {};
+                      const selectedVariationsList = Object.entries(accSelections)
+                        .map(([vId, qty]) => {
+                          const v = item.variations?.find((x) => x.id === vId);
+                          return v ? { name: v.name, qty } : null;
+                        })
+                        .filter(Boolean);
+
+                      if (selectedVariationsList.length === 0) return null;
+
+                      const ids: string[] = [];
+                      if (hasCustomFields && item.customFields) {
+                        item.customFields.forEach((f) => {
+                          const v = acc[f.key];
+                          if (v) ids.push(v);
+                        });
+                      }
+
+                      return (
+                        <div key={accIdx} className="space-y-3">
+                          <div className="grid grid-cols-3 gap-2">
+                            <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">GAME:</span>
+                            <span className="text-white col-span-2">{item.name.replace(/^[🟢\s]+/, '').trim()}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">ORDER:</span>
+                            <div className="text-white col-span-2 flex flex-col gap-0.5 font-bold">
+                              {selectedVariationsList.map((sv, sIdx) => (
+                                <span key={sIdx}>{sv?.name} {sv?.qty}x</span>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">PLAYER ID:</span>
+                            <span className="text-white col-span-2 font-semibold">{ids.join(' ')}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">PAYMENT:</span>
+                            <span className="text-white col-span-2 uppercase font-bold text-pink-400">
+                              {selectedPaymentMethod?.name.replace(/ payment/i, '') || 'GCASH'}
+                            </span>
+                          </div>
+                          {accIdx === 0 && (
+                            <div className="grid grid-cols-3 gap-2">
+                              <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">TOTAL:</span>
+                              <span className="text-pink-500 font-black text-sm sm:text-base">₱{totalPrice.toFixed(0)}</span>
+                            </div>
+                          )}
+                          {accIdx < accounts.length - 1 && (
+                            <div className="border-t border-gray-900 my-4"></div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Horizontal Divider Line */}
+                  <div className="border-t-2 border-[#ff007f]/40 my-2"></div>
+
+                  {/* Banner processing time */}
+                  <div className="bg-[#161922]/90 border border-gray-800/80 rounded-xl p-3 flex items-center justify-center gap-2 max-w-sm mx-auto">
+                    <Clock className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                    <span className="text-xs sm:text-sm font-bold text-gray-400">
+                      Processing Time : 10 mins to few hours
+                    </span>
+                  </div>
+
+                  {/* Helper Text */}
+                  <p className="text-center text-xs sm:text-sm font-bold text-pink-500/90 leading-relaxed px-4">
+                    Please wait. Your order is being processed by our team
                   </p>
-                  {[
-                    'Send payment via E-WALLET, BANK OR REMITLY ABROAD.',
-                    <>Screenshot your <span className="font-bold text-white">receipt</span> as proof of payment.</>,
-                    'Copy the order form below and send it + receipt to our Messenger.',
-                  ].map((step, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <div
-                        className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white mt-0.5"
-                        style={{ backgroundColor: '#8B5CF6' }}
-                      >
-                        {i + 1}
-                      </div>
-                      <p className="text-xs sm:text-sm leading-snug" style={{ color: 'rgba(233,213,255,0.85)' }}>
-                        {step}
-                      </p>
-                    </div>
-                  ))}
                 </div>
-                <div className="space-y-2">
+
+                {/* BUY AGAIN button */}
+                <div className="pt-4 pb-2">
+                  <button
+                    type="button"
+                    onClick={handleBuyAgain}
+                    className="w-full py-3.5 rounded-xl border border-[#ff007f]/30 hover:bg-pink-500/10 text-pink-500 hover:text-pink-400 font-extrabold uppercase tracking-widest text-xs sm:text-sm transition-all shadow-[0_0_8px_rgba(255,0,127,0.1)] text-center bg-transparent"
+                  >
+                    BUY AGAIN
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* FIXED FOOTER AREA FOR NAVIGATION AND ACTIONS */}
+          {activePage !== 'submitted' && (
+            <div className="flex-shrink-0 p-4 sm:p-5 border-t border-gray-900 bg-[#0d0d0d]/80 backdrop-blur-md space-y-3">
+            {/* PAGE 1 ACTIONS */}
+            {activePage === 'details' && (
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={addAccount}
+                  className="w-full py-3.5 rounded-xl border border-dashed border-pink-500/40 text-pink-500 hover:bg-pink-500/5 text-xs sm:text-sm font-extrabold uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add New Order
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => isDetailsValid && setActivePage('products')}
+                  disabled={!isDetailsValid}
+                  className={`w-full py-3.5 rounded-xl text-xs sm:text-sm font-extrabold uppercase tracking-widest transition-all ${
+                    isDetailsValid
+                      ? 'bg-pink-500 hover:bg-pink-600 text-white shadow-[0_0_12px_rgba(255,0,127,0.25)]'
+                      : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  Choose Products
+                </button>
+              </div>
+            )}
+
+            {/* PAGE 2 ACTIONS */}
+            {activePage === 'products' && (
+              <button
+                type="button"
+                onClick={() => isProductsSelected && setActivePage('order_details')}
+                disabled={!isProductsSelected}
+                className={`w-full py-3.5 rounded-xl text-xs sm:text-sm font-extrabold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                  isProductsSelected
+                    ? 'bg-pink-500 hover:bg-pink-600 text-white shadow-[0_0_12px_rgba(255,0,127,0.25)]'
+                    : 'bg-gray-850 border border-gray-800 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                <MessageCircle className="h-4 w-4 fill-current" />
+                Checkout
+              </button>
+            )}
+
+            {/* PAGE 3 ACTIONS */}
+            {activePage === 'order_details' && (
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActivePage('products')}
+                  className="w-full py-3.5 rounded-xl border border-gray-850 text-gray-300 hover:bg-white/5 text-xs sm:text-sm font-extrabold uppercase tracking-widest transition-colors text-center"
+                >
+                  Add more
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivePage('payment');
+                    setShowInstructionsModal(true);
+                  }}
+                  className="w-full py-3.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white shadow-[0_0_12px_rgba(255,0,127,0.2)] text-xs sm:text-sm font-extrabold uppercase tracking-widest transition-all text-center"
+                >
+                  Proceed
+                </button>
+              </div>
+            )}
+
+            {/* PAGE 4 ACTIONS */}
+            {activePage === 'payment' && (
+              <div className="space-y-3">
+                {/* Buttons in one row */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Copy Order Form Button */}
                   <button
                     type="button"
                     onClick={handleCopyOrderMessage}
                     disabled={!isFormValid || isPlacingOrder}
-                    className={`w-full py-3 sm:py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${
+                    className={`w-full py-3.5 rounded-xl text-[10px] sm:text-xs font-extrabold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
                       isFormValid && !isPlacingOrder
-                        ? 'bg-purple-500 hover:bg-purple-600 text-white'
-                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        ? 'bg-pink-500 hover:bg-pink-600 text-white shadow-[0_0_12px_rgba(255,0,127,0.25)]'
+                        : 'bg-gray-850 border border-gray-800 text-gray-500 cursor-not-allowed'
                     }`}
                   >
-                    {copiedOrderMessage ? <span>Copied!</span> : <><Copy className="h-4 w-4" /> Copy Order Form</>}
+                    <Copy className="h-4 w-4" />
+                    {copiedOrderMessage ? 'Copied!' : 'Copy Form'}
                   </button>
-                  <p className="text-xs text-gray-500 text-center mt-1">
-                    Copy the order form, then open Messenger to send it.
-                  </p>
-                </div>
-              </div>
-            )}
 
-            {/* Section 5: Send Order (Order via Messenger only) */}
-            {orderOption === 'order_via_messenger' && (
-              <div className={stepCardClass}>
-                <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                  <div className={stepNumClass} style={{ backgroundColor: '#EC4899' }}>6</div>
-                  <h3 className="text-sm sm:text-base font-semibold text-gray-900">Send Order</h3>
+                  {/* Submit button */}
+                  {orderOption === 'place_order' ? (
+                    <button
+                      type="button"
+                      onClick={handlePlaceOrder}
+                      disabled={!isFormValid || isPlacingOrder}
+                      className={`w-full py-3.5 rounded-xl text-[10px] sm:text-xs font-extrabold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                        isFormValid && !isPlacingOrder
+                          ? 'bg-pink-500 hover:bg-pink-600 text-white shadow-[0_0_12px_rgba(255,0,127,0.25)]'
+                          : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {isPlacingOrder ? 'Submitting...' : 'Submit Order'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleOpenMessenger}
+                      disabled={!isFormValid || isPlacingOrder}
+                      className={`w-full py-3.5 rounded-xl text-[10px] sm:text-xs font-extrabold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                        isFormValid && !isPlacingOrder
+                          ? 'bg-pink-500 hover:bg-pink-600 text-white shadow-[0_0_12px_rgba(255,0,127,0.25)]'
+                          : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      <MessageCircle className="h-4 w-4 fill-current" />
+                      {isPlacingOrder ? 'Opening...' : 'Submit Order'}
+                    </button>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={handleOpenMessenger}
-                  disabled={!isFormValid || isPlacingOrder}
-                  className={`w-full py-3 sm:py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${
-                    isFormValid && !isPlacingOrder
-                      ? 'bg-pink-500 hover:bg-pink-600 text-white'
-                      : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  <MessageCircle className="h-4 w-4" /> Send Order to PGCShop
-                </button>
+                
+                 <p className="text-[10px] text-gray-500 font-bold tracking-wider text-center pt-1">
+                  Visit our official website : <a href="https://www.pgcshop.com" target="_blank" rel="noopener noreferrer" className="text-pink-500 hover:text-pink-400 transition-colors font-semibold ml-0.5">www.pgcshop.com</a>
+                </p>
               </div>
             )}
           </div>
+          )}
+
+          {/* Inner overlay instructions modal */}
+          {showInstructionsModal && (
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4">
+              <div
+                className="w-full max-w-sm rounded-2xl p-5 border border-pink-500/35 space-y-4 shadow-2xl"
+                style={{ background: 'linear-gradient(180deg, #161922 0%, #0d0d0d 100%)' }}
+              >
+                <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-[#ff007f] text-center pb-2 border-b border-gray-800">
+                  Instructions / Guide
+                </h3>
+                
+                <ol className="list-decimal list-outside pl-4 text-xs sm:text-sm text-gray-300 space-y-3 leading-relaxed">
+                  <li>I-send ang payment at i-screenshot o picturan ang resibo.</li>
+                  <li>Pagkatapos magbayad, i-tap ang <span className="font-bold text-white">"COPY ORDER FORM"</span> at i-submit ang order.</li>
+                  <li>
+                    Madi-direct ka sa aming Facebook page, kung saan may lalabas na{' '}
+                    <span className="font-bold text-[#ff007f]">auto form</span>. I-send ito kasama ang resibo ng iyong bayad.
+                  </li>
+                </ol>
+
+                <button
+                  type="button"
+                  onClick={() => setShowInstructionsModal(false)}
+                  className="w-full py-3 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-extrabold uppercase tracking-widest text-xs sm:text-sm shadow-[0_0_12px_rgba(255,0,127,0.25)] transition-all mt-2"
+                >
+                  I understand
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Fullscreen QR Viewer Modal */}
+      {showQrFullscreen && selectedPaymentMethod?.qr_code_url && (
+        <div
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 p-4"
+          onClick={() => setShowQrFullscreen(false)}
+        >
+          <div className="bg-white p-3 rounded-2xl max-w-sm w-full aspect-square flex items-center justify-center shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowQrFullscreen(false)}
+              className="absolute -top-12 right-0 p-2 text-white hover:opacity-85"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={selectedPaymentMethod.qr_code_url}
+              alt="Scan to Pay"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <p className="mt-4 text-xs font-bold text-white tracking-widest uppercase">
+            {selectedPaymentMethod.name.replace(/ payment/i, '')} QR Code — Scan to Pay
+          </p>
+        </div>
+      )}
+      
+      {/* Fullscreen Guide Image Viewer Modal */}
+      {showGuideFullscreen && item.guide_image_url && (
+        <div
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 p-4"
+          onClick={() => setShowGuideFullscreen(false)}
+        >
+          <div className="max-w-md w-full max-h-[85vh] flex items-center justify-center relative" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowGuideFullscreen(false)}
+              className="absolute -top-12 right-0 p-2 text-white hover:opacity-85"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={item.guide_image_url}
+              alt="Guide Image"
+              className="w-full h-auto max-h-[85vh] object-contain rounded-2xl border border-gray-800 shadow-2xl"
+            />
+          </div>
+          <p className="mt-4 text-xs font-bold text-white tracking-widest uppercase">
+            {item.name.replace(/^[🟢\s]+/, '').trim()} ID Guide
+          </p>
+        </div>
+      )}
     </>
   );
 };

@@ -169,7 +169,7 @@ function MainApp() {
   // Store closed: show a single message, no menu or ordering
   if (storeClosed) {
     return (
-      <div className="min-h-screen relative flex flex-col items-center justify-center p-6" style={{ backgroundColor: '#0d0d0d' }}>
+      <div className="min-h-screen relative flex flex-col items-center justify-center p-4 sm:p-6" style={{ backgroundColor: '#0d0d0d' }}>
         <div
           className="fixed inset-0 flex items-center justify-center pointer-events-none z-0"
           style={{
@@ -177,16 +177,77 @@ function MainApp() {
             backgroundSize: 'contain',
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center',
-            opacity: 0.1
+            opacity: 0.05
           }}
         />
-        <div className="relative z-10 text-center max-w-md">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">We&apos;re closed</h1>
-          <p className="text-gray-400 text-sm sm:text-base">
-            We&apos;re not taking orders right now. Please check back later.
-          </p>
+
+        <div
+          className="relative z-10 w-full max-w-md rounded-[32px] p-6 sm:p-8 flex flex-col items-center justify-center space-y-6 shadow-2xl"
+          style={{
+            background: 'linear-gradient(180deg, #161922 0%, #0d0d0d 100%)',
+            border: '1px solid rgba(255, 105, 180, 0.15)',
+          }}
+        >
+          {/* Logo */}
+          <img src="/logo.png" alt="PGCShop Logo" className="h-14 sm:h-16 w-auto object-contain" />
+
+          {/* Closed Status Container */}
+          <div className="border border-gray-800/80 px-5 py-3 rounded-xl bg-black/25 text-center w-full max-w-[320px]">
+            <p className="text-sm sm:text-base font-semibold text-gray-400">
+              Manual Top-Up is currently <span className="text-pink-500 font-extrabold uppercase">CLOSED!</span>
+            </p>
+          </div>
+
+          {/* Time schedule */}
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="bg-[#161922]/50 border border-gray-800/50 rounded-full px-4 py-1.5 flex items-center justify-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-pink-500 shadow-[0_0_6px_#ff007f]"></span>
+              <span className="text-xs sm:text-sm font-extrabold text-gray-300">
+                8:00 AM - 10:00 PM Only
+              </span>
+            </div>
+            <span className="text-[10px] sm:text-xs font-bold text-gray-500">
+              Open Daily Monday - Sunday
+            </span>
+          </div>
+
+          {/* Divider */}
+          <div className="w-full border-t border-gray-900/60 my-2"></div>
+
+          {/* Want to Top Up Now Section */}
+          <div className="text-center space-y-1">
+            <h2 className="text-xl sm:text-2xl font-black text-white tracking-wide">
+              Want to Top Up Now?
+            </h2>
+            <p className="text-xs sm:text-sm font-semibold text-gray-500">
+              Visit our official website
+            </p>
+          </div>
+
+          {/* Gradient Banner Link */}
+          <a
+            href="https://www.pgcshop.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full rounded-2xl p-4 flex items-center justify-between transition-all duration-300 hover:scale-[1.02] shadow-[0_0_15px_rgba(255,0,127,0.15)] group"
+            style={{
+              background: 'linear-gradient(90deg, #8b008b 0%, #ff007f 50%, #8b008b 100%)'
+            }}
+          >
+            <span className="text-white text-lg sm:text-xl font-black tracking-wider uppercase">
+              PGCSHOP.COM
+            </span>
+            <div className="bg-[#0d0d0d]/80 px-3 py-1.5 rounded-xl border border-[#ff007f]/30 flex items-center gap-1.5 group-hover:border-[#ff007f]/50 transition-colors">
+              <span className="w-2 h-2 rounded-full bg-[#ff007f] animate-ping absolute"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-[#ff007f] relative"></span>
+              <span className="text-[10px] sm:text-xs font-black uppercase text-[#ff007f] tracking-widest ml-1">
+                OPEN 24/7
+              </span>
+            </div>
+          </a>
+          
+          <Footer compact={true} />
         </div>
-        <Footer />
       </div>
     );
   }

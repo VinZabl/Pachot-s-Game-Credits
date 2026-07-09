@@ -56,6 +56,7 @@ export interface MenuItem {
   // Badge text (overlay on top-left of image, e.g. "PROMO", "SALE")
   badge_text?: string;
   badge_color?: string; // HEX or color name
+  guide_image_url?: string;
 }
 
 export interface CartItem extends MenuItem {
