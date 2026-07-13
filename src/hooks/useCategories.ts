@@ -19,7 +19,7 @@ export const useCategories = () => {
   const fetchCategories = async (retries = 3) => {
     try {
       setLoading(true);
-      
+
       const { data, error: fetchError } = await supabase
         .from('categories')
         .select('*')
@@ -41,7 +41,7 @@ export const useCategories = () => {
     } catch (err) {
       console.error('Error fetching categories:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch categories';
-      
+
       // Provide more helpful error message for CORS issues
       if (errorMessage.includes('CORS') || errorMessage.includes('NetworkError')) {
         setError('Network error: Please check your Supabase CORS settings and internet connection.');

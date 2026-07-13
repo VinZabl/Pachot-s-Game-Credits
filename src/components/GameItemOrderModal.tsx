@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { X, Upload, HelpCircle, Copy, Download, Plus, Trash2, MessageCircle, Check, Receipt, ArrowLeft, ChevronUp, ChevronDown, Clock } from 'lucide-react';
+import { X, Upload, HelpCircle, Copy, Download, Plus, Trash2, MessageCircle, Check, Receipt, ArrowLeft, ChevronUp, ChevronDown, Clock, ShoppingCart } from 'lucide-react';
 import { MenuItem, Variation, CartItem, Member } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useImageUpload } from '../hooks/useImageUpload';
@@ -302,6 +302,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
   const buildOrderMessage = (): string => {
     const lines: string[] = [];
+    let grandTotal = 0;
     accounts.forEach((acc, accIdx) => {
       lines.push(`GAME: ${item.name}`);
       
@@ -325,6 +326,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
           orderNames.push(`${v.name} (₱${price.toFixed(0)}) ${qty}x`);
         }
       });
+      grandTotal += userTotal;
       lines.push(`ORDER:\n${orderNames.join('\n')}`);
       
       const paymentName = selectedPaymentMethod?.name || 'GCASH';
@@ -335,6 +337,8 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
         lines.push('---------------------------');
       }
     });
+    
+    lines.push(`\nGRAND TOTAL: ₱${grandTotal.toFixed(0)}`);
     return lines.join('\n');
   };
 
@@ -1011,9 +1015,11 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                         const selectedVariationsList = Object.entries(accSelections)
                           .map(([vId, qty]) => {
                             const v = item.variations?.find((x) => x.id === vId);
-                            return v ? { name: v.name, qty } : null;
+                            if (!v) return null;
+                            const price = getDiscountedPrice(v.price, v);
+                            return { name: v.name, qty, price };
                           })
-                          .filter(Boolean);
+                          .filter(Boolean) as Array<{ name: string; qty: number; price: number }>;
 
                         if (selectedVariationsList.length === 0) return null;
 
@@ -1024,6 +1030,8 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                             if (v) ids.push(v);
                           });
                         }
+
+                        const userTotal = selectedVariationsList.reduce((accSum, curr) => accSum + curr.price * curr.qty, 0);
 
                         return (
                           <div
@@ -1038,15 +1046,28 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                             </div>
                             <div className="grid grid-cols-3 gap-2">
                               <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">Order:</span>
-                              <div className="text-white col-span-2 flex flex-col gap-0.5">
+                              <div className="text-white col-span-2 flex flex-col gap-1">
                                 {selectedVariationsList.map((sv, sIdx) => (
-                                  <span key={sIdx}>{sv?.name} {sv?.qty}x</span>
+                                  <div key={sIdx} className="flex justify-between items-center">
+                                    <span>{sv.name} {sv.qty}x</span>
+                                    <span className="text-pink-400 font-bold">₱{(sv.price * sv.qty).toFixed(0)}</span>
+                                  </div>
                                 ))}
                               </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 pt-1 border-t border-gray-900/60">
+                              <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">User Total:</span>
+                              <span className="text-pink-500 font-extrabold col-span-2 text-right">₱{userTotal.toFixed(0)}</span>
                             </div>
                           </div>
                         );
                       })}
+                    </div>
+
+                    {/* Overall Total */}
+                    <div className="mt-5 pt-4 border-t border-pink-500/30 flex justify-between items-center">
+                      <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-white">Overall Total:</span>
+                      <span className="text-base sm:text-lg font-black text-pink-500">₱{totalPrice.toFixed(0)}</span>
                     </div>
                   </div>
                 </div>
@@ -1336,7 +1357,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                       >
                         <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 text-pink-500 group-hover:scale-110 transition-transform duration-200 flex-shrink-0" />
                         <span className="text-xs font-semibold text-white group-hover:text-pink-500 transition-colors duration-200 text-center">
-                          Having trouble or issues? Tap here to contact us
+                          Order Not Yet Received? Contact Customer Service
                         </span>
                       </a>
                     </div>
@@ -1348,8 +1369,9 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                   <button
                     type="button"
                     onClick={handleBuyAgain}
-                    className="w-full py-3.5 rounded-xl border border-[#ff007f]/30 hover:bg-pink-500/10 text-pink-500 hover:text-pink-400 font-extrabold uppercase tracking-widest text-xs sm:text-sm transition-all shadow-[0_0_8px_rgba(255,0,127,0.1)] text-center bg-transparent"
+                    className="w-full py-3.5 rounded-xl border border-[#ff007f]/30 hover:bg-pink-500/10 text-pink-500 hover:text-pink-400 font-extrabold uppercase tracking-widest text-xs sm:text-sm transition-all shadow-[0_0_8px_rgba(255,0,127,0.1)] flex items-center justify-center gap-2 bg-transparent"
                   >
+                    <ShoppingCart className="w-4 h-4" />
                     BUY AGAIN
                   </button>
                 </div>

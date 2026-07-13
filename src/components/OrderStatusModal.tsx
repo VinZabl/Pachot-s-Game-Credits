@@ -200,7 +200,7 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
                 >
                   <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 text-pink-500 group-hover:scale-110 transition-transform duration-200 flex-shrink-0" />
                   <span className="text-xs font-semibold text-white group-hover:text-pink-500 transition-colors duration-200 text-center">
-                    Having trouble or issues? Tap here to contact us
+                    Order Not Yet Received? Contact Customer Service
                   </span>
                 </a>
               </div>
