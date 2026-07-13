@@ -57,6 +57,7 @@ export interface MenuItem {
   badge_text?: string;
   badge_color?: string; // HEX or color name
   guide_image_url?: string;
+  guide_text?: string;
 }
 
 export interface CartItem extends MenuItem {
@@ -118,6 +119,13 @@ export interface SiteSettings {
   hero_image_5?: string;
   /** When true, customer page shows "closed" and customers cannot order or browse. */
   store_closed?: boolean;
+  // How to Order instructions
+  how_to_order_title?: string;
+  how_to_order_subtitle?: string;
+  how_to_order_step_1?: string;
+  how_to_order_step_2?: string;
+  how_to_order_step_3?: string;
+  how_to_order_step_4?: string;
 }
 
 // Order Types

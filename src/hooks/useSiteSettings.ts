@@ -39,6 +39,12 @@ export const useSiteSettings = () => {
         hero_image_4: data.find(s => s.id === 'hero_image_4')?.value || '',
         hero_image_5: data.find(s => s.id === 'hero_image_5')?.value || '',
         store_closed: (data.find(s => s.id === 'store_closed')?.value || 'false') === 'true',
+        how_to_order_title: data.find(s => s.id === 'how_to_order_title')?.value || 'HOW TO ORDER',
+        how_to_order_subtitle: data.find(s => s.id === 'how_to_order_subtitle')?.value || 'Follow these steps to place your order',
+        how_to_order_step_1: data.find(s => s.id === 'how_to_order_step_1')?.value || 'Enter user ID',
+        how_to_order_step_2: data.find(s => s.id === 'how_to_order_step_2')?.value || 'Select Items',
+        how_to_order_step_3: data.find(s => s.id === 'how_to_order_step_3')?.value || 'Choose Payment Method',
+        how_to_order_step_4: data.find(s => s.id === 'how_to_order_step_4')?.value || 'Submit Order',
       };
 
       setSiteSettings(settings);

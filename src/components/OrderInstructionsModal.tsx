@@ -1,18 +1,24 @@
 import React from 'react';
 import { ClipboardList } from 'lucide-react';
+import { useSiteSettings } from '../hooks/useSiteSettings';
 
 interface OrderInstructionsModalProps {
   onClose: () => void;
 }
 
-const STEPS = [
-  'Enter user ID',
-  'Select Items',
-  'Choose Payment Method',
-  'Submit Order',
-];
-
 const OrderInstructionsModal: React.FC<OrderInstructionsModalProps> = ({ onClose }) => {
+  const { siteSettings } = useSiteSettings();
+  
+  const title = siteSettings?.how_to_order_title || 'How to order';
+  const subtitle = siteSettings?.how_to_order_subtitle || 'Follow these steps to place your order';
+  
+  const steps = [
+    siteSettings?.how_to_order_step_1 || 'Enter user ID',
+    siteSettings?.how_to_order_step_2 || 'Select Items',
+    siteSettings?.how_to_order_step_3 || 'Choose Payment Method',
+    siteSettings?.how_to_order_step_4 || 'Submit Order',
+  ];
+
   const cardStyle = {
     background: 'linear-gradient(180deg, #161922 0%, #0d0d0d 100%)',
     border: '1px solid rgba(255, 105, 180, 0.25)',
@@ -25,12 +31,12 @@ const OrderInstructionsModal: React.FC<OrderInstructionsModalProps> = ({ onClose
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl mb-4 overflow-hidden border border-gray-800 bg-white/5">
             <img src="/bg.png" alt="How to Order Icon" className="w-full h-full object-contain p-1" />
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-wider mb-1">How to order</h2>
-          <p className="text-xs sm:text-sm text-gray-500 font-semibold">Follow these steps to place your order</p>
+          <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-wider mb-1">{title}</h2>
+          <p className="text-xs sm:text-sm text-gray-500 font-semibold">{subtitle}</p>
         </div>
 
         <ol className="space-y-3 mb-8 text-left">
-          {STEPS.map((step, index) => (
+          {steps.map((step, index) => (
             <li key={index} className="flex items-center gap-3 text-gray-300 font-semibold text-sm sm:text-base">
               <span className="flex-shrink-0 w-7 h-7 rounded-full bg-[#2c1524]/40 border border-[#ff007f]/35 flex items-center justify-center text-xs font-black text-[#ff007f] shadow-[0_0_6px_rgba(255,0,127,0.1)]">
                 {index + 1}

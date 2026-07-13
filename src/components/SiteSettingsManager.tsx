@@ -21,7 +21,13 @@ const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({ onTestNotific
     footer_social_3: '',
     footer_social_4: '',
     footer_support_url: '',
-    order_option: 'order_via_messenger' as 'order_via_messenger' | 'place_order'
+    order_option: 'order_via_messenger' as 'order_via_messenger' | 'place_order',
+    how_to_order_title: '',
+    how_to_order_subtitle: '',
+    how_to_order_step_1: '',
+    how_to_order_step_2: '',
+    how_to_order_step_3: '',
+    how_to_order_step_4: ''
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>('');
@@ -77,7 +83,13 @@ const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({ onTestNotific
         footer_social_3: siteSettings.footer_social_3 || '',
         footer_social_4: siteSettings.footer_social_4 || '',
         footer_support_url: siteSettings.footer_support_url || '',
-        order_option: siteSettings.order_option || 'order_via_messenger'
+        order_option: siteSettings.order_option || 'order_via_messenger',
+        how_to_order_title: siteSettings.how_to_order_title || 'HOW TO ORDER',
+        how_to_order_subtitle: siteSettings.how_to_order_subtitle || 'Follow these steps to place your order',
+        how_to_order_step_1: siteSettings.how_to_order_step_1 || 'Enter user ID',
+        how_to_order_step_2: siteSettings.how_to_order_step_2 || 'Select Items',
+        how_to_order_step_3: siteSettings.how_to_order_step_3 || 'Choose Payment Method',
+        how_to_order_step_4: siteSettings.how_to_order_step_4 || 'Submit Order'
       });
       setLogoPreview(siteSettings.site_logo);
       setHeroImages({
@@ -164,6 +176,12 @@ const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({ onTestNotific
         hero_image_3: heroImageUrls.hero_image_3,
         hero_image_4: heroImageUrls.hero_image_4,
         hero_image_5: heroImageUrls.hero_image_5,
+        how_to_order_title: formData.how_to_order_title,
+        how_to_order_subtitle: formData.how_to_order_subtitle,
+        how_to_order_step_1: formData.how_to_order_step_1,
+        how_to_order_step_2: formData.how_to_order_step_2,
+        how_to_order_step_3: formData.how_to_order_step_3,
+        how_to_order_step_4: formData.how_to_order_step_4,
       });
 
       setLogoFile(null);
@@ -190,7 +208,14 @@ const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({ onTestNotific
         footer_social_2: siteSettings.footer_social_2 || '',
         footer_social_3: siteSettings.footer_social_3 || '',
         footer_social_4: siteSettings.footer_social_4 || '',
-        footer_support_url: siteSettings.footer_support_url || ''
+        footer_support_url: siteSettings.footer_support_url || '',
+        order_option: siteSettings.order_option || 'order_via_messenger',
+        how_to_order_title: siteSettings.how_to_order_title || 'HOW TO ORDER',
+        how_to_order_subtitle: siteSettings.how_to_order_subtitle || 'Follow these steps to place your order',
+        how_to_order_step_1: siteSettings.how_to_order_step_1 || 'Enter user ID',
+        how_to_order_step_2: siteSettings.how_to_order_step_2 || 'Select Items',
+        how_to_order_step_3: siteSettings.how_to_order_step_3 || 'Choose Payment Method',
+        how_to_order_step_4: siteSettings.how_to_order_step_4 || 'Submit Order'
       });
       setLogoPreview(siteSettings.site_logo);
       setHeroImages({
@@ -557,6 +582,102 @@ const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({ onTestNotific
                   {siteSettings?.order_option === 'place_order' ? 'Place Order' : 'Order via Messenger'}
                 </p>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* How to Order Customization */}
+        <div className="border-t border-gray-200 pt-6 mt-6">
+          <h3 className="text-lg font-semibold text-black mb-2">How to Order Instructions Modal</h3>
+          <p className="text-xs text-gray-600 mb-4">
+            Customize the title, subtitle, and the 4 steps displayed to users in the "How to Order" instructions modal.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">
+                Modal Title
+              </label>
+              <input
+                type="text"
+                name="how_to_order_title"
+                value={formData.how_to_order_title}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black text-sm"
+                placeholder="HOW TO ORDER"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">
+                Modal Subtitle
+              </label>
+              <input
+                type="text"
+                name="how_to_order_subtitle"
+                value={formData.how_to_order_subtitle}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black text-sm"
+                placeholder="Follow these steps to place your order"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Step 1 Description
+                </label>
+                <input
+                  type="text"
+                  name="how_to_order_step_1"
+                  value={formData.how_to_order_step_1}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black text-sm"
+                  placeholder="Enter user ID"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Step 2 Description
+                </label>
+                <input
+                  type="text"
+                  name="how_to_order_step_2"
+                  value={formData.how_to_order_step_2}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black text-sm"
+                  placeholder="Select Items"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Step 3 Description
+                </label>
+                <input
+                  type="text"
+                  name="how_to_order_step_3"
+                  value={formData.how_to_order_step_3}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black text-sm"
+                  placeholder="Choose Payment Method"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Step 4 Description
+                </label>
+                <input
+                  type="text"
+                  name="how_to_order_step_4"
+                  value={formData.how_to_order_step_4}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black text-sm"
+                  placeholder="Submit Order"
+                />
+              </div>
             </div>
           </div>
         </div>

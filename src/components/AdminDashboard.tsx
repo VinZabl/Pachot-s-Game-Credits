@@ -316,6 +316,7 @@ const AdminDashboard: React.FC = () => {
       available: true,
       image: '',
       guide_image_url: '',
+      guide_text: '',
       variations: [],
       customFields: [],
       badge_text: '',
@@ -1121,7 +1122,19 @@ const AdminDashboard: React.FC = () => {
                         currentImage={formData.guide_image_url}
                         onImageChange={(imageUrl) => setFormData({ ...formData, guide_image_url: imageUrl || '' })}
                       />
-                      <p className="text-xs text-gray-500 mt-1">This image will be displayed when a user clicks the question mark (Guide) next to Player Details in the order modal.</p>
+                      <p className="text-xs text-gray-500 mt-1">This image will be displayed when a user clicks the Guide button next to Player Details in the order modal.</p>
+                      
+                      <div className="mt-4">
+                        <label className="block text-xs font-medium text-black mb-1.5">Guide Instruction Text</label>
+                        <textarea
+                          value={formData.guide_text || ''}
+                          onChange={(e) => setFormData({ ...formData, guide_text: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-xs text-black"
+                          placeholder="Enter guide instructions (e.g. step-by-step detail of where to find the ID/Server inside the game)"
+                          rows={3}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">This text will be shown below the guide image inside the customer's ID guide popup modal.</p>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -26,12 +26,12 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   const { paymentMethods } = usePaymentMethods();
   const { uploadImage, uploading: uploadingReceipt } = useImageUpload();
   const { createOrder } = useOrders();
-  const { setOrderPlaced } = useOrderStatus();
+  const { setOrderPlaced, openOrderStatusModal } = useOrderStatus();
   const { siteSettings } = useSiteSettings();
   const orderOption = siteSettings?.order_option || 'place_order';
 
-  // Navigation page state: 'details' | 'products' | 'order_details' | 'payment' | 'submitted'
-  const [activePage, setActivePage] = useState<'details' | 'products' | 'order_details' | 'payment' | 'submitted'>('details');
+  // Navigation page state: 'details' | 'order_details' | 'payment' | 'submitted'
+  const [activePage, setActivePage] = useState<'details' | 'order_details' | 'payment' | 'submitted'>('details');
 
   // Player accounts data: array of custom fields
   const [accounts, setAccounts] = useState<Record<string, string>[]>([{}]);
@@ -55,6 +55,8 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   const [showGuideFullscreen, setShowGuideFullscreen] = useState(false);
   const [selectedCategoryTab, setSelectedCategoryTab] = useState<string>('');
   const [showInstructionsModal, setShowInstructionsModal] = useState(false);
+  const [activeSelectingAccountIdx, setActiveSelectingAccountIdx] = useState<number | null>(null);
+  const [hasCopiedForm, setHasCopiedForm] = useState(false);
 
   const isMessengerBrowser = useMemo(
     () => /FBAN|FBAV/i.test(navigator.userAgent) || /FB_IAB/i.test(navigator.userAgent),
@@ -64,14 +66,14 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   const hasCustomFields = item.customFields && item.customFields.length > 0;
   const firstFieldLabel = hasCustomFields ? item.customFields![0].label : 'Account';
 
-  // Extract variation categories dynamically
   const categories = useMemo(() => {
     if (!item.variations) return [];
     const cats = new Set<string>();
     item.variations.forEach((v) => {
       if (v.category) cats.add(v.category.trim());
     });
-    return Array.from(cats);
+    const list = Array.from(cats);
+    return list.length > 0 ? ['ALL', ...list] : [];
   }, [item.variations]);
 
   // Set default category tab
@@ -80,6 +82,11 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       setSelectedCategoryTab(categories[0]);
     }
   }, [categories, selectedCategoryTab]);
+
+  // Reset form copy state when selections, accounts, payment, or page changes
+  useEffect(() => {
+    setHasCopiedForm(false);
+  }, [selections, accounts, paymentMethodId, activePage]);
 
   // Auto-select GCash by default
   useEffect(() => {
@@ -92,6 +99,17 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       }
     }
   }, [paymentMethods, paymentMethodId]);
+
+  // Show guide modal automatically on open if guide image exists
+  useEffect(() => {
+    if (isOpen) {
+      if (item.guide_image_url) {
+        setShowGuideFullscreen(true);
+      }
+    } else {
+      setShowGuideFullscreen(false);
+    }
+  }, [isOpen, item.guide_image_url]);
 
   const selectedPaymentMethod = paymentMethods.find((m) => m.id === paymentMethodId);
 
@@ -166,8 +184,9 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   };
 
   const addAccount = () => {
+    const nextIdx = accounts.length;
+    setSelections((prev) => ({ ...prev, [nextIdx]: {} }));
     setAccounts((prev) => [...prev, {}]);
-    setSelections((prev) => ({ ...prev, [prev.length || 0]: {} }));
   };
 
   const removeAccount = (idx: number) => {
@@ -285,15 +304,6 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
     const lines: string[] = [];
     accounts.forEach((acc, accIdx) => {
       lines.push(`GAME: ${item.name}`);
-      const accSelections = selections[accIdx] || {};
-      const orderNames: string[] = [];
-      Object.entries(accSelections).forEach(([vId, qty]) => {
-        const v = item.variations?.find((x) => x.id === vId);
-        if (v) {
-          orderNames.push(`${v.name} ${qty}x`);
-        }
-      });
-      lines.push(`ORDER: ${orderNames.join(', ')}`);
       
       if (hasCustomFields && item.customFields) {
         const ids: string[] = [];
@@ -303,7 +313,24 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
         });
         lines.push(`PLAYER ID: ${ids.join(' ')}`);
       }
-      lines.push(`PAYMENT: ${selectedPaymentMethod?.name || ''}`);
+
+      const accSelections = selections[accIdx] || {};
+      const orderNames: string[] = [];
+      let userTotal = 0;
+      Object.entries(accSelections).forEach(([vId, qty]) => {
+        const v = item.variations?.find((x) => x.id === vId);
+        if (v) {
+          const price = getDiscountedPrice(v.price, v);
+          userTotal += price * qty;
+          orderNames.push(`${v.name} (₱${price.toFixed(0)}) ${qty}x`);
+        }
+      });
+      lines.push(`ORDER:\n${orderNames.join('\n')}`);
+      
+      const paymentName = selectedPaymentMethod?.name || 'GCASH';
+      lines.push(`PAYMENT: ${paymentName.replace(/ payment/i, '').toUpperCase()}`);
+      lines.push(`TOTAL: ₱${userTotal.toFixed(0)}`);
+      
       if (accIdx < accounts.length - 1) {
         lines.push('---------------------------');
       }
@@ -384,6 +411,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       });
       if (didCopy) {
         setCopiedOrderMessage(true);
+        setHasCopiedForm(true);
         setTimeout(() => setCopiedOrderMessage(false), 2000);
       }
     } catch (err) {
@@ -448,7 +476,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       if (newOrder) {
         setOrderPlaced(newOrder.id);
         onOrderPlaced?.();
-        setActivePage('submitted');
+        handleClose();
       }
     } catch (err) {
       console.error('Error placing order:', err);
@@ -506,10 +534,10 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
     }
     if (step === 2) {
       if (activePage === 'details') return 'pending';
-      return activePage === 'products' ? 'active' : 'done';
+      return activePage === 'order_details' ? 'active' : 'done';
     }
     if (step === 3) {
-      if (activePage === 'details' || activePage === 'products') return 'pending';
+      if (activePage === 'details' || activePage === 'order_details') return 'pending';
       return 'active';
     }
     return 'pending';
@@ -517,7 +545,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
   const PROGRESS_STEPS = [
     { num: 1, label: 'Details' },
-    { num: 2, label: 'Products' },
+    { num: 2, label: 'Order Details' },
     { num: 3, label: 'Payment' },
   ];
 
@@ -529,7 +557,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
         onClick={handleClose}
       >
         <div
-          className="flex flex-col rounded-2xl max-w-lg w-full max-h-[95vh] overflow-hidden shadow-2xl"
+          className="flex flex-col rounded-2xl w-full max-w-lg md:max-w-2xl max-h-[95vh] overflow-hidden shadow-2xl"
           style={{
             background: 'linear-gradient(180deg, #161922 0%, #0d0d0d 100%)',
             border: '1px solid rgba(255, 105, 180, 0.25)',
@@ -539,21 +567,37 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
           {/* Header */}
           <div className="relative flex-shrink-0 p-4 sm:p-5 flex flex-col gap-3 border-b border-gray-900">
             <div className="flex items-center justify-between">
-              {activePage !== 'details' && activePage !== 'submitted' && (
+              {((activePage !== 'details' && activePage !== 'submitted') || activeSelectingAccountIdx !== null) && (
                 <button
                   onClick={() => {
-                    if (activePage === 'products') setActivePage('details');
-                    else if (activePage === 'order_details') setActivePage('products');
-                    else if (activePage === 'payment') setActivePage('order_details');
+                    if (activeSelectingAccountIdx !== null) {
+                      setActiveSelectingAccountIdx(null);
+                    } else if (activePage === 'order_details') {
+                      setActivePage('details');
+                    } else if (activePage === 'payment') {
+                      setActivePage('order_details');
+                    }
                   }}
                   className="p-1 hover:bg-white/5 rounded-full text-gray-400 hover:text-white transition-colors"
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </button>
               )}
-              <h2 className="text-base sm:text-lg font-black text-pink-500 uppercase tracking-wide flex-1 text-center">
-                {activePage === 'submitted' ? '' : item.name.replace(/^[🟢\s]+/, '').trim()}
-              </h2>
+               <div className="flex-1 flex flex-col items-center justify-center text-center px-2">
+                 <h2 className="text-base sm:text-lg font-black text-pink-500 uppercase tracking-wide">
+                   {activePage === 'submitted' ? '' : item.name.replace(/^[🟢\s]+/, '').trim()}
+                 </h2>
+                 {activePage === 'details' && item.subtitle && (
+                    <span className="text-[10px] sm:text-[11px] text-pink-400/90 font-bold uppercase tracking-widest mt-0.5">
+                      {item.subtitle}
+                    </span>
+                 )}
+                 {activePage === 'details' && activeSelectingAccountIdx === null && item.description && (
+                   <p className="text-[10px] sm:text-[11px] text-gray-400 mt-1 leading-relaxed font-semibold max-w-xs sm:max-w-md">
+                     {item.description}
+                   </p>
+                 )}
+               </div>
               <button
                 onClick={handleClose}
                 className="p-1.5 hover:bg-white/5 rounded-full text-gray-400 hover:text-white transition-colors"
@@ -565,10 +609,12 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
             {activePage !== 'submitted' && (
               <>
                 {/* Processing Time Banner */}
-                <div className="flex items-center justify-center gap-1.5 py-1 px-4 bg-gray-900/40 border border-gray-800/80 rounded-full text-[10px] sm:text-xs text-gray-400 max-w-xs mx-auto">
-                  <Clock className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                  <span>Processing Time : 10m - 1hr</span>
-                </div>
+                {activePage === 'details' && (
+                  <div className="flex items-center justify-center gap-1.5 py-1 px-4 bg-gray-900/40 border border-gray-800/80 rounded-full text-[10px] sm:text-xs text-gray-400 max-w-xs mx-auto">
+                    <Clock className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                    <span>Processing Time : 10m - 1hr</span>
+                  </div>
+                )}
 
                 {/* Steps Progress Header */}
                 <div className="flex items-center justify-between max-w-xs w-full mx-auto mt-2">
@@ -632,230 +678,319 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
           {/* Content Area */}
           <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-            
-            {/* PAGE 1: PLAYER DETAILS */}
+                      {/* PAGE 1: PLAYER DETAILS & PRODUCT SELECTION */}
             {activePage === 'details' && (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-                <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 min-h-0">
-                  <div className="bg-[#161922]/90 border border-gray-800/80 rounded-xl p-4 sm:p-5 shadow-lg relative">
-                    {/* Card Title Header */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#ff007f] shadow-[0_0_6px_#ff007f]"></span>
-                        <h3 className="text-xs sm:text-sm font-extrabold tracking-widest uppercase text-white">
-                          Player Details
-                        </h3>
+                {activeSelectingAccountIdx === null ? (
+                  /* RENDER PLAYER DETAILS FORM LIST */
+                  <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 min-h-0">
+                    <div className="bg-[#161922]/90 border border-gray-800/80 rounded-xl p-4 sm:p-5 shadow-lg relative">
+                      {/* Card Title Header */}
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#ff007f] shadow-[0_0_6px_#ff007f]"></span>
+                          <h3 className="text-xs sm:text-sm font-extrabold tracking-widest uppercase text-white">
+                            Player Details
+                          </h3>
+                        </div>
+                        <div className="flex items-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (item.guide_image_url) {
+                                setShowGuideFullscreen(true);
+                              } else {
+                                setShowIdHelp(!showIdHelp);
+                              }
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 border border-pink-500/30 rounded-lg text-[9px] font-bold text-pink-400 bg-pink-500/5 hover:bg-pink-500/10 hover:border-pink-500/50 transition-all cursor-pointer shadow-[0_0_8px_rgba(255,0,127,0.05)]"
+                          >
+                            <HelpCircle className="h-3.5 w-3.5" />
+                            <span>Guide</span>
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (item.guide_image_url) {
-                              setShowGuideFullscreen(true);
-                            } else {
-                              setShowIdHelp(!showIdHelp);
-                            }
-                          }}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 border border-pink-500/30 rounded-lg text-[9px] font-bold text-pink-400 bg-pink-500/5 hover:bg-pink-500/10 hover:border-pink-500/50 transition-all cursor-pointer shadow-[0_0_8px_rgba(255,0,127,0.05)]"
-                        >
-                          <HelpCircle className="h-3.5 w-3.5" />
-                          <span>Guide</span>
-                        </button>
-                      </div>
-                    </div>
 
-                    {/* Input Fields */}
-                    <div className="space-y-4">
-                      {accounts.map((acc, accIdx) => (
-                        <div key={accIdx} className="space-y-3 p-3.5 bg-black/30 border border-gray-900 rounded-lg relative">
-                          {accounts.length > 1 && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
-                                {firstFieldLabel} #{accIdx + 1}
-                              </span>
+                      {/* Input Fields */}
+                      <div className="space-y-4">
+                        {accounts.map((acc, accIdx) => {
+                          const accSelections = selections[accIdx] || {};
+                          const selectedVariations = Object.entries(accSelections)
+                            .map(([vId, qty]) => {
+                              const v = item.variations?.find((x) => x.id === vId);
+                              return v ? { variation: v, quantity: qty } : null;
+                            })
+                            .filter(Boolean) as Array<{ variation: Variation; quantity: number }>;
+
+                          return (
+                            <div key={accIdx} className="space-y-3 p-3.5 bg-black/30 border border-gray-900 rounded-lg relative">
+                              {accounts.length > 1 && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
+                                    {firstFieldLabel} #{accIdx + 1}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeAccount(accIdx)}
+                                    className="p-1 hover:bg-red-500/10 text-gray-500 hover:text-red-500 rounded"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              )}
+
+                              <div className="space-y-3">
+                                {item.customFields?.map((field) => (
+                                  <div key={field.key} className="space-y-1">
+                                    <input
+                                      type="text"
+                                      placeholder={`Enter ${field.label}`}
+                                      value={acc[field.key] || ''}
+                                      onChange={(e) => updateAccountField(accIdx, field.key, e.target.value)}
+                                      className="w-full bg-[#0d0d0d] border border-gray-800/80 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-500/60 focus:ring-1 focus:ring-pink-500/40 transition-all duration-200"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Selected Products list below user ID */}
+                              {selectedVariations.length > 0 && (
+                                <div className="space-y-2 mt-3 p-2.5 bg-[#161922]/50 rounded-xl border border-gray-800/40">
+                                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Selected Items:</p>
+                                  <div className="space-y-1.5">
+                                    {selectedVariations.map(({ variation, quantity }) => {
+                                      const price = getDiscountedPrice(variation.price, variation);
+                                      return (
+                                        <div key={variation.id} className="flex items-center justify-between bg-black/40 px-3 py-2 rounded-lg border border-gray-900">
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-bold text-white truncate">{variation.name}</p>
+                                            <p className="text-[10px] font-semibold text-[#ff007f]">{quantity}x — ₱{(price * quantity).toFixed(0)}</p>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setSelections((prev) => {
+                                                const next = { ...prev };
+                                                if (next[accIdx]) {
+                                                  const nextAcc = { ...next[accIdx] };
+                                                  delete nextAcc[variation.id];
+                                                  next[accIdx] = nextAcc;
+                                                }
+                                                return next;
+                                              });
+                                            }}
+                                            className="p-1 hover:bg-red-500/10 text-gray-500 hover:text-red-500 rounded transition-colors"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Select Product button */}
                               <button
                                 type="button"
-                                onClick={() => removeAccount(accIdx)}
-                                className="p-1 hover:bg-red-500/10 text-gray-500 hover:text-red-500 rounded"
+                                onClick={() => {
+                                  setActiveSelectingAccountIdx(accIdx);
+                                }}
+                                className={`w-full py-2.5 rounded-xl border border-[#ff007f]/30 hover:border-[#ff007f]/50 hover:bg-pink-500/5 text-[#ff007f] text-xs font-extrabold uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 mt-2 ${
+                                  selectedVariations.length === 0
+                                    ? 'animate-pulse bg-[#ff007f]/10 shadow-[0_0_12px_rgba(255,0,127,0.2)] border-[#ff007f]/60'
+                                    : ''
+                                }`}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Plus className="w-3.5 h-3.5" />
+                                {selectedVariations.length > 0 ? 'Edit Products' : 'Select Product'}
                               </button>
                             </div>
-                          )}
+                          );
+                        })}
 
-                          <div className="space-y-3">
-                            {item.customFields?.map((field) => (
-                              <div key={field.key} className="space-y-1">
-                                <input
-                                  type="text"
-                                  placeholder={`Enter ${field.label}`}
-                                  value={acc[field.key] || ''}
-                                  onChange={(e) => updateAccountField(accIdx, field.key, e.target.value)}
-                                  className="w-full bg-[#0d0d0d] border border-gray-800/80 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-500/60 focus:ring-1 focus:ring-pink-500/40 transition-all duration-200"
-                                />
-                              </div>
-                            ))}
-                          </div>
+                        {showIdHelp && (
+                          <p className="text-[10px] sm:text-xs text-gray-400 leading-relaxed bg-black/40 p-3 rounded-lg border border-gray-900">
+                            To find your ID, tap your game avatar. Your User ID and Zone ID will be displayed on your profile. (e.g. ID: 12345678, Zone: 1234).
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Add New Order Helper */}
+                      <p className="text-[10px] sm:text-xs text-gray-400 italic text-center mt-4">
+                        I-click ang <span className="font-bold text-white">"ADD NEW USER"</span> kung nais mong mag-top up ng ibang User ID.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  /* RENDER PRODUCTS SELECTION FOR activeSelectingAccountIdx */
+                  <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                    {/* Header (Non-scrollable Choose Products text & categories) */}
+                    <div className="flex-shrink-0 p-4 sm:p-5 pb-2 border-b border-gray-900/60 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#ff007f] shadow-[0_0_6px_#ff007f]"></span>
+                          <h3 className="text-xs sm:text-sm font-extrabold tracking-widest uppercase text-white">
+                            Choose Products
+                          </h3>
                         </div>
-                      ))}
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-gray-900/50 px-2.5 py-1 rounded-md border border-gray-800/40">
+                          {firstFieldLabel} #{activeSelectingAccountIdx + 1}
+                        </span>
+                      </div>
 
-                      {showIdHelp && (
-                        <p className="text-[10px] sm:text-xs text-gray-400 leading-relaxed bg-black/40 p-3 rounded-lg border border-gray-900">
-                          To find your ID, tap your game avatar. Your User ID and Zone ID will be displayed on your profile. (e.g. ID: 12345678, Zone: 1234).
-                        </p>
+                      {/* Category Tabs */}
+                      {categories.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2 pb-2">
+                          {categories.map((catName) => (
+                            <button
+                              key={catName}
+                              type="button"
+                              onClick={() => setSelectedCategoryTab(catName)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-200 flex-shrink-0 ${
+                                selectedCategoryTab === catName
+                                  ? 'text-pink-500 border-pink-500 shadow-[0_0_8px_rgba(255,0,127,0.15)] bg-transparent'
+                                  : 'text-gray-400 border-gray-800/80 hover:text-white bg-transparent'
+                              }`}
+                            >
+                              {catName}
+                            </button>
+                          ))}
+                        </div>
                       )}
                     </div>
 
-                    {/* Add New Order Helper */}
-                    <p className="text-[10px] sm:text-xs text-gray-400 italic text-center mt-4">
-                      I-click ang <span className="font-bold text-white">"ADD NEW ORDER"</span> kung nais mong mag-top up ng ibang User ID.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
+                    {/* Game Items Grid (Only Scrollable Area) */}
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 min-h-0">
+                      <div className="space-y-3">
+                        {(() => {
+                          const accIdx = activeSelectingAccountIdx;
+                          const accSelections = selections[accIdx] || {};
+                          const filteredVariations = (item.variations || []).filter(
+                            (v) => selectedCategoryTab === 'ALL' || !v.category || v.category.trim() === selectedCategoryTab
+                          );
 
-            {/* PAGE 2: CHOOSE PRODUCTS */}
-            {activePage === 'products' && (
-              <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-                {/* Header (Non-scrollable Choose Products text & categories) */}
-                <div className="flex-shrink-0 p-4 sm:p-5 pb-2 border-b border-gray-900/60 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#ff007f] shadow-[0_0_6px_#ff007f]"></span>
-                    <h3 className="text-xs sm:text-sm font-extrabold tracking-widest uppercase text-white">
-                      Choose Products
-                    </h3>
-                  </div>
+                          if (filteredVariations.length === 0) {
+                            return (
+                              <p className="text-center text-xs text-gray-500 py-8">No variations found in this category.</p>
+                            );
+                          }
 
-                  {/* Category Tabs */}
-                  {categories.length > 0 && (
-                    <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2 flex-nowrap">
-                      {categories.map((catName) => (
-                        <button
-                          key={catName}
-                          type="button"
-                          onClick={() => setSelectedCategoryTab(catName)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-200 flex-shrink-0 ${
-                            selectedCategoryTab === catName
-                              ? 'text-pink-500 border-pink-500 shadow-[0_0_8px_rgba(255,0,127,0.15)] bg-transparent'
-                              : 'text-gray-400 border-gray-800/80 hover:text-white bg-transparent'
-                          }`}
-                        >
-                          {catName}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                          const groups: Record<string, typeof filteredVariations> = {};
+                          if (selectedCategoryTab === 'ALL') {
+                            filteredVariations.forEach((v) => {
+                              const cat = v.category?.trim() || 'Other';
+                              if (!groups[cat]) groups[cat] = [];
+                              groups[cat].push(v);
+                            });
+                          } else {
+                            groups[''] = filteredVariations;
+                          }
 
-                {/* Game Items Grid (Only Scrollable Area) */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 min-h-0">
-                  <div className="space-y-3">
-                    {accounts.map((acc, accIdx) => {
-                      const accSelections = selections[accIdx] || {};
-                      const filteredVariations = (item.variations || []).filter(
-                        (v) => !v.category || v.category.trim() === selectedCategoryTab
-                      );
-
-                      if (filteredVariations.length === 0) return null;
-
-                      return (
-                        <div key={accIdx} className="space-y-3">
-                          {accounts.length > 1 && (
-                            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">
-                              Selecting for {firstFieldLabel} #{accIdx + 1}
-                            </div>
-                          )}
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {filteredVariations.map((v) => {
-                              const price = getDiscountedPrice(v.price, v);
-                              const isChecked = !!accSelections[v.id];
-                              const qty = accSelections[v.id] || 0;
-
-                              return (
-                                <div
-                                  key={v.id}
-                                  className={`relative rounded-xl border p-3 flex items-center gap-3 transition-all duration-200 bg-[#0d0d0d] ${
-                                    isChecked
-                                      ? 'border-pink-500 bg-[#2c1524]/20'
-                                      : 'border-gray-800/80 hover:border-pink-500/50'
-                                  }`}
-                                >
-                                  {/* Checkbox wrapper */}
-                                  <label className="flex items-center justify-center w-5 h-5 rounded border border-gray-800 cursor-pointer bg-transparent relative flex-shrink-0">
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={(e) => handleProductToggle(accIdx, v.id, e.target.checked)}
-                                      className="hidden"
-                                    />
-                                    {isChecked && (
-                                      <div className="absolute inset-0 bg-[#ff007f] rounded flex items-center justify-center">
-                                        <Check className="w-3.5 h-3.5 text-white stroke-[3px]" />
-                                      </div>
-                                    )}
-                                  </label>
-
-                                  {/* Product info */}
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-semibold text-xs sm:text-sm text-white truncate">
-                                      {v.name}
-                                    </p>
-                                    <p className="text-red-500 font-bold text-xs sm:text-sm mt-0.5">
-                                      ₱{price.toFixed(0)}
-                                    </p>
-                                  </div>
-
-                                  {/* Variation Badge (Inside card on the right-most) */}
-                                  {v.badge_text && !isChecked && (
-                                    <div
-                                      className="px-2 py-0.5 rounded border text-[7px] font-black uppercase tracking-widest flex-shrink-0"
-                                      style={{
-                                        borderColor: v.badge_color || '#ff007f',
-                                        color: v.badge_color || '#ff007f',
-                                        backgroundColor: 'rgba(255, 0, 127, 0.05)'
-                                      }}
-                                    >
-                                      {v.badge_text}
-                                    </div>
-                                  )}
-
-                                  {/* Quantity adjusters (Lalabas lang ang quantity kapag chineck nila ang box) */}
-                                  {isChecked && (
-                                    <div className="flex items-center gap-0 rounded-lg overflow-hidden border border-gray-800 bg-[#161922]/50 flex-shrink-0">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleQuantityChange(accIdx, v.id, -1)}
-                                        className="w-7 h-7 flex items-center justify-center bg-gray-900/60 hover:bg-pink-500/10 text-gray-400 hover:text-pink-500 font-bold text-sm border-r border-gray-800 transition-colors"
-                                      >
-                                        −
-                                      </button>
-                                      <span className="w-7 text-center text-xs font-black text-white">
-                                        {qty}
+                          return (
+                            <div className="space-y-6">
+                              {Object.entries(groups).map(([catName, vars]) => (
+                                <div key={catName} className="space-y-3">
+                                  {catName && (
+                                    <div className="flex items-center gap-1.5 border-b border-gray-900 pb-1.5 px-1 mt-4 first:mt-0">
+                                      <span className="text-[10px] font-extrabold text-pink-500 uppercase tracking-widest">
+                                        {catName}
                                       </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleQuantityChange(accIdx, v.id, 1)}
-                                        className="w-7 h-7 flex items-center justify-center bg-gray-900/60 hover:bg-pink-500/10 text-gray-400 hover:text-pink-500 font-bold text-sm border-l border-gray-800 transition-colors"
-                                      >
-                                        +
-                                      </button>
                                     </div>
                                   )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                                  
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {vars.map((v) => {
+                                      const price = getDiscountedPrice(v.price, v);
+                                      const isChecked = !!accSelections[v.id];
+                                      const qty = accSelections[v.id] || 0;
 
-                  <p className="text-[10px] text-gray-500 italic text-center mt-4">
-                    Lalabas lang ang quantity kapag chineck nila ang box.
-                  </p>
-                </div>
+                                      return (
+                                        <div
+                                          key={v.id}
+                                          onClick={() => handleProductToggle(accIdx, v.id, !isChecked)}
+                                          className={`relative rounded-xl border p-3 flex items-center gap-3 transition-all duration-200 bg-[#0d0d0d] cursor-pointer ${
+                                            isChecked
+                                              ? 'border-pink-500 bg-[#2c1524]/20'
+                                              : 'border-gray-800/80 hover:border-pink-500/50'
+                                          }`}
+                                        >
+                                          {/* Checkbox wrapper */}
+                                          <div className="flex items-center justify-center w-5 h-5 rounded border border-gray-800 bg-transparent relative flex-shrink-0">
+                                            {isChecked && (
+                                              <div className="absolute inset-0 bg-[#ff007f] rounded flex items-center justify-center">
+                                                <Check className="w-3.5 h-3.5 text-white stroke-[3px]" />
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          {/* Product info */}
+                                          <div className="flex-1 min-w-0">
+                                            <p className="font-semibold text-xs sm:text-sm text-white truncate">
+                                              {v.name}
+                                            </p>
+                                            {v.description && (
+                                              <p className="text-[10px] text-gray-400 mt-0.5 leading-relaxed whitespace-pre-line">
+                                                {v.description}
+                                              </p>
+                                            )}
+                                            <p className="text-red-500 font-bold text-xs sm:text-sm mt-0.5">
+                                              ₱{price.toFixed(0)}
+                                            </p>
+                                          </div>
+
+                                          {/* Variation Badge */}
+                                          {v.badge_text && !isChecked && (
+                                            <div
+                                              className="px-2 py-0.5 rounded border text-[7px] font-black uppercase tracking-widest flex-shrink-0"
+                                              style={{
+                                                borderColor: v.badge_color || '#ff007f',
+                                                color: v.badge_color || '#ff007f',
+                                                backgroundColor: 'rgba(255, 0, 127, 0.05)'
+                                              }}
+                                            >
+                                              {v.badge_text}
+                                            </div>
+                                          )}
+
+                                          {/* Quantity adjusters */}
+                                          {isChecked && (
+                                            <div 
+                                              className="flex items-center gap-0 rounded-lg overflow-hidden border border-gray-800 bg-[#161922]/50 flex-shrink-0"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <button
+                                                type="button"
+                                                onClick={() => handleQuantityChange(accIdx, v.id, -1)}
+                                                className="w-7 h-7 flex items-center justify-center bg-gray-900/60 hover:bg-pink-500/10 text-gray-400 hover:text-pink-500 font-bold text-sm border-r border-gray-800 transition-colors"
+                                              >
+                                                −
+                                              </button>
+                                              <span className="w-7 text-center text-xs font-black text-white">
+                                                {qty}
+                                              </span>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleQuantityChange(accIdx, v.id, 1)}
+                                                className="w-7 h-7 flex items-center justify-center bg-gray-900/60 hover:bg-pink-500/10 text-gray-400 hover:text-pink-500 font-bold text-sm border-l border-gray-800 transition-colors"
+                                              >
+                                                +
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -891,10 +1026,15 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                         }
 
                         return (
-                          <div key={accIdx} className="space-y-2 text-xs sm:text-sm font-medium">
+                          <div
+                            key={accIdx}
+                            className={`space-y-2 text-xs sm:text-sm font-medium ${
+                              accIdx > 0 ? 'pt-4 border-t border-gray-800/60' : ''
+                            }`}
+                          >
                             <div className="grid grid-cols-3 gap-2">
-                              <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">Game:</span>
-                              <span className="text-white col-span-2">{item.name.replace(/^[🟢\s]+/, '').trim()}</span>
+                              <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">Player ID:</span>
+                              <span className="text-white col-span-2 font-semibold">{ids.join(' ')}</span>
                             </div>
                             <div className="grid grid-cols-3 gap-2">
                               <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">Order:</span>
@@ -904,19 +1044,6 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                                 ))}
                               </div>
                             </div>
-                            <div className="grid grid-cols-3 gap-2">
-                              <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">Player ID:</span>
-                              <span className="text-white col-span-2 font-semibold">{ids.join(' ')}</span>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2">
-                              <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">Payment:</span>
-                              <span className="text-white col-span-2 uppercase font-bold text-pink-400">
-                                {selectedPaymentMethod?.name.replace(/ payment/i, '') || 'GCASH'}
-                              </span>
-                            </div>
-                            {accIdx < accounts.length - 1 && (
-                              <div className="border-t border-gray-900 my-4"></div>
-                            )}
                           </div>
                         );
                       })}
@@ -1025,15 +1152,63 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                           </div>
                         </div>
 
-                        {/* Total payment display */}
-                        <div className="flex items-center justify-between bg-[#2c1524]/20 border border-[#ff007f]/30 rounded-xl px-5 py-4">
-                          <span className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-pink-500">
-                            Total Payment
-                          </span>
-                          <span className="text-xl sm:text-2xl font-black text-pink-500">
-                            ₱{totalPrice.toFixed(0)}
-                          </span>
-                        </div>
+                        {/* Row: Upload Receipt (left) and Total Payment (right) */}
+                        {orderOption === 'place_order' ? (
+                          <div className="grid grid-cols-2 gap-3 items-stretch">
+                            {/* Left: Upload Receipt */}
+                            <div className="bg-[#161922]/50 border border-gray-800/80 rounded-xl p-3 flex flex-col justify-center min-h-[90px]">
+                              {!receiptPreview ? (
+                                <label className="block border-2 border-dashed border-gray-800 rounded-lg p-2.5 text-center cursor-pointer hover:border-pink-500/50 hover:bg-white/5 transition-colors h-full flex flex-col items-center justify-center">
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      if (f) handleReceiptUpload(f);
+                                    }}
+                                    className="hidden"
+                                    disabled={uploadingReceipt}
+                                  />
+                                  {uploadingReceipt ? (
+                                    <div className="text-[10px] sm:text-xs text-gray-500 animate-pulse">Uploading...</div>
+                                  ) : (
+                                    <div className="text-[10px] sm:text-xs text-gray-400 font-medium">Upload Receipt</div>
+                                  )}
+                                </label>
+                              ) : (
+                                <div className="flex items-center justify-between gap-2 p-2 bg-[#0d0d0d] border border-gray-800 rounded-lg h-full">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <img src={receiptPreview} alt="Receipt" className="w-8 h-8 object-cover rounded" />
+                                    <span className="text-[9px] text-gray-300 truncate max-w-[50px]">{receiptFile?.name}</span>
+                                  </div>
+                                  <button type="button" onClick={handleReceiptRemove} className="p-1 hover:bg-red-500/10 text-red-500 rounded flex-shrink-0">
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Right: Total Payment */}
+                            <div className="flex flex-col justify-center items-center bg-[#2c1524]/20 border border-[#ff007f]/30 rounded-xl p-3 min-h-[90px] text-center">
+                              <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-widest text-pink-500">
+                                Total Payment
+                              </span>
+                              <span className="text-lg sm:text-xl font-black text-pink-500 mt-1">
+                                ₱{totalPrice.toFixed(0)}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          /* Non place_order (messenger) just displays total payment full width */
+                          <div className="flex items-center justify-between bg-[#2c1524]/20 border border-[#ff007f]/30 rounded-xl px-5 py-4">
+                            <span className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-pink-500">
+                              Total Payment
+                            </span>
+                            <span className="text-xl sm:text-2xl font-black text-pink-500">
+                              ₱{totalPrice.toFixed(0)}
+                            </span>
+                          </div>
+                        )}
 
                         {/* Warning policy */}
                         <p className="text-[10px] sm:text-xs text-red-500 font-bold leading-relaxed text-center">
@@ -1045,46 +1220,20 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
                   {/* Instructions card */}
                   <div className="bg-[#161922]/90 border border-gray-800/80 rounded-xl p-4 sm:p-5 shadow-lg space-y-3">
-                    <ol className="list-decimal list-outside pl-4 text-xs sm:text-sm text-gray-400 space-y-2 leading-relaxed">
-                      <li>I-send ang payment at i-screenshot o picturan ang resibo.</li>
-                      <li>Pagkatapos magbayad, i-tap ang <span className="font-bold text-white">"COPY ORDER FORM"</span> at i-submit ang order.</li>
-                      <li>Madi-direct ka sa aming Facebook page, kung saan may lalabas na <span className="font-bold text-[#ff007f]">auto form</span>. I-send ito kasama ang resibo ng iyong bayad.</li>
-                    </ol>
+                    {orderOption === 'place_order' ? (
+                      <ol className="list-decimal list-outside pl-4 text-xs sm:text-sm text-gray-400 space-y-2 leading-relaxed">
+                        <li>I-send ang payment sa napiling payment method at i-screenshot o picturan ang resibo.</li>
+                        <li>I-upload ang resibo (Receipt Proof) sa itaas.</li>
+                        <li>I-tap ang <span className="font-bold text-white">"SUBMIT ORDER"</span> button upang makumpleto ang transaksyon.</li>
+                      </ol>
+                    ) : (
+                      <ol className="list-decimal list-outside pl-4 text-xs sm:text-sm text-gray-400 space-y-2 leading-relaxed">
+                        <li>I-send ang payment at i-screenshot o picturan ang resibo.</li>
+                        <li>Pagkatapos magbayad, i-tap ang <span className="font-bold text-white">"COPY ORDER FORM"</span> at i-submit ang order.</li>
+                        <li>Madi-direct ka sa aming Facebook page, kung saan may lalabas na <span className="font-bold text-[#ff007f]">auto form</span>. I-send ito kasama ang resibo ng iyong bayad.</li>
+                      </ol>
+                    )}
                   </div>
-
-                  {/* Proof Upload (place_order) */}
-                  {orderOption === 'place_order' && (
-                    <div className="space-y-2 bg-[#161922]/90 border border-gray-800/80 rounded-xl p-4">
-                      <p className="text-xs font-bold text-white uppercase mb-2">Upload Receipt Proof</p>
-                      {!receiptPreview ? (
-                        <label className="block border-2 border-dashed border-gray-800 rounded-xl p-4 text-center cursor-pointer hover:border-pink-500/50 hover:bg-white/5 transition-colors">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f) handleReceiptUpload(f);
-                            }}
-                            className="hidden"
-                            disabled={uploadingReceipt}
-                          />
-                          {uploadingReceipt ? (
-                            <div className="text-xs text-gray-500 animate-pulse">Uploading receipt...</div>
-                          ) : (
-                            <div className="text-xs text-gray-400">Click to upload screenshot receipt</div>
-                          )}
-                        </label>
-                      ) : (
-                        <div className="flex items-center gap-3 p-2 bg-[#0d0d0d] border border-gray-800 rounded-xl">
-                          <img src={receiptPreview} alt="Receipt" className="w-10 h-10 object-cover rounded-lg" />
-                          <span className="text-xs text-gray-300 truncate flex-1">{receiptFile?.name}</span>
-                          <button type="button" onClick={handleReceiptRemove} className="p-1 hover:bg-red-500/10 text-red-500 rounded">
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
             )}
@@ -1175,6 +1324,23 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                   <p className="text-center text-xs sm:text-sm font-bold text-pink-500/90 leading-relaxed px-4">
                     Please wait. Your order is being processed by our team
                   </p>
+
+                  {/* Having trouble support button */}
+                  {siteSettings?.footer_support_url && (
+                    <div className="max-w-sm mx-auto w-full pt-1">
+                      <a
+                        href={siteSettings.footer_support_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-1.5 sm:gap-2 p-2.5 sm:p-3 rounded-xl bg-gray-900/50 hover:bg-gray-900/70 border border-pink-500/30 hover:border-pink-500/50 transition-all duration-200 group w-full"
+                      >
+                        <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 text-pink-500 group-hover:scale-110 transition-transform duration-200 flex-shrink-0" />
+                        <span className="text-xs font-semibold text-white group-hover:text-pink-500 transition-colors duration-200 text-center">
+                          Having trouble or issues? Tap here to contact us
+                        </span>
+                      </a>
+                    </div>
+                  )}
                 </div>
 
                 {/* BUY AGAIN button */}
@@ -1195,47 +1361,41 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
           {activePage !== 'submitted' && (
             <div className="flex-shrink-0 p-4 sm:p-5 border-t border-gray-900 bg-[#0d0d0d]/80 backdrop-blur-md space-y-3">
             {/* PAGE 1 ACTIONS */}
-            {activePage === 'details' && (
-              <div className="flex flex-col gap-2">
+            {activePage === 'details' && activeSelectingAccountIdx !== null && (
+              <button
+                type="button"
+                onClick={() => setActiveSelectingAccountIdx(null)}
+                className="w-full py-3.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-extrabold uppercase tracking-widest text-xs sm:text-sm shadow-[0_0_12px_rgba(255,0,127,0.25)] transition-all flex items-center justify-center gap-1.5"
+              >
+                <Check className="h-4 w-4 stroke-[3px]" />
+                Done
+              </button>
+            )}
+
+            {activePage === 'details' && activeSelectingAccountIdx === null && (
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={addAccount}
                   className="w-full py-3.5 rounded-xl border border-dashed border-pink-500/40 text-pink-500 hover:bg-pink-500/5 text-xs sm:text-sm font-extrabold uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5"
                 >
                   <Plus className="h-4 w-4" />
-                  Add New Order
+                  Add New User
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => isDetailsValid && setActivePage('products')}
-                  disabled={!isDetailsValid}
+                  onClick={() => isDetailsValid && isProductsSelected && setActivePage('order_details')}
+                  disabled={!isDetailsValid || !isProductsSelected}
                   className={`w-full py-3.5 rounded-xl text-xs sm:text-sm font-extrabold uppercase tracking-widest transition-all ${
-                    isDetailsValid
+                    isDetailsValid && isProductsSelected
                       ? 'bg-pink-500 hover:bg-pink-600 text-white shadow-[0_0_12px_rgba(255,0,127,0.25)]'
                       : 'bg-gray-800 text-gray-500 cursor-not-allowed'
                   }`}
                 >
-                  Choose Products
+                  Proceed
                 </button>
               </div>
-            )}
-
-            {/* PAGE 2 ACTIONS */}
-            {activePage === 'products' && (
-              <button
-                type="button"
-                onClick={() => isProductsSelected && setActivePage('order_details')}
-                disabled={!isProductsSelected}
-                className={`w-full py-3.5 rounded-xl text-xs sm:text-sm font-extrabold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                  isProductsSelected
-                    ? 'bg-pink-500 hover:bg-pink-600 text-white shadow-[0_0_12px_rgba(255,0,127,0.25)]'
-                    : 'bg-gray-850 border border-gray-800 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                <MessageCircle className="h-4 w-4 fill-current" />
-                Checkout
-              </button>
             )}
 
             {/* PAGE 3 ACTIONS */}
@@ -1243,8 +1403,8 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setActivePage('products')}
-                  className="w-full py-3.5 rounded-xl border border-gray-850 text-gray-300 hover:bg-white/5 text-xs sm:text-sm font-extrabold uppercase tracking-widest transition-colors text-center"
+                  onClick={() => setActivePage('details')}
+                  className="w-full py-3.5 rounded-xl border border-gray-855 text-gray-300 hover:bg-white/5 text-xs sm:text-sm font-extrabold uppercase tracking-widest transition-colors text-center"
                 >
                   Add more
                 </button>
@@ -1266,21 +1426,23 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
             {activePage === 'payment' && (
               <div className="space-y-3">
                 {/* Buttons in one row */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className={orderOption === 'place_order' ? "w-full" : "grid grid-cols-2 gap-3"}>
                   {/* Copy Order Form Button */}
-                  <button
-                    type="button"
-                    onClick={handleCopyOrderMessage}
-                    disabled={!isFormValid || isPlacingOrder}
-                    className={`w-full py-3.5 rounded-xl text-[10px] sm:text-xs font-extrabold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
-                      isFormValid && !isPlacingOrder
-                        ? 'bg-pink-500 hover:bg-pink-600 text-white shadow-[0_0_12px_rgba(255,0,127,0.25)]'
-                        : 'bg-gray-850 border border-gray-800 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    <Copy className="h-4 w-4" />
-                    {copiedOrderMessage ? 'Copied!' : 'Copy Form'}
-                  </button>
+                  {orderOption !== 'place_order' && (
+                    <button
+                      type="button"
+                      onClick={handleCopyOrderMessage}
+                      disabled={!isFormValid || isPlacingOrder}
+                      className={`w-full py-3.5 rounded-xl text-[10px] sm:text-xs font-extrabold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                        isFormValid && !isPlacingOrder
+                          ? 'bg-pink-500 hover:bg-pink-600 text-white shadow-[0_0_12px_rgba(255,0,127,0.25)]'
+                          : 'bg-gray-850 border border-gray-800 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      <Copy className="h-4 w-4" />
+                      {copiedOrderMessage ? 'Copied!' : 'Copy Form'}
+                    </button>
+                  )}
 
                   {/* Submit button */}
                   {orderOption === 'place_order' ? (
@@ -1300,9 +1462,9 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                     <button
                       type="button"
                       onClick={handleOpenMessenger}
-                      disabled={!isFormValid || isPlacingOrder}
+                      disabled={!isFormValid || isPlacingOrder || !hasCopiedForm}
                       className={`w-full py-3.5 rounded-xl text-[10px] sm:text-xs font-extrabold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
-                        isFormValid && !isPlacingOrder
+                        isFormValid && !isPlacingOrder && hasCopiedForm
                           ? 'bg-pink-500 hover:bg-pink-600 text-white shadow-[0_0_12px_rgba(255,0,127,0.25)]'
                           : 'bg-gray-800 text-gray-500 cursor-not-allowed'
                       }`}
@@ -1312,8 +1474,8 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                     </button>
                   )}
                 </div>
-                
-                 <p className="text-[10px] text-gray-500 font-bold tracking-wider text-center pt-1">
+
+                <p className="text-[10px] text-gray-500 font-bold tracking-wider text-center pt-1">
                   Visit our official website : <a href="https://www.pgcshop.com" target="_blank" rel="noopener noreferrer" className="text-pink-500 hover:text-pink-400 transition-colors font-semibold ml-0.5">www.pgcshop.com</a>
                 </p>
               </div>
@@ -1332,14 +1494,22 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                   Instructions / Guide
                 </h3>
                 
-                <ol className="list-decimal list-outside pl-4 text-xs sm:text-sm text-gray-300 space-y-3 leading-relaxed">
-                  <li>I-send ang payment at i-screenshot o picturan ang resibo.</li>
-                  <li>Pagkatapos magbayad, i-tap ang <span className="font-bold text-white">"COPY ORDER FORM"</span> at i-submit ang order.</li>
-                  <li>
-                    Madi-direct ka sa aming Facebook page, kung saan may lalabas na{' '}
-                    <span className="font-bold text-[#ff007f]">auto form</span>. I-send ito kasama ang resibo ng iyong bayad.
-                  </li>
-                </ol>
+                {orderOption === 'place_order' ? (
+                  <ol className="list-decimal list-outside pl-4 text-xs sm:text-sm text-gray-300 space-y-3 leading-relaxed">
+                    <li>I-send ang payment sa napiling payment method at i-screenshot o picturan ang resibo.</li>
+                    <li>I-upload ang resibo (Receipt Proof) sa payment details section.</li>
+                    <li>I-tap ang <span className="font-bold text-white">"SUBMIT ORDER"</span> button upang makumpleto ang transaksyon.</li>
+                  </ol>
+                ) : (
+                  <ol className="list-decimal list-outside pl-4 text-xs sm:text-sm text-gray-300 space-y-3 leading-relaxed">
+                    <li>I-send ang payment at i-screenshot o picturan ang resibo.</li>
+                    <li>Pagkatapos magbayad, i-tap ang <span className="font-bold text-white">"COPY ORDER FORM"</span> at i-submit ang order.</li>
+                    <li>
+                      Madi-direct ka sa aming Facebook page, kung saan may lalabas na{' '}
+                      <span className="font-bold text-[#ff007f]">auto form</span>. I-send ito kasama ang resibo ng iyong bayad.
+                    </li>
+                  </ol>
+                )}
 
                 <button
                   type="button"
@@ -1378,29 +1548,44 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
           </p>
         </div>
       )}
-      
+
       {/* Fullscreen Guide Image Viewer Modal */}
       {showGuideFullscreen && item.guide_image_url && (
         <div
-          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 p-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4"
           onClick={() => setShowGuideFullscreen(false)}
         >
-          <div className="max-w-md w-full max-h-[85vh] flex items-center justify-center relative" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="w-full max-w-md rounded-2xl p-5 border border-pink-500/35 space-y-4 shadow-2xl overflow-y-auto max-h-[95vh] relative animate-fade-in"
+            style={{ background: 'linear-gradient(180deg, #161922 0%, #0d0d0d 100%)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-[#ff007f] text-center pb-2 border-b border-gray-800">
+              {item.name.replace(/^[🟢\s]+/, '').trim()} ID Guide
+            </h3>
+            
+            <div className="flex flex-col items-center gap-4 w-full">
+              <img
+                src={item.guide_image_url}
+                alt="Guide Image"
+                className="w-full h-auto object-contain rounded-xl border border-gray-800 shadow-md"
+              />
+              
+              {item.guide_text && (
+                <p className="text-[11px] sm:text-xs text-gray-300 whitespace-pre-line leading-relaxed text-left w-full">
+                  {item.guide_text}
+                </p>
+              )}
+            </div>
+
             <button
+              type="button"
               onClick={() => setShowGuideFullscreen(false)}
-              className="absolute -top-12 right-0 p-2 text-white hover:opacity-85"
+              className="w-full py-3.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-extrabold uppercase tracking-widest text-xs sm:text-sm shadow-[0_0_12px_rgba(255,0,127,0.25)] transition-all mt-2"
             >
-              <X className="w-6 h-6" />
+              I UNDERSTAND
             </button>
-            <img
-              src={item.guide_image_url}
-              alt="Guide Image"
-              className="w-full h-auto max-h-[85vh] object-contain rounded-2xl border border-gray-800 shadow-2xl"
-            />
           </div>
-          <p className="mt-4 text-xs font-bold text-white tracking-widest uppercase">
-            {item.name.replace(/^[🟢\s]+/, '').trim()} ID Guide
-          </p>
         </div>
       )}
     </>

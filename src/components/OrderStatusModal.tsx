@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { X, CheckCircle, XCircle, Loader2, MessageCircle } from 'lucide-react';
+import { X, CheckCircle, XCircle, Loader2, MessageCircle, Clock } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
 import { useOrders } from '../hooks/useOrders';
 import { useSiteSettings } from '../hooks/useSiteSettings';
@@ -89,110 +89,78 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div 
-        className="flex flex-col rounded-2xl max-w-2xl w-full max-h-[90vh] shadow-2xl overflow-hidden" 
+        className="flex flex-col rounded-2xl max-w-xl w-full max-h-[90vh] shadow-2xl overflow-hidden relative" 
         style={{
-          background: 'rgba(26, 26, 26, 0.95)',
-          backdropFilter: 'blur(24px)',
-          WebkitBackdropFilter: 'blur(24px)',
-          border: '1.5px solid rgba(255, 105, 180, 0.4)',
-          boxShadow: '0 8px 32px 0 rgba(255, 105, 180, 0.2), 0 2px 8px 0 rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 105, 180, 0.1)'
+          background: 'linear-gradient(180deg, #161922 0%, #0d0d0d 100%)',
+          border: '1px solid rgba(255, 105, 180, 0.25)',
+          boxShadow: '0 8px 32px 0 rgba(255, 105, 180, 0.2)'
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header Section */}
-        <div 
-          className="flex-shrink-0 p-3 sm:p-6 flex items-center justify-between rounded-t-2xl" 
-          style={{ 
-            background: 'rgba(13, 13, 13, 0.9)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
-            zIndex: 20,
-            borderBottom: '1.5px solid rgba(255, 105, 180, 0.3)',
-            boxShadow: '0 2px 8px 0 rgba(0, 0, 0, 0.3)'
+        {/* Close Button absolute positioned */}
+        <button
+          onClick={() => {
+            if ((order?.status === 'approved' || order?.status === 'rejected') && onSucceededClose) {
+              onSucceededClose();
+            } else {
+              onClose();
+            }
           }}
+          className="absolute top-4 right-4 z-50 p-2 hover:bg-pink-500/20 text-gray-400 hover:text-white rounded-full transition-colors duration-200"
         >
-          <div className="flex-1 min-w-0">
-            <h2 className="text-base sm:text-2xl font-semibold text-white">Order Status</h2>
-            {order && (
-              <p className="text-xs sm:text-sm text-gray-400 mt-0.5 sm:mt-1">
-                Order #{order.invoice_number || order.id.slice(0, 8)}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={() => {
-              // If order is completed (approved or rejected) and onSucceededClose is provided, call it
-              if ((order?.status === 'approved' || order?.status === 'rejected') && onSucceededClose) {
-                onSucceededClose();
-              } else {
-                onClose();
-              }
-            }}
-            className="p-1.5 sm:p-2 hover:bg-pink-500/20 rounded-full transition-colors duration-200 flex-shrink-0 ml-2"
-          >
-            <X className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-          </button>
-        </div>
+          <X className="h-5 w-5" />
+        </button>
 
         {/* Content Section */}
         <div 
-          className="flex-1 overflow-y-auto min-h-0 relative" 
+          className="flex-1 overflow-y-auto min-h-0 relative pt-6 sm:pt-8" 
           style={{ 
-            background: 'rgba(13, 13, 13, 0.8)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
             WebkitOverflowScrolling: 'touch',
             overscrollBehavior: 'contain'
           }}
         >
-          {/* Fade-out gradient overlay at top - items fade as they approach header */}
-          <div
-            className="sticky top-0 left-0 right-0 z-10 pointer-events-none"
-            style={{
-              height: '32px',
-              background: 'linear-gradient(to bottom, rgba(13, 13, 13, 0.9) 0%, rgba(13, 13, 13, 0.8) 20%, rgba(13, 13, 13, 0.6) 50%, transparent 100%)',
-              marginBottom: '-32px'
-            }}
-          />
-          
-          <div className="p-3 sm:p-6 pt-2 sm:pt-4">
+          <div className="p-4 sm:p-6">
 
         {loading && !order ? (
           <div className="flex items-center justify-center py-8 sm:py-12">
             <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-pink-500" />
           </div>
         ) : order ? (
-          <div className="space-y-4 sm:space-y-6">
+          <div className="space-y-5">
             {/* Status Display */}
-            <div className="flex flex-col items-center gap-2 sm:gap-3 py-3 sm:py-4">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <StatusIcon 
-                  className="h-6 w-6 sm:h-8 sm:w-8"
-                  style={{ color: statusDisplay?.color }}
-                />
-                <span 
-                  className="text-lg sm:text-2xl font-semibold"
-                  style={{ color: statusDisplay?.color }}
-                >
-                  {statusDisplay?.text}
-                </span>
+            <div className="flex flex-col items-center gap-2 py-3 text-center">
+              <div className="flex items-center justify-center gap-2 text-[#ff007f]">
+                <h2 className="text-xl sm:text-2xl font-black uppercase tracking-wider text-pink-500">
+                  {order.status === 'pending' || order.status === 'processing' ? 'ORDER SUBMITTED' : statusDisplay?.text.toUpperCase()}
+                </h2>
+                <StatusIcon className="w-5 h-5 sm:w-6 sm:h-6 stroke-[3px]" style={{ color: statusDisplay?.color }} />
               </div>
+              
               {(order.status === 'pending' || order.status === 'processing') && (
-                <p className="text-xs sm:text-sm text-gray-400 text-center">
-                  Your orders are now being processed
+                <div className="flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-900/50 border border-gray-800/80 max-w-sm mx-auto w-full mt-2">
+                  <Clock className="w-4 h-4 text-pink-500" />
+                  <span className="text-[10px] sm:text-xs text-gray-300 font-bold tracking-wider uppercase">
+                    Processing Time : 10 mins to few hours
+                  </span>
+                </div>
+              )}
+
+              {(order.status === 'pending' || order.status === 'processing') && (
+                <p className="text-center text-xs sm:text-sm font-bold text-pink-500/90 leading-relaxed px-4 mt-2 max-w-sm mx-auto">
+                  Please wait. Your order is being processed by our team
                 </p>
               )}
-              {order.created_at && (
-                <p className="text-xs sm:text-sm text-gray-400">
-                  {new Date(order.created_at).toLocaleString()}
-                </p>
-              )}
+
               {order.status === 'rejected' && order.rejection_message && (
                 <div className="mt-2 w-full max-w-md rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-center">
                   <p className="text-sm font-medium text-red-400">Message from store:</p>
                   <p className="text-sm text-white mt-1">{order.rejection_message}</p>
                 </div>
               )}
+
+              <p className="text-[10px] text-gray-500 font-bold tracking-widest uppercase mt-2">
+                Order #{order.invoice_number || order.id.slice(0, 8)}
+              </p>
             </div>
 
             {/* Rejection Reason */}
@@ -223,135 +191,88 @@ const OrderStatusModal: React.FC<OrderStatusModalProps> = ({ orderId, isOpen, on
 
             {/* Support Section */}
             {siteSettings?.footer_support_url && (
-              <div className="mb-4 sm:mb-6">
+              <div className="max-w-sm mx-auto w-full pt-1">
                 <a
                   href={siteSettings.footer_support_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1.5 sm:gap-2 p-2.5 sm:p-3 rounded-lg bg-gray-900/50 hover:bg-gray-900/70 border border-pink-500/30 hover:border-pink-500/50 transition-all duration-200 group"
+                  className="flex items-center justify-center gap-1.5 sm:gap-2 p-2.5 sm:p-3 rounded-xl bg-gray-900/50 hover:bg-gray-900/70 border border-pink-500/30 hover:border-pink-500/50 transition-all duration-200 group w-full"
                 >
                   <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 text-pink-500 group-hover:scale-110 transition-transform duration-200 flex-shrink-0" />
-                  <span className="text-xs sm:text-sm font-medium text-white group-hover:text-pink-500 transition-colors duration-200">
+                  <span className="text-xs font-semibold text-white group-hover:text-pink-500 transition-colors duration-200 text-center">
                     Having trouble or issues? Tap here to contact us
                   </span>
                 </a>
               </div>
             )}
 
-            {/* Order Details */}
-            <div>
-              <h3 className="text-sm sm:text-base font-medium text-white mb-3 sm:mb-4">Order Details</h3>
-              <div className="space-y-2 sm:space-y-3">
-                {aggregateOrderItems(order.order_items).map((item, index) => (
-                  <div key={index} className="flex items-start gap-2 sm:gap-4 py-1.5 sm:py-2 border-b border-pink-500/20 last:border-b-0">
-                    <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden bg-gradient-to-br from-cafe-darkCard to-cafe-darkBg">
-                      {item.image ? (
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <div className="text-base sm:text-xl opacity-20 text-gray-400">🎮</div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm sm:text-base font-medium text-white">{item.name}</h4>
-                      {item.selectedVariation && (
-                        <p className="text-xs sm:text-sm text-gray-400">Package: {item.selectedVariation.name}</p>
-                      )}
-                      {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                        <p className="text-xs sm:text-sm text-gray-400">
-                          Add-ons: {item.selectedAddOns.map(addOn => 
-                            addOn.quantity && addOn.quantity > 1 
-                              ? `${addOn.name} x${addOn.quantity}`
-                              : addOn.name
-                          ).join(', ')}
-                        </p>
-                      )}
-                      <p className="text-xs sm:text-sm text-gray-400">₱{item.totalPrice} × {item.quantity}</p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <span className="text-sm sm:text-base font-semibold text-white">₱{item.totalPrice * item.quantity}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-pink-500/30">
-                <div className="flex items-center justify-between text-base sm:text-xl font-semibold text-white">
-                  <span>Total:</span>
-                  <span className="text-white">₱{order.total_price}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Customer Information */}
-            <div>
-              <h3 className="text-sm sm:text-base font-medium text-white mb-3 sm:mb-4">Customer Information</h3>
+            {/* Unified Summary Card (New Order Submitted Design) */}
+            <div className="bg-[#161922]/90 border border-gray-800/80 rounded-xl p-4 sm:p-5 shadow-lg space-y-4 text-xs sm:text-sm font-medium">
               {(() => {
+                // Get game name (from the first order item)
+                const gameName = order.order_items?.[0]?.name || 'Game Credits';
+                
+                // Get all order items (quantities and names)
+                const itemsList = aggregateOrderItems(order.order_items).map(item => {
+                  const varName = item.selectedVariation?.name || '';
+                  return `${varName} ${item.quantity}x`;
+                });
+
+                // Extract player IDs
                 const info = order.customer_info;
-                // Handle array format: customer_info is [{ game, package, fields }, ...]
                 const accountsArray = Array.isArray(info) ? info : null;
-                // Handle object format: { "Multiple Accounts": [...], "Payment Method": "..." } or { "IGN": "...", ... }
                 const infoObj = info && typeof info === 'object' && !Array.isArray(info) ? (info as Record<string, unknown>) : {};
                 const multipleAccounts = accountsArray ?? (Array.isArray(infoObj['Multiple Accounts']) ? infoObj['Multiple Accounts'] : null);
-                const hasMultipleAccounts = multipleAccounts && multipleAccounts.length > 0;
-                const singleEntries = Object.entries(infoObj)
-                  .filter(([key]) => key !== 'Payment Method' && key !== 'Multiple Accounts')
-                  .filter(([, value]) => typeof value === 'string' || typeof value === 'number');
-                const hasSingleEntries = singleEntries.length > 0;
+                
+                const ids: string[] = [];
+                if (multipleAccounts && multipleAccounts.length > 0) {
+                  multipleAccounts.forEach((account: any) => {
+                    if (account.fields) {
+                      Object.values(account.fields).forEach((v) => {
+                        if (v && typeof v === 'string') ids.push(v);
+                      });
+                    }
+                  });
+                } else {
+                  Object.entries(infoObj)
+                    .filter(([key]) => key !== 'Payment Method' && key !== 'Multiple Accounts')
+                    .forEach(([, value]) => {
+                      if (value && typeof value === 'string') ids.push(value);
+                    });
+                }
 
-                if (hasMultipleAccounts) {
-                  return (
-                    <div className="space-y-3 sm:space-y-4">
-                      {multipleAccounts.map((account: { game?: string; package?: string; fields?: Record<string, string> }, accountIndex: number) => (
-                        <div key={accountIndex} className="pb-3 sm:pb-4 border-b border-pink-500/20 last:border-b-0 last:pb-0">
-                          <div className="mb-1.5 sm:mb-2">
-                            <p className="text-xs sm:text-sm font-semibold text-white">{account.game || 'Item'}</p>
-                            {account.package && (
-                              <p className="text-[10px] sm:text-xs text-gray-400">Package: {account.package}</p>
-                            )}
-                          </div>
-                          <div className="space-y-1 sm:space-y-2 mt-1.5 sm:mt-2">
-                            {account.fields && Object.entries(account.fields)
-                              .filter(([, v]) => v != null && (typeof v === 'string' || typeof v === 'number'))
-                              .map(([key, value]) => (
-                              <p key={key} className="text-xs sm:text-sm text-gray-400">
-                                {key}: {String(value)}
-                              </p>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                      {(infoObj['Payment Method'] as string | undefined) && (
-                        <p className="text-xs sm:text-sm text-gray-400 mt-1.5 sm:mt-2">
-                          Payment Method: {String(infoObj['Payment Method'])}
-                        </p>
-                      )}
-                    </div>
-                  );
-                }
-                if (hasSingleEntries) {
-                  const paymentMethod = infoObj['Payment Method'] as string | undefined;
-                  return (
-                    <div className="space-y-1.5 sm:space-y-2">
-                      {singleEntries.map(([key, value]) => (
-                        <p key={key} className="text-xs sm:text-sm text-gray-400">
-                          {key}: {String(value)}
-                        </p>
-                      ))}
-                      {paymentMethod ? (
-                        <p key="payment-method" className="text-xs sm:text-sm text-gray-400">
-                          Payment Method: {paymentMethod}
-                        </p>
-                      ) : null}
-                    </div>
-                  );
-                }
+                // Get payment method
+                const paymentMethod = infoObj['Payment Method'] || 'GCASH';
+
                 return (
-                  <p className="text-xs sm:text-sm text-gray-500 italic">No customer information recorded for this order.</p>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-2">
+                      <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">GAME:</span>
+                      <span className="text-white col-span-2">{gameName}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">ORDER:</span>
+                      <div className="text-white col-span-2 flex flex-col gap-0.5 font-bold">
+                        {itemsList.map((itemStr, idx) => (
+                          <span key={idx}>{itemStr}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">PLAYER ID:</span>
+                      <span className="text-white col-span-2 font-semibold">{ids.join(' ')}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">PAYMENT:</span>
+                      <span className="text-white col-span-2 uppercase font-bold text-pink-400">
+                        {String(paymentMethod).replace(/ payment/i, '')}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">TOTAL:</span>
+                      <span className="text-pink-500 font-black text-sm sm:text-base">₱{order.total_price}</span>
+                    </div>
+                  </div>
                 );
               })()}
             </div>

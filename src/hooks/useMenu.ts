@@ -66,7 +66,8 @@ export const useMenu = () => {
           subtitle: item.subtitle || undefined,
           badge_text: item.badge_text || undefined,
           badge_color: item.badge_color || undefined,
-          guide_image_url: item.guide_image_url || undefined
+          guide_image_url: item.guide_image_url || undefined,
+          guide_text: item.guide_text || undefined
         };
       }) || [];
 
@@ -101,7 +102,8 @@ export const useMenu = () => {
           subtitle: item.subtitle || null,
           badge_text: item.badge_text || null,
           badge_color: item.badge_color || null,
-          guide_image_url: item.guide_image_url || null
+          guide_image_url: item.guide_image_url || null,
+          guide_text: item.guide_text || null
         })
         .select()
         .single();
@@ -164,7 +166,8 @@ export const useMenu = () => {
           subtitle: updates.subtitle !== undefined ? (updates.subtitle || null) : undefined,
           badge_text: updates.badge_text !== undefined ? (updates.badge_text || null) : undefined,
           badge_color: updates.badge_color !== undefined ? (updates.badge_color || null) : undefined,
-          guide_image_url: updates.guide_image_url !== undefined ? (updates.guide_image_url || null) : undefined
+          guide_image_url: updates.guide_image_url !== undefined ? (updates.guide_image_url || null) : undefined,
+          guide_text: updates.guide_text !== undefined ? (updates.guide_text || null) : undefined
         })
         .eq('id', id);
 

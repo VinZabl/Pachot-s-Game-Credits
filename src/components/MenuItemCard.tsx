@@ -66,18 +66,24 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, currentMember }) => {
             {item.name.replace(/^[🟢\s]+/, '').trim()}
           </span>
           
-          {/* Subtitle / Processing duration */}
+          {/* Subtitle / Estimated Time */}
           <span className="text-[10px] sm:text-xs text-gray-400 mt-0.5 whitespace-normal break-words truncate">
-            {(item.subtitle || '10m - 1hr')
-              .replace(/processing\s+time:?/i, '')
-              .replace(/processing/i, '')
-              .replace(/few\s+hours/gi, '1hr')
-              .replace(/minutes/gi, 'm')
-              .replace(/mins/gi, 'm')
-              .replace(/hours?/gi, 'hr')
-              .replace(/(\d+)\s*m\b/gi, '$1m')
-              .replace(/(\d+)\s*hr\b/gi, '$1hr')
-              .trim()}
+            {(() => {
+              const sub = item.subtitle ? item.subtitle.trim() : '';
+              if (!sub || /region|code/i.test(sub)) {
+                return '10m - 1hr';
+              }
+              return sub
+                .replace(/processing\s+time:?/i, '')
+                .replace(/processing/i, '')
+                .replace(/few\s+hours/gi, '1hr')
+                .replace(/minutes/gi, 'm')
+                .replace(/mins/gi, 'm')
+                .replace(/hours?/gi, 'hr')
+                .replace(/(\d+)\s*m\b/gi, '$1m')
+                .replace(/(\d+)\s*hr\b/gi, '$1hr')
+                .trim() || '10m - 1hr';
+            })()}
           </span>
         </div>
 
