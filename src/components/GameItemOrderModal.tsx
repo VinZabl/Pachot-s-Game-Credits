@@ -30,8 +30,11 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   const { siteSettings } = useSiteSettings();
   const orderOption = siteSettings?.order_option || 'place_order';
 
-  // Navigation page state: 'details' | 'order_details' | 'payment' | 'submitted'
-  const [activePage, setActivePage] = useState<'details' | 'order_details' | 'payment' | 'submitted'>('details');
+  // Navigation page state: 'region_selection' | 'details' | 'order_details' | 'payment' | 'submitted'
+  const [activePage, setActivePage] = useState<'region_selection' | 'details' | 'order_details' | 'payment' | 'submitted'>(() => {
+    return (item.regions && item.regions.length > 0) ? 'region_selection' : 'details';
+  });
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
 
   // Player accounts data: array of custom fields
   const [accounts, setAccounts] = useState<Record<string, string>[]>([{}]);
@@ -66,15 +69,24 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   const hasCustomFields = item.customFields && item.customFields.length > 0;
   const firstFieldLabel = hasCustomFields ? item.customFields![0].label : 'Account';
 
-  const categories = useMemo(() => {
+  // Filter variations by selected region
+  const filteredVariations = useMemo(() => {
     if (!item.variations) return [];
+    if (!item.regions || item.regions.length === 0 || !selectedRegion) {
+      return item.variations;
+    }
+    return item.variations.filter((v) => !v.region || v.region === selectedRegion);
+  }, [item.variations, item.regions, selectedRegion]);
+
+  const categories = useMemo(() => {
+    if (filteredVariations.length === 0) return [];
     const cats = new Set<string>();
-    item.variations.forEach((v) => {
+    filteredVariations.forEach((v) => {
       if (v.category) cats.add(v.category.trim());
     });
     const list = Array.from(cats);
     return list.length > 0 ? ['ALL', ...list] : [];
-  }, [item.variations]);
+  }, [filteredVariations]);
 
   // Set default category tab
   useEffect(() => {
@@ -100,16 +112,34 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
     }
   }, [paymentMethods, paymentMethodId]);
 
-  // Show guide modal automatically on open if guide image exists
+  // Initialize and Reset modal states on open or item changes
   useEffect(() => {
     if (isOpen) {
+      if (item.regions && item.regions.length > 0) {
+        setActivePage('region_selection');
+        setSelectedRegion(null);
+      } else {
+        setActivePage('details');
+        setSelectedRegion(null);
+      }
+    } else {
+      setSelectedRegion(null);
+    }
+  }, [isOpen, item]);
+
+  // Show guide modal automatically on entering details page if guide image exists
+  useEffect(() => {
+    if (isOpen && activePage === 'details') {
+      if (item.regions && item.regions.length > 0 && !selectedRegion) {
+        return;
+      }
       if (item.guide_image_url) {
         setShowGuideFullscreen(true);
       }
-    } else {
+    } else if (!isOpen) {
       setShowGuideFullscreen(false);
     }
-  }, [isOpen, item.guide_image_url]);
+  }, [isOpen, activePage, item.guide_image_url, selectedRegion]);
 
   const selectedPaymentMethod = paymentMethods.find((m) => m.id === paymentMethodId);
 
@@ -124,6 +154,8 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
     }
     return basePrice;
   };
+
+
 
   // Calculate total price of all selections across all accounts
   const totalPrice = useMemo(() => {
@@ -331,14 +363,13 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       
       const paymentName = selectedPaymentMethod?.name || 'GCASH';
       lines.push(`PAYMENT: ${paymentName.replace(/ payment/i, '').toUpperCase()}`);
-      lines.push(`TOTAL: ₱${userTotal.toFixed(0)}`);
       
       if (accIdx < accounts.length - 1) {
         lines.push('---------------------------');
       }
     });
     
-    lines.push(`\nGRAND TOTAL: ₱${grandTotal.toFixed(0)}`);
+    lines.push(`\nTOTAL: ₱${grandTotal.toFixed(0)}`);
     return lines.join('\n');
   };
 
@@ -571,11 +602,15 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
           {/* Header */}
           <div className="relative flex-shrink-0 p-4 sm:p-5 flex flex-col gap-3 border-b border-gray-900">
             <div className="flex items-center justify-between">
-              {((activePage !== 'details' && activePage !== 'submitted') || activeSelectingAccountIdx !== null) && (
+              {((activePage !== 'region_selection' && activePage !== 'submitted' && (activePage !== 'details' || (item.regions && item.regions.length > 0))) || activeSelectingAccountIdx !== null) && (
                 <button
                   onClick={() => {
                     if (activeSelectingAccountIdx !== null) {
                       setActiveSelectingAccountIdx(null);
+                    } else if (activePage === 'details') {
+                      if (item.regions && item.regions.length > 0) {
+                        setActivePage('region_selection');
+                      }
                     } else if (activePage === 'order_details') {
                       setActivePage('details');
                     } else if (activePage === 'payment') {
@@ -610,7 +645,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
               </button>
             </div>
 
-            {activePage !== 'submitted' && (
+            {activePage !== 'submitted' && activePage !== 'region_selection' && (
               <>
                 {/* Processing Time Banner */}
                 {activePage === 'details' && (
@@ -682,7 +717,53 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
           {/* Content Area */}
           <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-                      {/* PAGE 1: PLAYER DETAILS & PRODUCT SELECTION */}
+            {/* PAGE 0: REGION SELECTION */}
+            {activePage === 'region_selection' && (
+              <div className="flex-1 flex flex-col justify-center items-center p-5 space-y-6 overflow-y-auto">
+                <div className="text-center space-y-2">
+                  <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-white">
+                    Select Your Region
+                  </h3>
+                  <p className="text-[10px] sm:text-xs text-gray-400 whitespace-nowrap">
+                    Please select your region to view the correct items, prices, and guide.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 w-full max-w-xs">
+                  {item.regions?.map((region) => (
+                    <button
+                      key={region.id}
+                      onClick={() => {
+                        setSelectedRegion(region.name);
+                        setActivePage('details');
+                      }}
+                      className="w-full py-3 px-5 rounded-2xl border border-gray-800 bg-[#0d0d0d] hover:border-pink-500/50 hover:bg-[#2c1524]/10 text-white font-extrabold uppercase tracking-widest text-xs sm:text-sm transition-all shadow-[0_0_8px_rgba(0,0,0,0.4)] flex items-center justify-between group"
+                    >
+                      <div className="flex items-center gap-3">
+                        {region.guide_image_url && (
+                          <img
+                            src={region.guide_image_url}
+                            alt=""
+                            className="w-10 h-7 object-cover rounded border border-gray-800/80 flex-shrink-0"
+                          />
+                        )}
+                        <div className="flex flex-col text-left">
+                          <span className="font-extrabold text-sm sm:text-base text-white">{region.name}</span>
+                          {region.guide_text && (
+                            <span className="text-[10px] sm:text-[11px] text-gray-400 font-medium normal-case tracking-normal mt-0.5">
+                              {region.guide_text}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-gray-600 group-hover:text-pink-500 transition-colors">➔</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* PAGE 1: PLAYER DETAILS & PRODUCT SELECTION */}
             {activePage === 'details' && (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0">
                 {activeSelectingAccountIdx === null ? (
@@ -704,7 +785,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                               if (item.guide_image_url) {
                                 setShowGuideFullscreen(true);
                               } else {
-                                setShowIdHelp(!showIdHelp);
+                                  setShowIdHelp(!showIdHelp);
                               }
                             }}
                             className="flex items-center gap-1.5 px-2.5 py-1.5 border border-pink-500/30 rounded-lg text-[9px] font-bold text-pink-400 bg-pink-500/5 hover:bg-pink-500/10 hover:border-pink-500/50 transition-all cursor-pointer shadow-[0_0_8px_rgba(255,0,127,0.05)]"
@@ -870,25 +951,25 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                         {(() => {
                           const accIdx = activeSelectingAccountIdx;
                           const accSelections = selections[accIdx] || {};
-                          const filteredVariations = (item.variations || []).filter(
+                          const renderVariations = (filteredVariations || []).filter(
                             (v) => selectedCategoryTab === 'ALL' || !v.category || v.category.trim() === selectedCategoryTab
                           );
 
-                          if (filteredVariations.length === 0) {
+                          if (renderVariations.length === 0) {
                             return (
                               <p className="text-center text-xs text-gray-500 py-8">No variations found in this category.</p>
                             );
                           }
 
-                          const groups: Record<string, typeof filteredVariations> = {};
+                          const groups: Record<string, typeof renderVariations> = {};
                           if (selectedCategoryTab === 'ALL') {
-                            filteredVariations.forEach((v) => {
+                            renderVariations.forEach((v) => {
                               const cat = v.category?.trim() || 'Other';
                               if (!groups[cat]) groups[cat] = [];
                               groups[cat].push(v);
                             });
                           } else {
-                            groups[''] = filteredVariations;
+                            groups[''] = renderVariations;
                           }
 
                           return (
@@ -1056,7 +1137,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                               </div>
                             </div>
                             <div className="grid grid-cols-3 gap-2 pt-1 border-t border-gray-900/60">
-                              <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">User Total:</span>
+                              <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">TOTAL:</span>
                               <span className="text-pink-500 font-extrabold col-span-2 text-right">₱{userTotal.toFixed(0)}</span>
                             </div>
                           </div>
@@ -1066,7 +1147,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
                     {/* Overall Total */}
                     <div className="mt-5 pt-4 border-t border-pink-500/30 flex justify-between items-center">
-                      <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-white">Overall Total:</span>
+                      <span className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-white">TOTAL:</span>
                       <span className="text-base sm:text-lg font-black text-pink-500">₱{totalPrice.toFixed(0)}</span>
                     </div>
                   </div>
@@ -1316,18 +1397,30 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                               {selectedPaymentMethod?.name.replace(/ payment/i, '') || 'GCASH'}
                             </span>
                           </div>
-                          {accIdx === 0 && (
-                            <div className="grid grid-cols-3 gap-2">
-                              <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">TOTAL:</span>
-                              <span className="text-pink-500 font-black text-sm sm:text-base">₱{totalPrice.toFixed(0)}</span>
-                            </div>
-                          )}
+                          {(() => {
+                            const userSubtotal = Object.entries(accSelections).reduce((sum, [vId, qty]) => {
+                              const v = item.variations?.find((x) => x.id === vId);
+                              return v ? sum + getDiscountedPrice(v.price, v) * qty : sum;
+                            }, 0);
+                            return (
+                              <div className="grid grid-cols-3 gap-2">
+                                <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">TOTAL:</span>
+                                <span className="text-pink-500 font-bold col-span-2">₱{userSubtotal.toFixed(0)}</span>
+                              </div>
+                            );
+                          })()}
                           {accIdx < accounts.length - 1 && (
                             <div className="border-t border-gray-900 my-4"></div>
                           )}
                         </div>
                       );
                     })}
+
+                    {/* Overall Total */}
+                    <div className="mt-4 pt-3 border-t border-pink-500/30 flex justify-between items-center">
+                      <span className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-white">TOTAL:</span>
+                      <span className="text-base sm:text-lg font-black text-pink-500">₱{totalPrice.toFixed(0)}</span>
+                    </div>
                   </div>
 
                   {/* Horizontal Divider Line */}
@@ -1583,7 +1676,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-[#ff007f] text-center pb-2 border-b border-gray-800">
-              {item.name.replace(/^[🟢\s]+/, '').trim()} ID Guide
+              {item.name.replace(/^[🟢\s]+/, '').trim()} Guide
             </h3>
             
             <div className="flex flex-col items-center gap-4 w-full">

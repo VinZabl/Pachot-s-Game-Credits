@@ -11,6 +11,14 @@ export interface Variation {
   sort?: number;
   badge_text?: string;
   badge_color?: string;
+  region?: string;
+}
+
+export interface MenuItemRegion {
+  id: string;
+  name: string;
+  guide_image_url?: string;
+  guide_text?: string;
 }
 
 export interface CustomField {
@@ -58,6 +66,7 @@ export interface MenuItem {
   badge_color?: string; // HEX or color name
   guide_image_url?: string;
   guide_text?: string;
+  regions?: MenuItemRegion[];
 }
 
 export interface CartItem extends MenuItem {

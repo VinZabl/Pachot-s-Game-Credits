@@ -60,14 +60,16 @@ export const useMenu = () => {
             category: v.category || undefined,
             sort: v.sort !== null && v.sort !== undefined ? v.sort : undefined,
             badge_text: v.badge_text || undefined,
-            badge_color: v.badge_color || undefined
+            badge_color: v.badge_color || undefined,
+            region: v.region || undefined
           })) || []).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
           customFields: (item.custom_fields as CustomField[]) || [],
           subtitle: item.subtitle || undefined,
           badge_text: item.badge_text || undefined,
           badge_color: item.badge_color || undefined,
           guide_image_url: item.guide_image_url || undefined,
-          guide_text: item.guide_text || undefined
+          guide_text: item.guide_text || undefined,
+          regions: item.regions || []
         };
       }) || [];
 
@@ -103,7 +105,8 @@ export const useMenu = () => {
           badge_text: item.badge_text || null,
           badge_color: item.badge_color || null,
           guide_image_url: item.guide_image_url || null,
-          guide_text: item.guide_text || null
+          guide_text: item.guide_text || null,
+          regions: item.regions || []
         })
         .select()
         .single();
@@ -127,7 +130,8 @@ export const useMenu = () => {
               category: v.category || null,
               sort: v.sort !== null && v.sort !== undefined ? v.sort : null,
               badge_text: v.badge_text || null,
-              badge_color: v.badge_color || null
+              badge_color: v.badge_color || null,
+              region: v.region || null
             }))
           );
 
@@ -167,7 +171,8 @@ export const useMenu = () => {
           badge_text: updates.badge_text !== undefined ? (updates.badge_text || null) : undefined,
           badge_color: updates.badge_color !== undefined ? (updates.badge_color || null) : undefined,
           guide_image_url: updates.guide_image_url !== undefined ? (updates.guide_image_url || null) : undefined,
-          guide_text: updates.guide_text !== undefined ? (updates.guide_text || null) : undefined
+          guide_text: updates.guide_text !== undefined ? (updates.guide_text || null) : undefined,
+          regions: updates.regions !== undefined ? updates.regions : undefined
         })
         .eq('id', id);
 
@@ -193,7 +198,8 @@ export const useMenu = () => {
               category: v.category || null,
               sort: v.sort !== null && v.sort !== undefined ? v.sort : null,
               badge_text: v.badge_text || null,
-              badge_color: v.badge_color || null
+              badge_color: v.badge_color || null,
+              region: v.region || null
             }))
           );
 

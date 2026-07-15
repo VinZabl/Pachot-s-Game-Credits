@@ -265,7 +265,8 @@ const AdminDashboard: React.FC = () => {
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     customization: false,
     packages: false,
-    customFields: false
+    customFields: false,
+    regions: false
   });
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
@@ -292,7 +293,8 @@ const AdminDashboard: React.FC = () => {
     variations: [],
     customFields: [],
     badge_text: '',
-    badge_color: '#EC4899'
+    badge_color: '#EC4899',
+    regions: []
   });
 
   const toggleSection = (section: string) => {
@@ -320,7 +322,8 @@ const AdminDashboard: React.FC = () => {
       variations: [],
       customFields: [],
       badge_text: '',
-      badge_color: '#EC4899'
+      badge_color: '#EC4899',
+      regions: []
     });
   };
 
@@ -1141,6 +1144,131 @@ const AdminDashboard: React.FC = () => {
               )}
             </div>
 
+            {/* Regions Section */}
+            <div className="mb-8 border-b border-gray-200 pb-8">
+              <button
+                onClick={() => toggleSection('regions')}
+                className="w-full flex items-center justify-between text-left mb-4 hover:opacity-80 transition-opacity"
+                type="button"
+              >
+                <div className="flex-1">
+                  <h3 className="text-xs font-semibold text-black">Regions</h3>
+                  <p className="text-xs text-gray-500 mt-1">Manage game regions and region-specific guides (e.g., Singapore, Indo)</p>
+                </div>
+                {collapsedSections.regions ? (
+                  <ChevronDown className="h-5 w-5 text-gray-600 ml-4 flex-shrink-0" />
+                ) : (
+                  <ChevronUp className="h-5 w-5 text-gray-600 ml-4 flex-shrink-0" />
+                )}
+              </button>
+
+              {!collapsedSections.regions && (
+                <div className="space-y-4">
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => {
+                        const newRegion = {
+                          id: `region-${Date.now()}-${Math.random()}`,
+                          name: '',
+                          guide_image_url: '',
+                          guide_text: ''
+                        };
+                        setFormData({
+                          ...formData,
+                          regions: [...(formData.regions || []), newRegion]
+                        });
+                      }}
+                      className="flex items-center space-x-2 px-3 py-2 bg-cream-100 text-black rounded-lg hover:bg-cream-200 transition-colors duration-200 text-xs font-bold uppercase tracking-wider"
+                      type="button"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>Add Region</span>
+                    </button>
+                  </div>
+
+                  {(formData.regions && formData.regions.length > 0) ? (
+                    <div className="space-y-4">
+                      {formData.regions.map((region, regionIdx) => (
+                        <div key={region.id} className="p-4 bg-gray-50 rounded-lg space-y-4 border border-gray-200">
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex-1">
+                              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Region Name *</label>
+                              <input
+                                type="text"
+                                value={region.name}
+                                onChange={(e) => {
+                                  const updated = [...(formData.regions || [])];
+                                  updated[regionIdx] = { ...updated[regionIdx], name: e.target.value };
+                                  setFormData({ ...formData, regions: updated });
+                                }}
+                                placeholder="e.g. Singapore, Indonesia"
+                                className="w-full px-3 py-2 border border-gray-300 rounded text-xs text-black"
+                                required
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = (formData.regions || []).filter((_, idx) => idx !== regionIdx);
+                                const deletedRegionName = region.name;
+                                const updatedVariations = (formData.variations || []).map(v => {
+                                  if (v.region === deletedRegionName) {
+                                    return { ...v, region: undefined };
+                                  }
+                                  return v;
+                                });
+                                setFormData({
+                                  ...formData,
+                                  regions: updated,
+                                  variations: updatedVariations
+                                });
+                              }}
+                              className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors self-end"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          {/* Region-Specific Guide */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-gray-200/60">
+                            <div>
+                              <ImageUpload
+                                label="Region Guide Image"
+                                currentImage={region.guide_image_url}
+                                onImageChange={(imageUrl) => {
+                                  const updated = [...(formData.regions || [])];
+                                  updated[regionIdx] = { ...updated[regionIdx], guide_image_url: imageUrl || '' };
+                                  setFormData({ ...formData, regions: updated });
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Region Guide Instruction Text</label>
+                              <textarea
+                                value={region.guide_text || ''}
+                                onChange={(e) => {
+                                  const updated = [...(formData.regions || [])];
+                                  updated[regionIdx] = { ...updated[regionIdx], guide_text: e.target.value };
+                                  setFormData({ ...formData, regions: updated });
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded text-xs text-black"
+                                placeholder="Region-specific guide instructions"
+                                rows={3}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                      <p className="text-xs text-gray-500">No specific regions configured. This game will have a single global flow.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* In-Game Currency Packages Section */}
             <div className="mb-8 border-b border-gray-200 pb-8">
               <div className="flex items-center justify-between mb-4">
@@ -1604,6 +1732,28 @@ const AdminDashboard: React.FC = () => {
                                             />
                                           </div>
                                         </div>
+
+                                        {/* Region Assignment Dropdown */}
+                                        {formData.regions && formData.regions.length > 0 && (
+                                          <div className="mb-2">
+                                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Region Assignment</label>
+                                            <select
+                                              value={variation.region || ''}
+                                              onChange={(e) => {
+                                                const val = e.target.value || null;
+                                                updateVariation(index, 'region', val);
+                                              }}
+                                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
+                                            >
+                                              <option value="">Global / All Regions</option>
+                                              {formData.regions.map((r) => (
+                                                <option key={r.id} value={r.name}>
+                                                  {r.name}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                        )}
 
                                         {/* Description (optional) */}
                                         <textarea
