@@ -729,7 +729,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 w-full max-w-xs">
+                <div className="grid grid-cols-2 gap-3 w-full max-w-sm sm:max-w-md">
                   {item.regions?.map((region) => (
                     <button
                       key={region.id}
@@ -737,26 +737,23 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                         setSelectedRegion(region.name);
                         setActivePage('details');
                       }}
-                      className="w-full py-3 px-5 rounded-2xl border border-gray-800 bg-[#0d0d0d] hover:border-pink-500/50 hover:bg-[#2c1524]/10 text-white font-extrabold uppercase tracking-widest text-xs sm:text-sm transition-all shadow-[0_0_8px_rgba(0,0,0,0.4)] flex items-center justify-between group"
+                      className="w-full py-3 px-4 rounded-xl border border-gray-800 bg-[#0d0d0d] hover:border-pink-500/50 hover:bg-[#2c1524]/10 text-white font-extrabold uppercase tracking-widest text-xs sm:text-sm transition-all shadow-[0_0_8px_rgba(0,0,0,0.4)] flex items-center gap-2.5 group"
                     >
-                      <div className="flex items-center gap-3">
-                        {region.guide_image_url && (
-                          <img
-                            src={region.guide_image_url}
-                            alt=""
-                            className="w-10 h-7 object-cover rounded border border-gray-800/80 flex-shrink-0"
-                          />
+                      {region.guide_image_url && (
+                        <img
+                          src={region.guide_image_url}
+                          alt=""
+                          className="w-8 h-5 object-cover rounded border border-gray-800/80 flex-shrink-0"
+                        />
+                      )}
+                      <div className="flex flex-col text-left min-w-0">
+                        <span className="font-extrabold text-xs sm:text-sm text-white truncate">{region.name}</span>
+                        {region.guide_text && (
+                          <span className="text-[9px] sm:text-[10px] text-gray-400 font-medium normal-case tracking-normal mt-0.5 truncate">
+                            {region.guide_text}
+                          </span>
                         )}
-                        <div className="flex flex-col text-left">
-                          <span className="font-extrabold text-sm sm:text-base text-white">{region.name}</span>
-                          {region.guide_text && (
-                            <span className="text-[10px] sm:text-[11px] text-gray-400 font-medium normal-case tracking-normal mt-0.5">
-                              {region.guide_text}
-                            </span>
-                          )}
-                        </div>
                       </div>
-                      <span className="text-gray-600 group-hover:text-pink-500 transition-colors">➔</span>
                     </button>
                   ))}
                 </div>
