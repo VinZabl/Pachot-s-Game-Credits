@@ -337,6 +337,9 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
     let grandTotal = 0;
     accounts.forEach((acc, accIdx) => {
       lines.push(`GAME: ${item.name}`);
+      if (selectedRegion) {
+        lines.push(`REGION: ${selectedRegion.toUpperCase()}`);
+      }
       
       if (hasCustomFields && item.customFields) {
         const ids: string[] = [];
@@ -1122,6 +1125,12 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                               accIdx > 0 ? 'pt-4 border-t border-gray-800/60' : ''
                             }`}
                           >
+                            {selectedRegion && (
+                              <div className="grid grid-cols-3 gap-2">
+                                <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">Region:</span>
+                                <span className="text-white col-span-2 font-semibold">{selectedRegion}</span>
+                              </div>
+                            )}
                             <div className="grid grid-cols-3 gap-2">
                               <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">Player ID:</span>
                               <span className="text-white col-span-2 font-semibold">{ids.join(' ')}</span>
@@ -1394,6 +1403,12 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                             <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">GAME:</span>
                             <span className="text-white col-span-2">{item.name.replace(/^[🟢\s]+/, '').trim()}</span>
                           </div>
+                          {selectedRegion && (
+                            <div className="grid grid-cols-3 gap-2">
+                              <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">REGION:</span>
+                              <span className="text-white col-span-2">{selectedRegion}</span>
+                            </div>
+                          )}
                           <div className="grid grid-cols-3 gap-2">
                             <span className="text-gray-400 uppercase tracking-wider text-[10px] sm:text-xs">ORDER:</span>
                             <div className="text-white col-span-2 flex flex-col gap-0.5 font-bold">
