@@ -464,6 +464,29 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
     }
   };
 
+  const handleCopySubmittedOrderDetails = async () => {
+    try {
+      const message = buildOrderMessage();
+      const didCopy = await navigator.clipboard.writeText(message).then(() => true).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = message;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      });
+      if (didCopy) {
+        setCopiedOrderMessage(true);
+        setTimeout(() => setCopiedOrderMessage(false), 2000);
+      }
+    } catch (err) {
+      console.error('Failed to copy order details:', err);
+    }
+  };
+
   const handlePlaceOrder = async () => {
     if (!selectedPaymentMethod || !receiptImageUrl) return;
 
@@ -1457,6 +1480,16 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                       <span className="text-base sm:text-lg font-black text-pink-500">₱{totalPrice.toFixed(0)}</span>
                     </div>
                   </div>
+
+                  {/* Copy Order Details Button */}
+                  <button
+                    type="button"
+                    onClick={handleCopySubmittedOrderDetails}
+                    className="w-full py-3 rounded-xl bg-[#2c1524]/20 border border-pink-500/30 hover:border-pink-500/60 hover:bg-[#2c1524]/30 text-white transition-all text-xs sm:text-sm font-extrabold uppercase tracking-widest flex items-center justify-center gap-2 mt-4"
+                  >
+                    <Copy className="h-4 w-4 text-pink-500" />
+                    {copiedOrderMessage ? 'Order Details Copied!' : 'Copy Order Details'}
+                  </button>
 
                   {/* Horizontal Divider Line */}
                   <div className="border-t-2 border-[#ff007f]/40 my-2"></div>
