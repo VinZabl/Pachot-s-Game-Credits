@@ -730,7 +730,11 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 w-full max-w-sm sm:max-w-md">
-                  {item.regions?.map((region) => (
+                  {item.regions
+                    ?.filter((region) => {
+                      return item.variations?.some((v) => v.region === region.name);
+                    })
+                    .map((region) => (
                     <button
                       key={region.id}
                       onClick={() => {
