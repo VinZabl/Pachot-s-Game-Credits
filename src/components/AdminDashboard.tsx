@@ -269,6 +269,7 @@ const AdminDashboard: React.FC = () => {
     regions: false
   });
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+  const [collapsedRegions, setCollapsedRegions] = useState<Record<string, boolean>>({});
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null);
   const [draggedPackageCategoryKey, setDraggedPackageCategoryKey] = useState<string | null>(null);
@@ -668,29 +669,85 @@ const AdminDashboard: React.FC = () => {
     setShowBulkActions(selectedItems.length > 0);
   }, [selectedItems]);
 
-  const updateVariation = (index: number, field: keyof Variation, value: string | number | null | undefined) => {
-    const updatedVariations = [...(formData.variations || [])];
-    updatedVariations[index] = { ...updatedVariations[index], [field]: value };
+  const updateVariation = (id: string, field: keyof Variation, value: any) => {
+    const updatedVariations = (formData.variations || []).map(v => {
+      if (v.id === id) {
+        return { ...v, [field]: value };
+      }
+      return v;
+    });
     setFormData({ ...formData, variations: updatedVariations });
   };
 
-  const removeVariation = (index: number) => {
-    const updatedVariations = formData.variations?.filter((_, i) => i !== index) || [];
+  const removeVariation = (id: string) => {
+    const updatedVariations = (formData.variations || []).filter(v => v.id !== id);
     setFormData({ ...formData, variations: updatedVariations });
   };
 
-  const sortVariationsByPrice = () => {
+  const sortVariationsByPrice = (regionName?: string) => {
     if (!formData.variations || formData.variations.length === 0) return;
     
+    // Filter variations for this region
+    const regionVars = formData.variations.filter(v => 
+      (!v.region && !regionName) || (v.region === regionName)
+    );
+    // Filter other variations
+    const otherVars = formData.variations.filter(v => 
+      !((!v.region && !regionName) || (v.region === regionName))
+    );
+
     // Sort variations by price (lowest to highest) and update sort_order
-    const sortedVariations = [...formData.variations]
-      .sort((a, b) => a.price - b.price)
+    const sortedRegionVars = [...regionVars]
+      .sort((a, b) => (a.price || 0) - (b.price || 0))
       .map((variation, index) => ({
         ...variation,
         sort_order: index
       }));
     
-    setFormData({ ...formData, variations: sortedVariations });
+    setFormData({ ...formData, variations: [...otherVars, ...sortedRegionVars] });
+  };
+
+  const addCategoryForRegion = (regionName?: string) => {
+    const targetRegionName = regionName || undefined;
+    
+    // Filter variations in this region
+    const regionVars = formData.variations?.filter(v => 
+      (!v.region && !targetRegionName) || (v.region === targetRegionName)
+    ) || [];
+
+    const existingCategories = new Set<string>();
+    regionVars.forEach(v => {
+      const cat = v.category || 'Uncategorized';
+      existingCategories.add(cat);
+    });
+    
+    const categoryName = `Category ${existingCategories.size + 1}`;
+    
+    // Get the highest category sort value in this region
+    let maxCategorySort = 0;
+    regionVars.forEach(v => {
+      if (v.sort !== null && v.sort !== undefined && v.sort < 999) {
+        maxCategorySort = Math.max(maxCategorySort, v.sort);
+      }
+    });
+    
+    const newVariation: Variation = {
+      id: `var-${Date.now()}-${Math.random()}`,
+      name: '',
+      price: undefined,
+      description: '',
+      sort_order: 0,
+      category: categoryName,
+      sort: maxCategorySort + 1,
+      region: targetRegionName
+    };
+    
+    setFormData({
+      ...formData,
+      variations: [...(formData.variations || []), newVariation]
+    });
+    
+    setCollapsedCategories(prev => ({ ...prev, [categoryName]: false }));
   };
 
   // Custom Fields Management
@@ -1292,574 +1349,431 @@ const AdminDashboard: React.FC = () => {
 
               {!collapsedSections.packages && (
                 <div className="space-y-6">
-                  <div className="flex flex-row flex-wrap items-center gap-2">
-                    {formData.variations && formData.variations.length > 1 && (
-                      <button
-                        onClick={sortVariationsByPrice}
-                        className="flex items-center justify-center space-x-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-xs"
-                        title="Sort packages by price (lowest to highest)"
-                      >
-                        <ArrowUpDown className="h-4 w-4" />
-                        <span className="whitespace-nowrap">Sort by Price</span>
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        // Create a new category with a default package
-                        const existingCategories = new Set<string>();
-                        formData.variations?.forEach(v => {
-                          const cat = v.category || 'Uncategorized';
-                          existingCategories.add(cat);
-                        });
-                        const categoryName = `Category ${existingCategories.size + 1}`;
-                        
-                        // Get the highest category sort value
-                        let maxCategorySort = 0;
-                        formData.variations?.forEach(v => {
-                          if (v.sort !== null && v.sort !== undefined && v.sort < 999) {
-                            maxCategorySort = Math.max(maxCategorySort, v.sort);
+                  {(() => {
+                    const configuredRegions = formData.regions?.map(r => r.name) || [];
+                    const variationRegions = Array.from(new Set(
+                      (formData.variations || [])
+                        .map(v => v.region)
+                        .filter((r): r is string => !!r)
+                    ));
+                    const allRegions = Array.from(new Set([...configuredRegions, ...variationRegions]));
+                    const adminRegionsList = ['Global', ...allRegions];
+                    return (
+                      <div className="space-y-6">
+                        {adminRegionsList.map((regionName) => {
+                          const targetRegionName = regionName === 'Global' ? undefined : regionName;
+                          
+                          // Filter variations that belong to this region
+                          const regionVariations = (formData.variations || []).filter(v => 
+                            (!v.region && !targetRegionName) || (v.region === targetRegionName)
+                          );
+
+                          // Skip rendering empty Global section if other regions exist and Global has no variations
+                          if (regionName === 'Global' && formData.regions && formData.regions.length > 0 && regionVariations.length === 0) {
+                            return null;
                           }
-                        });
-                        
-                        const newVariation: Variation = {
-                          id: `var-${Date.now()}-${Math.random()}`,
-                          name: '',
-                          price: undefined,
-                          description: '',
-                          sort_order: 0,
-                          category: categoryName,
-                          sort: maxCategorySort + 1
-                        };
-                        setFormData({
-                          ...formData,
-                          variations: [...(formData.variations || []), newVariation]
-                        });
-                        // Expand the new category
-                        setCollapsedCategories(prev => ({ ...prev, [categoryName]: false }));
-                      }}
-                      className="flex items-center justify-center space-x-2 px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors duration-200 text-xs"
-                >
-                  <Plus className="h-4 w-4" />
-                      <span className="whitespace-nowrap">Add Category</span>
-                </button>
-              </div>
 
-                  {formData.variations && formData.variations.length > 0 ? (
-                    (() => {
-                      // Group all variations by category
-                      // Packages without categories go into an "Unnamed Category"
-                      const groupedByCategory: Record<string, { variations: Variation[], categorySort: number, originalCategory: string | undefined, isUnnamed: boolean }> = {};
-                      const UNNAMED_CATEGORY_KEY = '__unnamed_category__';
-                      
-                      formData.variations.forEach((variation) => {
-                        let categoryKey: string;
-                        let isUnnamed = false;
-                        
-                        // Check if this is a temporary empty category identifier
-                        if (variation.category && variation.category.startsWith('__temp_empty_')) {
-                          categoryKey = variation.category;
-                        } else if (!variation.category || variation.category.trim() === '') {
-                          // Packages without categories go into "Unnamed Category"
-                          categoryKey = UNNAMED_CATEGORY_KEY;
-                          isUnnamed = true;
-                        } else {
-                          categoryKey = variation.category;
-                        }
-                        
-                        const categorySort = variation.sort !== null && variation.sort !== undefined ? variation.sort : 999;
-                        
-                        if (!groupedByCategory[categoryKey]) {
-                          groupedByCategory[categoryKey] = { 
-                            variations: [], 
-                            categorySort: 999,
-                            originalCategory: variation.category,
-                            isUnnamed: isUnnamed
-                          };
-                        }
-                        groupedByCategory[categoryKey].variations.push(variation);
-                        // Use the minimum sort value as the category sort
-                        if (categorySort < groupedByCategory[categoryKey].categorySort) {
-                          groupedByCategory[categoryKey].categorySort = categorySort;
-                        }
-                      });
-
-                      // Sort categories by sort order
-                      const sortedCategories = Object.keys(groupedByCategory).sort((a, b) => {
-                        return groupedByCategory[a].categorySort - groupedByCategory[b].categorySort;
-                      });
-
-                      return (
-                        <div className="space-y-6">
-                          {/* Show all categories (including unnamed) */}
-                          {sortedCategories.map((category) => {
-                            const categoryData = groupedByCategory[category];
-                            const categoryVariations = categoryData.variations;
-                            const categorySort = categoryData.categorySort;
-                            const originalCategory = categoryData.originalCategory;
-                            const isUnnamed = categoryData.isUnnamed;
-                            // Display name: check if this is unnamed category, temporary empty category, or if original is empty
-                            // Get the actual category name from the first variation (most up-to-date)
-                            const actualCategoryName = categoryVariations[0]?.category;
-                            let displayCategoryName = '';
-                            let isReadOnly = false;
-                            if (isUnnamed || category === '__unnamed_category__') {
-                              // This is the unnamed category, show the actual category name if it exists, otherwise "Unnamed Category"
-                              displayCategoryName = (actualCategoryName && actualCategoryName.trim() !== '' && !actualCategoryName.startsWith('__temp_empty_') && !actualCategoryName.startsWith('__empty_')) 
-                                ? actualCategoryName 
-                                : 'Unnamed Category';
-                              isReadOnly = false; // Allow editing unnamed category
-                            } else if (category.startsWith('__temp_empty_') || category.startsWith('__empty_')) {
-                              // This is an empty category, show empty string (but category won't vanish)
-                              displayCategoryName = '';
-                            } else if (actualCategoryName && actualCategoryName.trim() !== '' && !actualCategoryName.startsWith('__temp_empty_') && !actualCategoryName.startsWith('__empty_')) {
-                              displayCategoryName = actualCategoryName;
-                            } else if (originalCategory && originalCategory.trim() !== '' && !originalCategory.startsWith('__temp_empty_') && !originalCategory.startsWith('__empty_')) {
-                              displayCategoryName = originalCategory;
-                            } else {
-                              displayCategoryName = category;
-                            }
-                            // Store the original category key for stable reference
-                            const originalCategoryKey = category;
-                            // Use the first variation ID as a stable key that doesn't change when category name changes
-                            const stableKey = categoryVariations[0]?.id || `category-${originalCategoryKey}`;
-
-                            const isCategoryCollapsed = collapsedCategories[category] ?? false;
+                          // Group variations in this region by category
+                          const groupedByCategory: Record<string, { variations: Variation[], categorySort: number, originalCategory: string | undefined, isUnnamed: boolean }> = {};
+                          const UNNAMED_CATEGORY_KEY = `__unnamed_category_${regionName}__`;
+                          
+                          regionVariations.forEach((variation) => {
+                            let categoryKey: string;
+                            let isUnnamed = false;
                             
-                            return (
-                              <div
-                                key={stableKey}
-                                data-droppable="category"
-                                data-drop-key={category}
-                                className={`border border-gray-300 rounded-lg p-4 bg-white ${draggedPackageCategoryKey === category ? 'opacity-50' : ''}`}
-                                onDragOver={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  e.dataTransfer.dropEffect = 'move';
-                                }}
-                                onDrop={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  const targetKey = category;
-                                  if (draggedPackageCategoryKey && draggedPackageCategoryKey !== targetKey) {
-                                    handleReorderPackageCategories(draggedPackageCategoryKey, targetKey);
-                                  }
-                                  setDraggedPackageCategoryKey(null);
-                                }}
-                                onDragEnd={() => setDraggedPackageCategoryKey(null)}
-                              >
-                                {/* Category Header - single row: drag, dropdown, name, delete */}
-                                <div className="flex flex-row items-center gap-2 mb-4 pb-3 border-b border-gray-200">
-                                  <span
-                                    role="button"
-                                    tabIndex={0}
-                                    draggable
-                                    onDragStart={(e) => {
-                                      setDraggedPackageCategoryKey(category);
-                                      e.dataTransfer.effectAllowed = 'move';
-                                      e.dataTransfer.setData('text/plain', category);
-                                    }}
-                                    onDragEnd={() => setDraggedPackageCategoryKey(null)}
-                                    onTouchStart={(e) => {
-                                      if (e.changedTouches.length === 0) return;
-                                      const touch = e.changedTouches[0];
-                                      setDraggedPackageCategoryKey(category);
-                                      touchDraggingCategoryKeyRef.current = category;
-                                      touchDropTargetRef.current = null;
-                                      setTouchDragPreview({ type: 'category', label: displayCategoryName || 'Category', x: touch.clientX, y: touch.clientY });
-                                      const onTouchMove = (ev: TouchEvent) => {
-                                        ev.preventDefault();
-                                        const t = ev.changedTouches[0] || ev.touches[ev.touches.length - 1];
-                                        if (t) {
-                                          touchDropTargetRef.current = getTouchDropTarget(t.clientX, t.clientY);
-                                          setTouchDragPreview(prev => prev ? { ...prev, x: t.clientX, y: t.clientY } : null);
-                                        }
-                                      };
-                                      const onTouchEnd = (ev: TouchEvent) => {
-                                        const t = ev.changedTouches[0];
-                                        if (t) {
-                                          const target = touchDropTargetRef.current?.type === 'category' ? touchDropTargetRef.current : getTouchDropTarget(t.clientX, t.clientY);
-                                          const draggedKey = touchDraggingCategoryKeyRef.current;
-                                          if (target?.type === 'category' && target.key && draggedKey && target.key !== draggedKey) {
-                                            handleReorderPackageCategories(draggedKey, target.key);
-                                          }
-                                        }
-                                        document.removeEventListener('touchmove', onTouchMove, { capture: true });
-                                        document.removeEventListener('touchend', onTouchEnd, { capture: true });
-                                        document.removeEventListener('touchcancel', onTouchEnd, { capture: true });
-                                        setDraggedPackageCategoryKey(null);
-                                        setTouchDragPreview(null);
-                                        touchDraggingCategoryKeyRef.current = null;
-                                        touchDropTargetRef.current = null;
-                                      };
-                                      document.addEventListener('touchmove', onTouchMove, { passive: false, capture: true });
-                                      document.addEventListener('touchend', onTouchEnd, { capture: true });
-                                      document.addEventListener('touchcancel', onTouchEnd, { capture: true });
-                                    }}
-                                    className="inline-flex cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 flex-shrink-0 p-1 touch-manipulation"
-                                    title="Drag to reorder category"
-                                  >
-                                    <GripVertical className="h-5 w-5" />
-                                  </span>
-                                  <button
-                                    onClick={() => {
-                                      setCollapsedCategories(prev => ({
-                                        ...prev,
-                                        [category]: !prev[category]
-                                      }));
-                                    }}
-                                    className="p-1 hover:bg-gray-100 rounded transition-colors duration-200 flex-shrink-0"
-                                    aria-label={isCategoryCollapsed ? "Expand category" : "Collapse category"}
-                                  >
-                                    {isCategoryCollapsed ? (
-                                      <ChevronDown className="h-5 w-5 text-gray-600" />
-                                    ) : (
-                                      <ChevronUp className="h-5 w-5 text-gray-600" />
-                                    )}
-                                  </button>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <label className="text-xs font-medium text-gray-500 whitespace-nowrap hidden sm:block">Category Name</label>
-                                      <input
-                                            type="text"
-                                            value={displayCategoryName}
-                                            onChange={(e) => {
-                                            // Allow editing all categories including "Unnamed Category"
-                                            if (isReadOnly) {
-                                              return;
-                                            }
-                                            
-                                            const newCategoryName = e.target.value;
-                                            // Find all variations in this category using the original category key
-                                            // We need to match variations that belong to this category group
-                                            const categoryVariationIds = new Set(categoryVariations.map(v => v.id));
-                                            
-                                            const updatedVariations = formData.variations!.map(v => {
-                                              // Check if this variation belongs to this category group
-                                              if (categoryVariationIds.has(v.id)) {
-                                                // If empty (after trimming), use a unique identifier based on first variation ID to keep this group separate
-                                                // Otherwise, set to the new name (preserve all spaces including leading/trailing)
-                                                if (newCategoryName.trim() === '') {
-                                                  // Use the first variation ID as a temporary category identifier
-                                                  // This ensures the category doesn't vanish - it will be grouped by this temp ID
-                                                  const tempCategoryId = `__temp_empty_${categoryVariations[0]?.id || 'default'}__`;
-                                                  return { ...v, category: tempCategoryId };
-                                                } else {
-                                                  // If user types a name, preserve all spaces (including leading/trailing)
-                                                  // Only trim when checking if empty, but preserve the actual value
-                                                  return { ...v, category: newCategoryName };
-                                                }
-                                              }
-                                              return v;
-                                            });
-                                            setFormData({ ...formData, variations: updatedVariations });
-                                          }}
-                                          disabled={isReadOnly}
-                                          className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs font-semibold disabled:bg-gray-100 disabled:cursor-not-allowed text-black"
-                                          placeholder="Category name (e.g., Category 1)"
-                                        />
-                                    </div>
-                                  </div>
-                                  {!isReadOnly && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        setCategoryToDelete(category);
-                                      }}
-                                      className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200 flex-shrink-0"
-                                          aria-label="Delete category"
-                                          title="Delete category"
-                                      type="button"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </button>
+                            if (variation.category && variation.category.startsWith('__temp_empty_')) {
+                              categoryKey = variation.category;
+                            } else if (!variation.category || variation.category.trim() === '') {
+                              categoryKey = UNNAMED_CATEGORY_KEY;
+                              isUnnamed = true;
+                            } else {
+                              categoryKey = variation.category;
+                            }
+                            
+                            const categorySort = variation.sort !== null && variation.sort !== undefined ? variation.sort : 999;
+                            
+                            if (!groupedByCategory[categoryKey]) {
+                              groupedByCategory[categoryKey] = { 
+                                variations: [], 
+                                categorySort: 999,
+                                originalCategory: variation.category,
+                                isUnnamed: isUnnamed
+                              };
+                            }
+                            groupedByCategory[categoryKey].variations.push(variation);
+                            if (categorySort < groupedByCategory[categoryKey].categorySort) {
+                              groupedByCategory[categoryKey].categorySort = categorySort;
+                            }
+                          });
+
+                          const sortedCategories = Object.keys(groupedByCategory).sort((a, b) => {
+                            return groupedByCategory[a].categorySort - groupedByCategory[b].categorySort;
+                          });
+
+                          const regObj = formData.regions?.find(r => r.name === regionName);
+                          const isRegionCollapsed = collapsedRegions[regionName] ?? false;
+
+                          return (
+                            <div key={regionName} className={`border border-gray-200 rounded-xl p-5 bg-gray-50/50 shadow-sm transition-all duration-200 ${isRegionCollapsed ? '' : 'space-y-4'}`}>
+                              {/* Region Section Header */}
+                              <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${isRegionCollapsed ? '' : 'pb-3 border-b border-gray-200'}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => setCollapsedRegions(prev => ({ ...prev, [regionName]: !isRegionCollapsed }))}
+                                  className="flex items-center gap-2.5 text-left hover:opacity-80 transition-opacity flex-1 min-w-0"
+                                >
+                                  {isRegionCollapsed ? (
+                                    <ChevronDown className="h-5 w-5 text-gray-500 flex-shrink-0" />
+                                  ) : (
+                                    <ChevronUp className="h-5 w-5 text-gray-500 flex-shrink-0" />
                                   )}
-                                </div>
+                                  {regObj?.guide_image_url && (
+                                    <img
+                                      src={regObj.guide_image_url}
+                                      alt=""
+                                      className="w-7 h-4.5 object-cover rounded border border-gray-300 flex-shrink-0"
+                                    />
+                                  )}
+                                  <div className="min-w-0">
+                                    <h4 className="text-xs font-black text-black uppercase tracking-wider truncate">
+                                      {regionName === 'Global' ? 'Global / All Regions' : `${regionName} Region`}
+                                    </h4>
+                                    {regObj?.guide_text && !isRegionCollapsed && (
+                                      <p className="text-[10px] text-gray-500 mt-0.5 truncate">{regObj.guide_text}</p>
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full font-bold flex-shrink-0">
+                                    {regionVariations.length} packages
+                                  </span>
+                                </button>
 
-                                {/* Packages in this category */}
-                                {!isCategoryCollapsed && (() => {
-                                  const sortedPackages = [...categoryVariations].sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
-                                  packageOrderByCategoryRef.current[category] = sortedPackages;
-                                  return (
-                                <div className="space-y-3">
-                                  {sortedPackages.map((variation) => {
-                                    const index = formData.variations!.findIndex(v => v.id === variation.id);
-                                    return (
-                                      <div
-                                        key={variation.id}
-                                        data-droppable="package"
-                                        data-drop-variation-id={variation.id}
-                                        className={`p-3 bg-gray-50 rounded-lg space-y-3 border border-gray-200 ${draggedPackageVariationId === variation.id ? 'opacity-50' : ''}`}
-                                        onDragOver={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          e.dataTransfer.dropEffect = 'move';
-                                        }}
-                                        onDrop={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          const targetId = variation.id;
-                                          if (draggedPackageVariationId && draggedPackageVariationId !== targetId) {
-                                            handleReorderPackagesInCategory(sortedPackages, draggedPackageVariationId, targetId);
-                                          }
-                                          setDraggedPackageVariationId(null);
-                                        }}
-                                        onDragEnd={() => setDraggedPackageVariationId(null)}
+                                {/* Controls specific to this region */}
+                                {!isRegionCollapsed && (
+                                  <div className="flex items-center gap-2">
+                                    {regionVariations.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => sortVariationsByPrice(targetRegionName)}
+                                        className="flex items-center justify-center space-x-1.5 px-2.5 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors duration-200 text-[10px] font-bold"
+                                        title="Sort packages in this region by price"
                                       >
-                                        {/* Product row: drag handle, name input, delete */}
-                                        <div className="flex flex-row items-center gap-2">
-                                          <span
-                                            role="button"
-                                            tabIndex={0}
-                                            draggable
-                                            onDragStart={(e) => {
-                                              setDraggedPackageVariationId(variation.id);
-                                              e.dataTransfer.effectAllowed = 'move';
-                                              e.dataTransfer.setData('text/plain', variation.id);
-                                            }}
-                                            onDragEnd={() => setDraggedPackageVariationId(null)}
-                                            onTouchStart={(e) => {
-                                              if (e.changedTouches.length === 0) return;
-                                              const touch = e.changedTouches[0];
-                                              setDraggedPackageVariationId(variation.id);
-                                              touchDraggingVariationIdRef.current = variation.id;
-                                              touchDraggingCategoryKeyRef.current = category;
-                                              touchDropTargetRef.current = null;
-                                              setTouchDragPreview({ type: 'package', label: variation.name || 'Package', x: touch.clientX, y: touch.clientY });
-                                              const onTouchMove = (ev: TouchEvent) => {
-                                                ev.preventDefault();
-                                                const t = ev.changedTouches[0] || ev.touches[ev.touches.length - 1];
-                                                if (t) {
-                                                  touchDropTargetRef.current = getTouchDropTarget(t.clientX, t.clientY);
-                                                  setTouchDragPreview(prev => prev ? { ...prev, x: t.clientX, y: t.clientY } : null);
-                                                }
-                                              };
-                                              const onTouchEnd = (ev: TouchEvent) => {
-                                                const t = ev.changedTouches[0];
-                                                if (t) {
-                                                  const target = touchDropTargetRef.current?.type === 'package' ? touchDropTargetRef.current : getTouchDropTarget(t.clientX, t.clientY);
-                                                  const draggedId = touchDraggingVariationIdRef.current;
-                                                  const catKey = touchDraggingCategoryKeyRef.current;
-                                                  const sorted = catKey ? packageOrderByCategoryRef.current[catKey] : undefined;
-                                                  if (target?.type === 'package' && target.variationId && draggedId && target.variationId !== draggedId && sorted) {
-                                                    handleReorderPackagesInCategory(sorted, draggedId, target.variationId);
-                                                  }
-                                                }
-                                                document.removeEventListener('touchmove', onTouchMove, { capture: true });
-                                                document.removeEventListener('touchend', onTouchEnd, { capture: true });
-                                                document.removeEventListener('touchcancel', onTouchEnd, { capture: true });
-                                                setDraggedPackageVariationId(null);
-                                                setTouchDragPreview(null);
-                                                touchDraggingVariationIdRef.current = null;
-                                                touchDraggingCategoryKeyRef.current = null;
-                                                touchDropTargetRef.current = null;
-                                              };
-                                              document.addEventListener('touchmove', onTouchMove, { passive: false, capture: true });
-                                              document.addEventListener('touchend', onTouchEnd, { capture: true });
-                                              document.addEventListener('touchcancel', onTouchEnd, { capture: true });
-                                            }}
-                                            className="inline-flex cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 flex-shrink-0 p-1 touch-manipulation"
-                                            title="Drag to reorder package"
-                                          >
-                                            <GripVertical className="h-5 w-5" />
-                                          </span>
-                                          <input
-                                            type="text"
-                                            value={variation.name || ''}
-                                            onChange={(e) => updateVariation(index, 'name', e.target.value)}
-                                            className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
-                                            placeholder="Product name"
-                                          />
-                                          <button
-                                            onClick={() => removeVariation(index)}
-                                            className="p-2 text-orange-500 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors duration-200 flex-shrink-0"
-                                            aria-label="Remove package"
-                                          >
-                                            <Trash2 className="h-4 w-4" />
-                                          </button>
-                                        </div>
-
-                                        {/* Pricing Row - All in one row (Price, Member, VIP) */}
-                                        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                                          {/* Price (default price for customers) */}
-                                          <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">Price</label>
-                                            <input
-                                              type="number"
-                                              value={variation.price !== undefined && variation.price !== null && variation.price !== 0 ? variation.price : ''}
-                                              onChange={(e) => {
-                                                const value = e.target.value === '' ? undefined : Number(e.target.value);
-                                                updateVariation(index, 'price', value);
-                                              }}
-                                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                              placeholder="0"
-                                              min="0"
-                                              step="0.01"
-                                            />
-                                          </div>
-
-                                          {/* Member Price */}
-                                          <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">Member</label>
-                                            <input
-                                              type="number"
-                                              value={variation.member_price !== undefined && variation.member_price !== null ? variation.member_price : ''}
-                                              onChange={(e) => {
-                                                const value = e.target.value === '' ? undefined : Number(e.target.value);
-                                                updateVariation(index, 'member_price', value);
-                                              }}
-                                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                              placeholder="0"
-                                              min="0"
-                                              step="0.01"
-                                            />
-                                          </div>
-
-                                          {/* VIP Price */}
-                                          <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">VIP</label>
-                                            <input
-                                              type="number"
-                                              value={variation.reseller_price !== undefined && variation.reseller_price !== null ? variation.reseller_price : ''}
-                                              onChange={(e) => {
-                                                const value = e.target.value === '' ? undefined : Number(e.target.value);
-                                                updateVariation(index, 'reseller_price', value);
-                                              }}
-                                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                              placeholder="0"
-                                              min="0"
-                                              step="0.01"
-                                            />
-                                          </div>
-                                        </div>
-
-                                        {/* Region Assignment Dropdown */}
-                                        {formData.regions && formData.regions.length > 0 && (
-                                          <div className="mb-2">
-                                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Region Assignment</label>
-                                            <select
-                                              value={variation.region || ''}
-                                              onChange={(e) => {
-                                                const val = e.target.value || null;
-                                                updateVariation(index, 'region', val);
-                                              }}
-                                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
-                                            >
-                                              <option value="">Global / All Regions</option>
-                                              {formData.regions.map((r) => (
-                                                <option key={r.id} value={r.name}>
-                                                  {r.name}
-                                                </option>
-                                              ))}
-                                            </select>
-                                          </div>
-                                        )}
-
-                                        {/* Description (optional) */}
-                                        <textarea
-                                          value={variation.description || ''}
-                                          onChange={(e) => updateVariation(index, 'description', e.target.value)}
-                                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs resize-y text-black mb-2"
-                                          placeholder="Package description (optional)"
-                                          rows={2}
-                                        />
-
-                                        {/* Package Badge Settings */}
-                                        <div className="flex flex-wrap items-center gap-4 pt-1">
-                                          <label className="flex items-center gap-2 cursor-pointer group">
-                                            <div className="relative flex items-center">
-                                              <input
-                                                type="checkbox"
-                                                checked={!!variation.badge_text}
-                                                onChange={(e) => {
-                                                  const isChecked = e.target.checked;
-                                                  updateVariation(index, 'badge_text', isChecked ? 'PROMO' : null);
-                                                  if (isChecked && !variation.badge_color) {
-                                                    updateVariation(index, 'badge_color', '#EC4899');
-                                                  }
-                                                }}
-                                                className="sr-only peer"
-                                              />
-                                              <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-green-600"></div>
-                                            </div>
-                                            <span className="text-[10px] font-medium text-gray-600 group-hover:text-gray-800 transition-colors">Badge</span>
-                                          </label>
-
-                                          {variation.badge_text !== null && variation.badge_text !== undefined && (
-                                            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-1 duration-200">
-                                              <input
-                                                type="text"
-                                                value={variation.badge_text || ''}
-                                                onChange={(e) => updateVariation(index, 'badge_text', e.target.value)}
-                                                className="w-24 px-2 py-1 border border-gray-300 rounded text-[10px] text-black focus:ring-1 focus:ring-green-500 focus:border-transparent"
-                                                placeholder="Label (e.g. SALE)"
-                                              />
-                                              <div className="flex items-center gap-1.5">
-                                                <input
-                                                  type="color"
-                                                  value={variation.badge_color || '#EC4899'}
-                                                  onChange={(e) => updateVariation(index, 'badge_color', e.target.value)}
-                                                  className="h-5 w-5 border-0 p-0 bg-transparent cursor-pointer rounded-sm overflow-hidden"
-                                                />
-                                                <span className="text-[9px] text-gray-500 font-mono uppercase">{variation.badge_color || '#EC4899'}</span>
-                                              </div>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-
-                                  {/* Add Package to this category */}
-                                  <button
-                                    onClick={() => {
-                                      // Determine the category value to use
-                                      let categoryValue: string | undefined;
-                                      if (category.startsWith('__temp_empty_') || category.startsWith('__empty_')) {
-                                        // If this is an empty category, use the same temporary identifier
-                                        categoryValue = category;
-                                      } else if (category === 'Uncategorized') {
-                                        categoryValue = undefined;
-                                      } else {
-                                        categoryValue = category;
-                                      }
-                                      
-                                      const newVariation: Variation = {
-                                        id: `var-${Date.now()}-${Math.random()}`,
-                                        name: '',
-                                        price: undefined,
-                                        member_price: undefined,
-                                        reseller_price: undefined,
-                                        credits_amount: undefined,
-                                        description: '',
-                                        sort_order: categoryVariations.length,
-                                        category: categoryValue
-                                      };
-                                      setFormData({
-                                        ...formData,
-                                        variations: [...(formData.variations || []), newVariation]
-                                      });
-                                    }}
-                                    className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-xs border-2 border-dashed border-gray-300"
-                                  >
-                                    <Plus className="h-4 w-4" />
-                                    <span>Add Package to {displayCategoryName || 'Category'}</span>
-                                  </button>
-                                </div>
-                                );
-                                  })()}
+                                        <ArrowUpDown className="h-3.5 w-3.5" />
+                                        <span>Sort by Price</span>
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => addCategoryForRegion(targetRegionName)}
+                                      className="flex items-center justify-center space-x-1.5 px-2.5 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 text-[10px] font-bold"
+                                    >
+                                      <Plus className="h-3.5 w-3.5" />
+                                      <span>Add Category</span>
+                                    </button>
+                                  </div>
+                                )}
                               </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()
-                  ) : (
-                    <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                      <p className="text-gray-500">No currency packages added yet</p>
-                      <p className="text-xs text-gray-400 mt-1">Click "Add Category" to create a category and add packages</p>
-                    </div>
-                  )}
+
+                              {/* Categories and Packages List for this Region */}
+                              {!isRegionCollapsed && (
+                                <>
+                                  {regionVariations.length > 0 ? (
+                                    <div className="space-y-4">
+                                      {sortedCategories.map((category) => {
+                                        const categoryData = groupedByCategory[category];
+                                        const categoryVariations = categoryData.variations;
+                                        const originalCategory = categoryData.originalCategory;
+                                        const isUnnamed = categoryData.isUnnamed;
+                                        const actualCategoryName = categoryVariations[0]?.category;
+                                        
+                                        let displayCategoryName = '';
+                                        if (isUnnamed || category.startsWith('__unnamed_category_')) {
+                                          displayCategoryName = (actualCategoryName && actualCategoryName.trim() !== '' && !actualCategoryName.startsWith('__temp_empty_') && !actualCategoryName.startsWith('__empty_')) 
+                                            ? actualCategoryName 
+                                            : 'Unnamed Category';
+                                        } else if (category.startsWith('__temp_empty_') || category.startsWith('__empty_')) {
+                                          displayCategoryName = '';
+                                        } else if (actualCategoryName && actualCategoryName.trim() !== '' && !actualCategoryName.startsWith('__temp_empty_') && !actualCategoryName.startsWith('__empty_')) {
+                                          displayCategoryName = actualCategoryName;
+                                        } else if (originalCategory && originalCategory.trim() !== '' && !originalCategory.startsWith('__temp_empty_') && !originalCategory.startsWith('__empty_')) {
+                                          displayCategoryName = originalCategory;
+                                        } else {
+                                          displayCategoryName = category;
+                                        }
+
+                                        const isCategoryCollapsed = collapsedCategories[category] ?? false;
+                                        const stableKey = categoryVariations[0]?.id || `category-${category}`;
+
+                                        return (
+                                          <div
+                                            key={stableKey}
+                                            className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm"
+                                          >
+                                            {/* Category Header */}
+                                            <div className="flex flex-row items-center gap-2 mb-4 pb-3 border-b border-gray-100">
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setCollapsedCategories(prev => ({
+                                                    ...prev,
+                                                    [category]: !prev[category]
+                                                  }));
+                                                }}
+                                                className="p-1 hover:bg-gray-100 rounded transition-colors duration-200 flex-shrink-0"
+                                                aria-label={isCategoryCollapsed ? "Expand category" : "Collapse category"}
+                                              >
+                                                {isCategoryCollapsed ? (
+                                                  <ChevronDown className="h-4 w-4 text-gray-600" />
+                                                ) : (
+                                                  <ChevronUp className="h-4 w-4 text-gray-600" />
+                                                )}
+                                              </button>
+                                              
+                                              <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap hidden sm:block">Category Name</label>
+                                                  <input
+                                                    type="text"
+                                                    value={displayCategoryName}
+                                                    onChange={(e) => {
+                                                      const newCategoryName = e.target.value;
+                                                      const categoryVariationIds = new Set(categoryVariations.map(v => v.id));
+                                                      const updatedVariations = formData.variations!.map(v => {
+                                                        if (categoryVariationIds.has(v.id)) {
+                                                          if (newCategoryName.trim() === '') {
+                                                            const tempCategoryId = `__temp_empty_${categoryVariations[0]?.id || 'default'}__`;
+                                                            return { ...v, category: tempCategoryId };
+                                                          } else {
+                                                            return { ...v, category: newCategoryName };
+                                                          }
+                                                        }
+                                                        return v;
+                                                      });
+                                                      setFormData({ ...formData, variations: updatedVariations });
+                                                    }}
+                                                    className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs font-semibold text-black"
+                                                    placeholder="Category name"
+                                                  />
+                                                </div>
+                                              </div>
+                                              
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
+                                                  setCategoryToDelete(category);
+                                                }}
+                                                className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200 flex-shrink-0"
+                                                title="Delete category"
+                                              >
+                                                <Trash2 className="h-4 w-4" />
+                                              </button>
+                                            </div>
+
+                                            {/* Packages in Category */}
+                                            {!isCategoryCollapsed && (
+                                              <div className="space-y-3">
+                                                {[...categoryVariations]
+                                                  .sort((a, b) => (a.price || 0) - (b.price || 0))
+                                                  .map((variation) => (
+                                                    <div key={variation.id} className="p-3 bg-gray-50 rounded-lg space-y-3 border border-gray-200">
+                                                      {/* Product Info Row */}
+                                                      <div className="flex flex-row items-center gap-2">
+                                                        <input
+                                                          type="text"
+                                                          value={variation.name || ''}
+                                                          onChange={(e) => updateVariation(variation.id, 'name', e.target.value)}
+                                                          className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
+                                                          placeholder="Product name"
+                                                        />
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => removeVariation(variation.id)}
+                                                          className="p-2 text-orange-500 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors duration-200 flex-shrink-0"
+                                                          aria-label="Remove package"
+                                                        >
+                                                          <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                      </div>
+
+                                                      {/* Pricing Row */}
+                                                      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                                                        <div>
+                                                          <label className="block text-xs font-medium text-gray-700 mb-1">Price</label>
+                                                          <input
+                                                            type="number"
+                                                            value={variation.price !== undefined && variation.price !== null && variation.price !== 0 ? variation.price : ''}
+                                                            onChange={(e) => {
+                                                              const value = e.target.value === '' ? undefined : Number(e.target.value);
+                                                              updateVariation(variation.id, 'price', value);
+                                                            }}
+                                                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
+                                                            placeholder="0"
+                                                            min="0"
+                                                            step="0.01"
+                                                          />
+                                                        </div>
+                                                        <div>
+                                                          <label className="block text-xs font-medium text-gray-700 mb-1">Member</label>
+                                                          <input
+                                                            type="number"
+                                                            value={variation.member_price !== undefined && variation.member_price !== null ? variation.member_price : ''}
+                                                            onChange={(e) => {
+                                                              const value = e.target.value === '' ? undefined : Number(e.target.value);
+                                                              updateVariation(variation.id, 'member_price', value);
+                                                            }}
+                                                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
+                                                            placeholder="0"
+                                                            min="0"
+                                                            step="0.01"
+                                                          />
+                                                        </div>
+                                                        <div>
+                                                          <label className="block text-xs font-medium text-gray-700 mb-1">VIP</label>
+                                                          <input
+                                                            type="number"
+                                                            value={variation.reseller_price !== undefined && variation.reseller_price !== null ? variation.reseller_price : ''}
+                                                            onChange={(e) => {
+                                                              const value = e.target.value === '' ? undefined : Number(e.target.value);
+                                                              updateVariation(variation.id, 'reseller_price', value);
+                                                            }}
+                                                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
+                                                            placeholder="0"
+                                                            min="0"
+                                                            step="0.01"
+                                                          />
+                                                        </div>
+                                                      </div>
+
+                                                      {/* Region Assignment Dropdown */}
+                                                      {formData.regions && formData.regions.length > 0 && (
+                                                        <div className="mb-2">
+                                                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Region Assignment</label>
+                                                          <select
+                                                            value={variation.region || ''}
+                                                            onChange={(e) => {
+                                                              const val = e.target.value || null;
+                                                              updateVariation(variation.id, 'region', val);
+                                                            }}
+                                                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
+                                                          >
+                                                            <option value="">Global / All Regions</option>
+                                                            {formData.regions.map((r) => (
+                                                              <option key={r.id} value={r.name}>
+                                                                {r.name}
+                                                              </option>
+                                                            ))}
+                                                          </select>
+                                                        </div>
+                                                      )}
+
+                                                      {/* Description */}
+                                                      <textarea
+                                                        value={variation.description || ''}
+                                                        onChange={(e) => updateVariation(variation.id, 'description', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs resize-y text-black mb-2"
+                                                        placeholder="Package description (optional)"
+                                                        rows={2}
+                                                      />
+
+                                                      {/* Badge */}
+                                                      <div className="flex flex-wrap items-center gap-4 pt-1">
+                                                        <label className="flex items-center gap-2 cursor-pointer group">
+                                                          <div className="relative flex items-center">
+                                                            <input
+                                                              type="checkbox"
+                                                              checked={!!variation.badge_text}
+                                                              onChange={(e) => {
+                                                                const isChecked = e.target.checked;
+                                                                updateVariation(variation.id, 'badge_text', isChecked ? 'PROMO' : null);
+                                                                if (isChecked && !variation.badge_color) {
+                                                                  updateVariation(variation.id, 'badge_color', '#EC4899');
+                                                                }
+                                                              }}
+                                                              className="sr-only peer"
+                                                            />
+                                                            <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-green-600"></div>
+                                                          </div>
+                                                          <span className="text-[10px] font-medium text-gray-600 group-hover:text-gray-800 transition-colors">Badge</span>
+                                                        </label>
+
+                                                        {variation.badge_text !== null && variation.badge_text !== undefined && (
+                                                          <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-1 duration-200">
+                                                            <input
+                                                              type="text"
+                                                              value={variation.badge_text || ''}
+                                                              onChange={(e) => updateVariation(variation.id, 'badge_text', e.target.value)}
+                                                              className="w-24 px-2 py-1 border border-gray-300 rounded text-[10px] text-black focus:ring-1 focus:ring-green-500 focus:border-transparent"
+                                                              placeholder="Label"
+                                                            />
+                                                            <div className="flex items-center gap-1.5">
+                                                              <input
+                                                                type="color"
+                                                                value={variation.badge_color || '#EC4899'}
+                                                                onChange={(e) => updateVariation(variation.id, 'badge_color', e.target.value)}
+                                                                className="h-5 w-5 border-0 p-0 bg-transparent cursor-pointer rounded-sm overflow-hidden"
+                                                              />
+                                                              <span className="text-[9px] text-gray-500 font-mono uppercase">{variation.badge_color || '#EC4899'}</span>
+                                                            </div>
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  ))}
+
+                                                {/* Add Package to Category Button */}
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    const newVariation: Variation = {
+                                                      id: `var-${Date.now()}-${Math.random()}`,
+                                                      name: '',
+                                                      price: undefined,
+                                                      member_price: undefined,
+                                                      reseller_price: undefined,
+                                                      credits_amount: undefined,
+                                                      description: '',
+                                                      sort_order: categoryVariations.length,
+                                                      category: category,
+                                                      region: targetRegionName
+                                                    };
+                                                    setFormData({
+                                                      ...formData,
+                                                      variations: [...(formData.variations || []), newVariation]
+                                                    });
+                                                  }}
+                                                  className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-xs border-2 border-dashed border-gray-300 font-medium"
+                                                >
+                                                  <Plus className="h-4 w-4" />
+                                                  <span>Add Package to {displayCategoryName || 'Category'}</span>
+                                                </button>
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <div className="text-center py-6 bg-white rounded-lg border-2 border-dashed border-gray-200">
+                                      <p className="text-xs text-gray-500">No currency packages configured for this region yet.</p>
+                                      <button
+                                        type="button"
+                                        onClick={() => addCategoryForRegion(targetRegionName)}
+                                        className="mt-2 inline-flex items-center space-x-1 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors duration-200 text-[10px] font-bold"
+                                      >
+                                        <Plus className="h-3.5 w-3.5" />
+                                        <span>Create Category & Package</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>

@@ -1157,10 +1157,20 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
               <div className="flex-1 flex flex-col overflow-hidden min-h-0">
                 <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 min-h-0">
                   <div className="bg-[#161922]/90 border border-gray-800/80 rounded-xl p-4 sm:p-5 shadow-lg">
-                    {/* Title */}
-                    <h3 className="text-xs sm:text-sm font-extrabold tracking-widest uppercase text-[#ff007f] mb-4">
-                      Payment Details
-                    </h3>
+                    {/* Title Header with Guide Button */}
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xs sm:text-sm font-extrabold tracking-widest uppercase text-[#ff007f]">
+                        Payment Details
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setShowInstructionsModal(true)}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 border border-pink-500/30 rounded-lg text-[9px] font-bold text-pink-400 bg-pink-500/5 hover:bg-pink-500/10 hover:border-pink-500/50 transition-all cursor-pointer shadow-[0_0_8px_rgba(255,0,127,0.05)]"
+                      >
+                        <HelpCircle className="h-3.5 w-3.5" />
+                        <span>Guide</span>
+                      </button>
+                    </div>
 
                     {/* Payment Icons Selector */}
                     <div className="flex flex-wrap items-center justify-center gap-2 mb-5">
@@ -1317,22 +1327,6 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                     )}
                   </div>
 
-                  {/* Instructions card */}
-                  <div className="bg-[#161922]/90 border border-gray-800/80 rounded-xl p-4 sm:p-5 shadow-lg space-y-3">
-                    {orderOption === 'place_order' ? (
-                      <ol className="list-decimal list-outside pl-4 text-xs sm:text-sm text-gray-400 space-y-2 leading-relaxed">
-                        <li>I-send ang payment sa napiling payment method at i-screenshot o picturan ang resibo.</li>
-                        <li>I-upload ang resibo (Receipt Proof) sa itaas.</li>
-                        <li>I-tap ang <span className="font-bold text-white">"SUBMIT ORDER"</span> button upang makumpleto ang transaksyon.</li>
-                      </ol>
-                    ) : (
-                      <ol className="list-decimal list-outside pl-4 text-xs sm:text-sm text-gray-400 space-y-2 leading-relaxed">
-                        <li>I-send ang payment at i-screenshot o picturan ang resibo.</li>
-                        <li>Pagkatapos magbayad, i-tap ang <span className="font-bold text-white">"COPY ORDER FORM"</span> at i-submit ang order.</li>
-                        <li>Madi-direct ka sa aming Facebook page, kung saan may lalabas na <span className="font-bold text-[#ff007f]">auto form</span>. I-send ito kasama ang resibo ng iyong bayad.</li>
-                      </ol>
-                    )}
-                  </div>
                 </div>
               </div>
             )}
