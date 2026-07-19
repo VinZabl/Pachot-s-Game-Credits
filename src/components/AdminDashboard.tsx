@@ -263,10 +263,10 @@ const AdminDashboard: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
-    customization: false,
-    packages: false,
-    customFields: false,
-    regions: false
+    customization: true,
+    packages: true,
+    customFields: true,
+    regions: true
   });
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [collapsedRegions, setCollapsedRegions] = useState<Record<string, boolean>>({});
