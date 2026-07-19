@@ -401,7 +401,12 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
         if (!v) return;
         const unitP = getDiscountedPrice(v.price, v);
         
-        multipleAccountsData.push({ game: item.name, package: v.name, fields });
+        multipleAccountsData.push({ 
+          game: item.name, 
+          package: v.name, 
+          region: selectedRegion || undefined,
+          fields 
+        });
 
         for (let q = 0; q < qty; q++) {
           orderItems.push({

@@ -694,7 +694,10 @@ const OrderManager: React.FC<OrderManagerProps> = ({ onOrderFilterChange }) => {
                       <div className="flex-1 min-w-0">
                         <h4 className="text-xs font-medium text-gray-900">{item.name}</h4>
                         {item.selectedVariation && (
-                          <p className="text-xs text-gray-600">Package: {item.selectedVariation.name}</p>
+                          <p className="text-xs text-gray-600">
+                            Package: {item.selectedVariation.name}
+                            {item.selectedVariation.region && ` (${item.selectedVariation.region})`}
+                          </p>
                         )}
                         {item.selectedAddOns && item.selectedAddOns.length > 0 && (
                           <p className="text-xs text-gray-600">
@@ -746,10 +749,13 @@ const OrderManager: React.FC<OrderManagerProps> = ({ onOrderFilterChange }) => {
                   if (hasMultipleAccounts) {
                     return (
                       <div className="space-y-4">
-                        {multipleAccounts.map((account: { game?: string; package?: string; fields?: Record<string, string> }, accountIndex: number) => (
+                        {multipleAccounts.map((account: { game?: string; package?: string; region?: string; fields?: Record<string, string> }, accountIndex: number) => (
                           <div key={accountIndex} className="pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
                             <div className="mb-2">
                               <p className="text-xs md:text-sm font-semibold text-gray-900">{account.game || 'Item'}</p>
+                              {account.region && (
+                                <p className="text-xs text-gray-600">Region: {account.region}</p>
+                              )}
                               {account.package && (
                                 <p className="text-xs text-gray-600">Package: {account.package}</p>
                               )}
