@@ -1161,20 +1161,12 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
               <div className="flex-1 flex flex-col overflow-hidden min-h-0">
                 <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 min-h-0">
                   <div className="bg-[#161922]/90 border border-gray-800/80 rounded-xl p-4 sm:p-5 shadow-lg">
-                    {/* Title Header with Guide Button */}
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xs sm:text-sm font-extrabold tracking-widest uppercase text-[#ff007f]">
-                        Payment Details
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={() => setShowInstructionsModal(true)}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 border border-pink-500/30 rounded-lg text-[9px] font-bold text-pink-400 bg-pink-500/5 hover:bg-pink-500/10 hover:border-pink-500/50 transition-all cursor-pointer shadow-[0_0_8px_rgba(255,0,127,0.05)]"
-                      >
-                        <HelpCircle className="h-3.5 w-3.5" />
-                        <span>Guide</span>
-                      </button>
-                    </div>
+                     {/* Title Header */}
+                     <div className="flex items-center justify-between mb-4">
+                       <h3 className="text-xs sm:text-sm font-extrabold tracking-widest uppercase text-[#ff007f]">
+                         Payment Details
+                       </h3>
+                     </div>
 
                     {/* Payment Icons Selector */}
                     <div className="flex flex-wrap items-center justify-center gap-2 mb-5">
@@ -1208,7 +1200,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                     {/* Selected Payment QR and Credentials details */}
                     {selectedPaymentMethod && (
                       <div className="space-y-4">
-                        <div className="flex flex-col sm:flex-row items-center gap-4 bg-black/30 p-4 border border-gray-900 rounded-xl">
+                        <div className="flex flex-row items-center gap-4 bg-black/30 p-4 border border-gray-900 rounded-xl">
                           {/* QR Code image wrapper */}
                           <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
                             {selectedPaymentMethod.qr_code_url ? (
@@ -1237,30 +1229,40 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
                           {/* Copyable Fields */}
                           <div className="flex-1 w-full space-y-2 text-xs sm:text-sm font-semibold">
-                            <p className="text-white text-base font-bold uppercase mb-2">
+                            <p className="text-white text-xs sm:text-sm font-extrabold uppercase tracking-widest mb-2">
                               {selectedPaymentMethod.name.replace(/ payment/i, '')} Details
                             </p>
 
                             {selectedPaymentMethod.account_number && (
-                              <button
-                                type="button"
-                                onClick={() => handleCopyAccountNumber(selectedPaymentMethod.account_number)}
-                                className="flex items-center justify-between w-full bg-[#0d0d0d] border border-gray-800 rounded-xl px-4 py-2.5 text-gray-300 hover:text-white"
-                              >
-                                <span className="truncate">Number : {selectedPaymentMethod.account_number}</span>
-                                <Copy className="h-4 w-4 text-pink-500 flex-shrink-0" />
-                              </button>
+                              <div className="flex flex-col gap-1 text-left">
+                                <span className="text-[10px] text-gray-500 font-extrabold uppercase tracking-wider pl-1">Number:</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyAccountNumber(selectedPaymentMethod.account_number)}
+                                  className="flex items-center justify-between w-full bg-[#0d0d0d] border border-gray-800 rounded-xl px-3.5 py-2.5 text-gray-300 hover:text-white"
+                                >
+                                  <span className="line-clamp-2 whitespace-normal break-words font-bold text-xs sm:text-sm text-white flex-1 text-left">
+                                    {selectedPaymentMethod.account_number}
+                                  </span>
+                                  <Copy className="h-3.5 w-3.5 text-pink-500 flex-shrink-0 ml-2" />
+                                </button>
+                              </div>
                             )}
 
                             {selectedPaymentMethod.account_name && (
-                              <button
-                                type="button"
-                                onClick={() => handleCopyAccountName(selectedPaymentMethod.account_name)}
-                                className="flex items-center justify-between w-full bg-[#0d0d0d] border border-gray-800 rounded-xl px-4 py-2.5 text-gray-300 hover:text-white"
-                              >
-                                <span className="truncate">Name : {selectedPaymentMethod.account_name}</span>
-                                <Copy className="h-4 w-4 text-pink-500 flex-shrink-0" />
-                              </button>
+                              <div className="flex flex-col gap-1 text-left">
+                                <span className="text-[10px] text-gray-500 font-extrabold uppercase tracking-wider pl-1">Name:</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyAccountName(selectedPaymentMethod.account_name)}
+                                  className="flex items-center justify-between w-full bg-[#0d0d0d] border border-gray-800 rounded-xl px-3.5 py-2.5 text-gray-300 hover:text-white"
+                                >
+                                  <span className="line-clamp-2 whitespace-normal break-words font-bold text-xs sm:text-sm text-white flex-1 text-left">
+                                    {selectedPaymentMethod.account_name}
+                                  </span>
+                                  <Copy className="h-3.5 w-3.5 text-pink-500 flex-shrink-0 ml-2" />
+                                </button>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1323,10 +1325,28 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                           </div>
                         )}
 
-                        {/* Warning policy */}
-                        <p className="text-[10px] sm:text-xs text-red-500 font-bold leading-relaxed text-center">
-                          ⚠️ No Receipt, No Top-Up Policy ! Fake receipts will result in account suspension.
-                        </p>
+                        {/* Policy & Guide Text */}
+                        <div className="flex flex-col gap-4 mt-4">
+                          <p className="text-[10px] sm:text-xs text-red-500 font-bold leading-relaxed text-center">
+                            No Receipt, Fake Receipts, No Top-Up Policy.
+                          </p>
+
+                          <div className="border-t border-gray-800/60 pt-4 space-y-2">
+                            <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-[#ff007f] flex items-center gap-1.5 text-left">
+                              <span>⚠️ Reminder - Wag kalimutan !</span>
+                            </h4>
+                            
+                            {orderOption === 'place_order' ? (
+                              <p className="text-[10px] sm:text-xs text-gray-400 leading-relaxed text-left">
+                                Bayad muna bago magsubmit. Pagkatapos magbayad, i-upload ang resibo (Receipt Proof) sa section sa itaas at pindutin ang Submit Order. Salamat! 🙏
+                              </p>
+                            ) : (
+                              <p className="text-[10px] sm:text-xs text-gray-400 leading-relaxed text-left">
+                                Bayad muna bago magsubmit. Pagkatapos magbayad, i-copy ang form, pindutin ang Submit Order, at i-send sa aming FB Page ang automated form kasama ang resibo. Salamat! 🙏
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1601,24 +1621,17 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                 style={{ background: 'linear-gradient(180deg, #161922 0%, #0d0d0d 100%)' }}
               >
                 <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-[#ff007f] text-center pb-2 border-b border-gray-800">
-                  Instructions / Guide
+                  ⚠️ Reminder - Wag kalimutan !
                 </h3>
                 
                 {orderOption === 'place_order' ? (
-                  <ol className="list-decimal list-outside pl-4 text-xs sm:text-sm text-gray-300 space-y-3 leading-relaxed">
-                    <li>I-send ang payment sa napiling payment method at i-screenshot o picturan ang resibo.</li>
-                    <li>I-upload ang resibo (Receipt Proof) sa payment details section.</li>
-                    <li>I-tap ang <span className="font-bold text-white">"SUBMIT ORDER"</span> button upang makumpleto ang transaksyon.</li>
-                  </ol>
+                  <p className="text-xs sm:text-sm text-gray-300 leading-relaxed text-left">
+                    Bayad muna bago magsubmit. Pagkatapos magbayad, i-upload ang resibo (Receipt Proof) sa section sa itaas at pindutin ang Submit Order. Salamat! 🙏
+                  </p>
                 ) : (
-                  <ol className="list-decimal list-outside pl-4 text-xs sm:text-sm text-gray-300 space-y-3 leading-relaxed">
-                    <li>I-send ang payment at i-screenshot o picturan ang resibo.</li>
-                    <li>Pagkatapos magbayad, i-tap ang <span className="font-bold text-white">"COPY ORDER FORM"</span> at i-submit ang order.</li>
-                    <li>
-                      Madi-direct ka sa aming Facebook page, kung saan may lalabas na{' '}
-                      <span className="font-bold text-[#ff007f]">auto form</span>. I-send ito kasama ang resibo ng iyong bayad.
-                    </li>
-                  </ol>
+                  <p className="text-xs sm:text-sm text-gray-300 leading-relaxed text-left">
+                    Bayad muna bago magsubmit. Pagkatapos magbayad, i-copy ang form, pindutin ang Submit Order, at i-send sa aming FB Page ang automated form kasama ang resibo. Salamat! 🙏
+                  </p>
                 )}
 
                 <button
