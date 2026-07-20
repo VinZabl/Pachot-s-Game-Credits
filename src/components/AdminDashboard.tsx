@@ -1506,10 +1506,41 @@ const AdminDashboard: React.FC = () => {
                                         return (
                                           <div
                                             key={stableKey}
-                                            className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm"
+                                            className={`border border-gray-200 rounded-lg p-4 bg-white shadow-sm transition-all duration-200 ${
+                                              draggedPackageCategoryKey === category ? 'opacity-40 border-dashed border-pink-300' : ''
+                                            }`}
+                                            draggable
+                                            onDragStart={(e) => {
+                                              setDraggedPackageCategoryKey(category);
+                                              e.dataTransfer.effectAllowed = 'move';
+                                              e.dataTransfer.setData('text/plain', category);
+                                            }}
+                                            onDragOver={(e) => {
+                                              e.preventDefault();
+                                              e.dataTransfer.dropEffect = 'move';
+                                            }}
+                                            onDrop={(e) => {
+                                              e.preventDefault();
+                                              const targetKey = category;
+                                              if (draggedPackageCategoryKey && draggedPackageCategoryKey !== targetKey) {
+                                                handleReorderPackageCategories(draggedPackageCategoryKey, targetKey);
+                                              }
+                                              setDraggedPackageCategoryKey(null);
+                                            }}
+                                            onDragEnd={() => {
+                                              setDraggedPackageCategoryKey(null);
+                                            }}
                                           >
                                             {/* Category Header */}
                                             <div className="flex flex-row items-center gap-2 mb-4 pb-3 border-b border-gray-100">
+                                              {/* Grip Handle */}
+                                              <span 
+                                                className="inline-flex cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 mr-1"
+                                                title="Drag to reorder category"
+                                              >
+                                                <GripVertical className="h-4.5 w-4.5" />
+                                              </span>
+
                                               <button
                                                 type="button"
                                                 onClick={() => {
@@ -1574,11 +1605,44 @@ const AdminDashboard: React.FC = () => {
                                             {!isCategoryCollapsed && (
                                               <div className="space-y-3">
                                                 {[...categoryVariations]
-                                                  .sort((a, b) => (a.price || 0) - (b.price || 0))
+                                                  .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
                                                   .map((variation) => (
-                                                    <div key={variation.id} className="p-3 bg-gray-50 rounded-lg space-y-3 border border-gray-200">
+                                                    <div 
+                                                      key={variation.id} 
+                                                      className={`p-3 bg-gray-50 rounded-lg space-y-3 border border-gray-200 transition-all duration-200 ${
+                                                        draggedPackageVariationId === variation.id ? 'opacity-40 border-dashed border-pink-300' : ''
+                                                      }`}
+                                                      draggable
+                                                      onDragStart={(e) => {
+                                                        setDraggedPackageVariationId(variation.id);
+                                                        e.dataTransfer.effectAllowed = 'move';
+                                                        e.dataTransfer.setData('text/plain', variation.id);
+                                                      }}
+                                                      onDragOver={(e) => {
+                                                        e.preventDefault();
+                                                        e.dataTransfer.dropEffect = 'move';
+                                                      }}
+                                                      onDrop={(e) => {
+                                                        e.preventDefault();
+                                                        const targetId = variation.id;
+                                                        if (draggedPackageVariationId && draggedPackageVariationId !== targetId) {
+                                                          handleReorderPackagesInCategory(categoryVariations, draggedPackageVariationId, targetId);
+                                                        }
+                                                        setDraggedPackageVariationId(null);
+                                                      }}
+                                                      onDragEnd={() => {
+                                                        setDraggedPackageVariationId(null);
+                                                      }}
+                                                    >
                                                       {/* Product Info Row */}
                                                       <div className="flex flex-row items-center gap-2">
+                                                        {/* Grip Handle */}
+                                                        <span 
+                                                          className="inline-flex cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 mr-1"
+                                                          title="Drag to reorder package"
+                                                        >
+                                                          <GripVertical className="h-4.5 w-4.5" />
+                                                        </span>
                                                         <input
                                                           type="text"
                                                           value={variation.name || ''}
