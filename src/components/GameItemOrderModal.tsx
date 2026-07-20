@@ -841,11 +841,11 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
                           return (
                             <div key={accIdx} className="space-y-3 p-3.5 bg-black/30 border border-gray-900 rounded-lg relative">
-                              {accounts.length > 1 && (
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
-                                    {firstFieldLabel} #{accIdx + 1}
-                                  </span>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
+                                  {firstFieldLabel} #{accIdx + 1}
+                                </span>
+                                {accounts.length > 1 && (
                                   <button
                                     type="button"
                                     onClick={() => removeAccount(accIdx)}
@@ -853,15 +853,15 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </button>
-                                </div>
-                              )}
+                                )}
+                              </div>
 
                               <div className="space-y-3">
                                 {item.customFields?.map((field) => (
                                   <div key={field.key} className="space-y-1">
                                     <input
                                       type="text"
-                                      placeholder={`Enter ${field.label}`}
+                                      placeholder={field.placeholder || `Enter ${field.label}`}
                                       value={acc[field.key] || ''}
                                       onChange={(e) => updateAccountField(accIdx, field.key, e.target.value)}
                                       className="w-full bg-[#0d0d0d] border border-gray-800/80 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-500/60 focus:ring-1 focus:ring-pink-500/40 transition-all duration-200"
