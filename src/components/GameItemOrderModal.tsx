@@ -1061,10 +1061,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
                                           {/* Product info */}
                                           <div className="flex-1 min-w-0">
-                                            <p 
-                                              className="font-semibold text-xs sm:text-sm text-white truncate"
-                                              style={v.name.length > 15 ? { fontSize: 'clamp(9px, 1.1vw, 14px)' } : undefined}
-                                            >
+                                            <p className="font-semibold text-xs sm:text-sm md:text-xs text-white truncate">
                                               {v.name}
                                             </p>
                                             {v.description && (
