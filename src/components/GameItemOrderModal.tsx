@@ -80,12 +80,20 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
   const categories = useMemo(() => {
     if (filteredVariations.length === 0) return [];
-    const cats = new Set<string>();
+    
+    const catMap: Record<string, number> = {};
     filteredVariations.forEach((v) => {
-      if (v.category) cats.add(v.category.trim());
+      if (v.category) {
+        const cat = v.category.trim();
+        const s = v.sort !== null && v.sort !== undefined ? v.sort : 999;
+        if (catMap[cat] === undefined || s < catMap[cat]) {
+          catMap[cat] = s;
+        }
+      }
     });
-    const list = Array.from(cats);
-    return list.length > 0 ? ['ALL', ...list] : [];
+
+    const sortedCats = Object.keys(catMap).sort((a, b) => catMap[a] - catMap[b]);
+    return sortedCats.length > 0 ? ['ALL', ...sortedCats] : [];
   }, [filteredVariations]);
 
   // Set default category tab
@@ -994,27 +1002,37 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                           }
 
                           const groups: Record<string, typeof renderVariations> = {};
+                          renderVariations.forEach((v) => {
+                            const cat = v.category?.trim() || 'Other';
+                            if (!groups[cat]) groups[cat] = [];
+                            groups[cat].push(v);
+                          });
+
+                          let renderCategoriesList: string[] = [];
                           if (selectedCategoryTab === 'ALL') {
-                            renderVariations.forEach((v) => {
-                              const cat = v.category?.trim() || 'Other';
-                              if (!groups[cat]) groups[cat] = [];
-                              groups[cat].push(v);
-                            });
+                            renderCategoriesList = categories.filter(c => c !== 'ALL' && groups[c]);
+                            if (groups['Other']) {
+                              renderCategoriesList.push('Other');
+                            }
                           } else {
+                            renderCategoriesList = [''];
                             groups[''] = renderVariations;
                           }
 
                           return (
                             <div className="space-y-6">
-                              {Object.entries(groups).map(([catName, vars]) => (
-                                <div key={catName} className="space-y-3">
-                                  {catName && (
-                                    <div className="flex items-center gap-1.5 border-b border-gray-900 pb-1.5 px-1 mt-4 first:mt-0">
-                                      <span className="text-[10px] font-extrabold text-pink-500 uppercase tracking-widest">
-                                        {catName}
-                                      </span>
-                                    </div>
-                                  )}
+                              {renderCategoriesList.map((catName) => {
+                                const vars = groups[catName] || [];
+                                if (vars.length === 0) return null;
+                                return (
+                                  <div key={catName || 'default'} className="space-y-3">
+                                    {catName && (
+                                      <div className="flex items-center gap-1.5 border-b border-gray-900 pb-1.5 px-1 mt-4 first:mt-0">
+                                        <span className="text-[10px] font-extrabold text-pink-500 uppercase tracking-widest">
+                                          {catName}
+                                        </span>
+                                      </div>
+                                    )}
                                   
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     {vars.map((v) => {
@@ -1100,7 +1118,8 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                                     })}
                                   </div>
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           );
                         })()}
