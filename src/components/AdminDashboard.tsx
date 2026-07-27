@@ -274,6 +274,10 @@ const AdminDashboard: React.FC = () => {
   const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null);
   const [draggedPackageCategoryKey, setDraggedPackageCategoryKey] = useState<string | null>(null);
   const [draggedPackageVariationId, setDraggedPackageVariationId] = useState<string | null>(null);
+  const [dragOverPackageVariationId, setDragOverPackageVariationId] = useState<string | null>(null);
+  const [packageVariationDropPosition, setPackageVariationDropPosition] = useState<'before' | 'after' | null>(null);
+  const [dragOverCategoryKey, setDragOverCategoryKey] = useState<string | null>(null);
+  const [categoryDropPosition, setCategoryDropPosition] = useState<'before' | 'after' | null>(null);
   const touchDropTargetRef = useRef<{ type: 'category' | 'package'; key?: string; variationId?: string } | null>(null);
   const touchDraggingCategoryKeyRef = useRef<string | null>(null);
   const touchDraggingVariationIdRef = useRef<string | null>(null);
@@ -431,6 +435,68 @@ const AdminDashboard: React.FC = () => {
     const next = [...sorted];
     next.splice(fromIdx, 1);
     next.splice(toIdx, 0, draggedKey);
+    const getKey = (v: Variation) => {
+      if (v.category && v.category.startsWith('__temp_empty_')) return v.category;
+      if (!v.category || v.category.trim() === '') return UNNAMED;
+      return v.category;
+    };
+    const updatedVariations = formData.variations.map((v) => {
+      const key = getKey(v);
+      const i = next.indexOf(key);
+      return i === -1 ? v : { ...v, sort: i };
+    });
+    setFormData((prev) => ({ ...prev, variations: updatedVariations }));
+  }, [formData.variations]);
+
+  const handleReorderPackagesWithPosition = useCallback((categoryVariations: Variation[], draggedId: string, targetId: string, position: 'before' | 'after') => {
+    if (!formData.variations) return;
+    if (draggedId === targetId) return;
+    const fromIdx = categoryVariations.findIndex((v) => v.id === draggedId);
+    const toIdx = categoryVariations.findIndex((v) => v.id === targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const next = [...categoryVariations];
+    const [removed] = next.splice(fromIdx, 1);
+    
+    const newTargetIdx = next.findIndex((v) => v.id === targetId);
+    const insertIdx = position === 'before' ? newTargetIdx : newTargetIdx + 1;
+    next.splice(insertIdx, 0, removed);
+    
+    const updatedVariations = formData.variations.map((v) => {
+      const i = next.findIndex((n) => n.id === v.id);
+      if (i === -1) return v;
+      return { ...v, sort_order: i };
+    });
+    setFormData((prev) => ({ ...prev, variations: updatedVariations }));
+  }, [formData.variations]);
+
+  const handleReorderPackageCategoriesWithPosition = useCallback((draggedKey: string, targetKey: string, position: 'before' | 'after') => {
+    if (!formData.variations || formData.variations.length === 0) return;
+    if (draggedKey === targetKey) return;
+    const UNNAMED = '__unnamed_category__';
+    const grouped: Record<string, { variations: Variation[] }> = {};
+    formData.variations.forEach((v) => {
+      let key: string;
+      if (v.category && v.category.startsWith('__temp_empty_')) key = v.category;
+      else if (!v.category || v.category.trim() === '') key = UNNAMED;
+      else key = v.category;
+      if (!grouped[key]) grouped[key] = { variations: [] };
+      grouped[key].variations.push(v);
+    });
+    const sorted = Object.keys(grouped).sort((a, b) => {
+      const sortA = Math.min(...grouped[a].variations.map((v) => (v.sort != null ? v.sort : 999)));
+      const sortB = Math.min(...grouped[b].variations.map((v) => (v.sort != null ? v.sort : 999)));
+      return sortA - sortB;
+    });
+    const fromIdx = sorted.indexOf(draggedKey);
+    const toIdx = sorted.indexOf(targetKey);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const next = [...sorted];
+    next.splice(fromIdx, 1);
+    
+    const newTargetIdx = next.indexOf(targetKey);
+    const insertIdx = position === 'before' ? newTargetIdx : newTargetIdx + 1;
+    next.splice(insertIdx, 0, draggedKey);
+
     const getKey = (v: Variation) => {
       if (v.category && v.category.startsWith('__temp_empty_')) return v.category;
       if (!v.category || v.category.trim() === '') return UNNAMED;
@@ -1502,41 +1568,75 @@ const AdminDashboard: React.FC = () => {
 
                                         const isCategoryCollapsed = collapsedCategories[category] ?? false;
                                         const stableKey = categoryVariations[0]?.id || `category-${category}`;
-
-                                        return (
-                                          <div
-                                            key={stableKey}
-                                            className={`border border-gray-200 rounded-lg p-4 bg-white shadow-sm transition-all duration-200 ${
-                                              draggedPackageCategoryKey === category ? 'opacity-40 border-dashed border-pink-300' : ''
-                                            }`}
-                                            draggable
-                                            onDragStart={(e) => {
-                                              setDraggedPackageCategoryKey(category);
-                                              e.dataTransfer.effectAllowed = 'move';
-                                              e.dataTransfer.setData('text/plain', category);
-                                            }}
+                                        const isCategoryDragTarget = dragOverCategoryKey === category;
+                                        const isCategoryDragged = draggedPackageCategoryKey === category;
+                                        const categorySpacer = (
+                                          <div 
+                                            className="h-[75px] border-2 border-dashed border-pink-400 rounded-lg bg-pink-50/10 flex items-center justify-center text-xs text-pink-500 font-semibold transition-all duration-200 animate-pulse my-2"
                                             onDragOver={(e) => {
                                               e.preventDefault();
                                               e.dataTransfer.dropEffect = 'move';
                                             }}
                                             onDrop={(e) => {
                                               e.preventDefault();
-                                              const targetKey = category;
-                                              if (draggedPackageCategoryKey && draggedPackageCategoryKey !== targetKey) {
-                                                handleReorderPackageCategories(draggedPackageCategoryKey, targetKey);
+                                              if (draggedPackageCategoryKey && draggedPackageCategoryKey !== category && categoryDropPosition) {
+                                                handleReorderPackageCategoriesWithPosition(draggedPackageCategoryKey, category, categoryDropPosition);
                                               }
                                               setDraggedPackageCategoryKey(null);
-                                            }}
-                                            onDragEnd={() => {
-                                              setDraggedPackageCategoryKey(null);
+                                              setDragOverCategoryKey(null);
+                                              setCategoryDropPosition(null);
                                             }}
                                           >
+                                            Move category here
+                                          </div>
+                                        );
+
+                                        return (
+                                          <React.Fragment key={stableKey}>
+                                            {isCategoryDragTarget && categoryDropPosition === 'before' && !isCategoryDragged && categorySpacer}
+                                            <div
+                                              className={`border border-gray-200 rounded-lg p-4 bg-white shadow-sm transition-all duration-200 ${
+                                                isCategoryDragged ? 'opacity-20 border-dashed border-gray-300' : ''
+                                              }`}
+                                              onDragOver={(e) => {
+                                                if (!draggedPackageCategoryKey) return;
+                                                e.preventDefault();
+                                                e.dataTransfer.dropEffect = 'move';
+                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                const relativeY = e.clientY - rect.top;
+                                                const isAbove = relativeY < rect.height / 2;
+                                                setDragOverCategoryKey(category);
+                                                setCategoryDropPosition(isAbove ? 'before' : 'after');
+                                              }}
+                                              onDrop={(e) => {
+                                                if (!draggedPackageCategoryKey) return;
+                                                e.preventDefault();
+                                                const targetKey = category;
+                                                if (draggedPackageCategoryKey && draggedPackageCategoryKey !== targetKey && categoryDropPosition) {
+                                                  handleReorderPackageCategoriesWithPosition(draggedPackageCategoryKey, targetKey, categoryDropPosition);
+                                                }
+                                                setDraggedPackageCategoryKey(null);
+                                                setDragOverCategoryKey(null);
+                                                setCategoryDropPosition(null);
+                                              }}
+                                            >
                                             {/* Category Header */}
                                             <div className="flex flex-row items-center gap-2 mb-4 pb-3 border-b border-gray-100">
                                               {/* Grip Handle */}
                                               <span 
                                                 className="inline-flex cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 mr-1"
                                                 title="Drag to reorder category"
+                                                draggable
+                                                onDragStart={(e) => {
+                                                  setDraggedPackageCategoryKey(category);
+                                                  e.dataTransfer.effectAllowed = 'move';
+                                                  e.dataTransfer.setData('text/plain', category);
+                                                }}
+                                                onDragEnd={() => {
+                                                  setDraggedPackageCategoryKey(null);
+                                                  setDragOverCategoryKey(null);
+                                                  setCategoryDropPosition(null);
+                                                }}
                                               >
                                                 <GripVertical className="h-4.5 w-4.5" />
                                               </span>
@@ -1606,184 +1706,222 @@ const AdminDashboard: React.FC = () => {
                                               <div className="space-y-3">
                                                 {[...categoryVariations]
                                                   .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-                                                  .map((variation) => (
-                                                    <div 
-                                                      key={variation.id} 
-                                                      className={`p-3 bg-gray-50 rounded-lg space-y-3 border border-gray-200 transition-all duration-200 ${
-                                                        draggedPackageVariationId === variation.id ? 'opacity-40 border-dashed border-pink-300' : ''
-                                                      }`}
-                                                      draggable
-                                                      onDragStart={(e) => {
-                                                        setDraggedPackageVariationId(variation.id);
-                                                        e.dataTransfer.effectAllowed = 'move';
-                                                        e.dataTransfer.setData('text/plain', variation.id);
-                                                      }}
-                                                      onDragOver={(e) => {
-                                                        e.preventDefault();
-                                                        e.dataTransfer.dropEffect = 'move';
-                                                      }}
-                                                      onDrop={(e) => {
-                                                        e.preventDefault();
-                                                        const targetId = variation.id;
-                                                        if (draggedPackageVariationId && draggedPackageVariationId !== targetId) {
-                                                          handleReorderPackagesInCategory(categoryVariations, draggedPackageVariationId, targetId);
-                                                        }
-                                                        setDraggedPackageVariationId(null);
-                                                      }}
-                                                      onDragEnd={() => {
-                                                        setDraggedPackageVariationId(null);
-                                                      }}
-                                                    >
-                                                      {/* Product Info Row */}
-                                                      <div className="flex flex-row items-center gap-2">
-                                                        {/* Grip Handle */}
-                                                        <span 
-                                                          className="inline-flex cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 mr-1"
-                                                          title="Drag to reorder package"
-                                                        >
-                                                          <GripVertical className="h-4.5 w-4.5" />
-                                                        </span>
-                                                        <input
-                                                          type="text"
-                                                          value={variation.name || ''}
-                                                          onChange={(e) => updateVariation(variation.id, 'name', e.target.value)}
-                                                          className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
-                                                          placeholder="Product name"
-                                                        />
-                                                        <button
-                                                          type="button"
-                                                          onClick={() => removeVariation(variation.id)}
-                                                          className="p-2 text-orange-500 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors duration-200 flex-shrink-0"
-                                                          aria-label="Remove package"
-                                                        >
-                                                          <Trash2 className="h-4 w-4" />
-                                                        </button>
+                                                  .map((variation) => {
+                                                    const isVarDragTarget = dragOverPackageVariationId === variation.id;
+                                                    const isVarDragged = draggedPackageVariationId === variation.id;
+                                                    const packageSpacer = (
+                                                      <div 
+                                                        className="h-[100px] border-2 border-dashed border-pink-400 rounded-lg bg-pink-50/10 flex items-center justify-center text-xs text-pink-500 font-semibold transition-all duration-200 animate-pulse my-2"
+                                                        onDragOver={(e) => {
+                                                          e.preventDefault();
+                                                          e.dataTransfer.dropEffect = 'move';
+                                                        }}
+                                                        onDrop={(e) => {
+                                                          e.preventDefault();
+                                                          if (draggedPackageVariationId && draggedPackageVariationId !== variation.id && packageVariationDropPosition) {
+                                                            handleReorderPackagesWithPosition(categoryVariations, draggedPackageVariationId, variation.id, packageVariationDropPosition);
+                                                          }
+                                                          setDraggedPackageVariationId(null);
+                                                          setDragOverPackageVariationId(null);
+                                                          setPackageVariationDropPosition(null);
+                                                        }}
+                                                      >
+                                                        Move package here
                                                       </div>
+                                                    );
 
-                                                      {/* Pricing Row */}
-                                                      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                                                        <div>
-                                                          <label className="block text-xs font-medium text-gray-700 mb-1">Price</label>
-                                                          <input
-                                                            type="number"
-                                                            value={variation.price !== undefined && variation.price !== null && variation.price !== 0 ? variation.price : ''}
-                                                            onChange={(e) => {
-                                                              const value = e.target.value === '' ? undefined : Number(e.target.value);
-                                                              updateVariation(variation.id, 'price', value);
-                                                            }}
-                                                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
-                                                            placeholder="0"
-                                                            min="0"
-                                                            step="0.01"
-                                                          />
-                                                        </div>
-                                                        <div>
-                                                          <label className="block text-xs font-medium text-gray-700 mb-1">Member</label>
-                                                          <input
-                                                            type="number"
-                                                            value={variation.member_price !== undefined && variation.member_price !== null ? variation.member_price : ''}
-                                                            onChange={(e) => {
-                                                              const value = e.target.value === '' ? undefined : Number(e.target.value);
-                                                              updateVariation(variation.id, 'member_price', value);
-                                                            }}
-                                                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
-                                                            placeholder="0"
-                                                            min="0"
-                                                            step="0.01"
-                                                          />
-                                                        </div>
-                                                        <div>
-                                                          <label className="block text-xs font-medium text-gray-700 mb-1">VIP</label>
-                                                          <input
-                                                            type="number"
-                                                            value={variation.reseller_price !== undefined && variation.reseller_price !== null ? variation.reseller_price : ''}
-                                                            onChange={(e) => {
-                                                              const value = e.target.value === '' ? undefined : Number(e.target.value);
-                                                              updateVariation(variation.id, 'reseller_price', value);
-                                                            }}
-                                                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
-                                                            placeholder="0"
-                                                            min="0"
-                                                            step="0.01"
-                                                          />
-                                                        </div>
-                                                      </div>
-
-                                                      {/* Region Assignment Dropdown */}
-                                                      {formData.regions && formData.regions.length > 0 && (
-                                                        <div className="mb-2">
-                                                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Region Assignment</label>
-                                                          <select
-                                                            value={variation.region || ''}
-                                                            onChange={(e) => {
-                                                              const val = e.target.value || null;
-                                                              updateVariation(variation.id, 'region', val);
-                                                            }}
-                                                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
-                                                          >
-                                                            <option value="">Global / All Regions</option>
-                                                            {formData.regions.map((r) => (
-                                                              <option key={r.id} value={r.name}>
-                                                                {r.name}
-                                                              </option>
-                                                            ))}
-                                                          </select>
-                                                        </div>
-                                                      )}
-
-                                                      {/* Description */}
-                                                      <textarea
-                                                        value={variation.description || ''}
-                                                        onChange={(e) => updateVariation(variation.id, 'description', e.target.value)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs resize-y text-black mb-2"
-                                                        placeholder="Package description (optional)"
-                                                        rows={2}
-                                                      />
-
-                                                      {/* Badge */}
-                                                      <div className="flex flex-wrap items-center gap-4 pt-1">
-                                                        <label className="flex items-center gap-2 cursor-pointer group">
-                                                          <div className="relative flex items-center">
-                                                            <input
-                                                              type="checkbox"
-                                                              checked={!!variation.badge_text}
-                                                              onChange={(e) => {
-                                                                const isChecked = e.target.checked;
-                                                                updateVariation(variation.id, 'badge_text', isChecked ? 'PROMO' : null);
-                                                                if (isChecked && !variation.badge_color) {
-                                                                  updateVariation(variation.id, 'badge_color', '#EC4899');
-                                                                }
+                                                    return (
+                                                      <React.Fragment key={variation.id}>
+                                                        {isVarDragTarget && packageVariationDropPosition === 'before' && !isVarDragged && packageSpacer}
+                                                        <div 
+                                                          className={`relative p-3 bg-gray-50 rounded-lg space-y-3 border border-gray-200 transition-all duration-200 ${
+                                                            isVarDragged ? 'opacity-40 border-dashed border-pink-300' : ''
+                                                          }`}
+                                                          onDragOver={(e) => {
+                                                            if (!draggedPackageVariationId) return;
+                                                            e.preventDefault();
+                                                            e.dataTransfer.dropEffect = 'move';
+                                                            const rect = e.currentTarget.getBoundingClientRect();
+                                                            const relativeY = e.clientY - rect.top;
+                                                            const isAbove = relativeY < rect.height / 2;
+                                                            setDragOverPackageVariationId(variation.id);
+                                                            setPackageVariationDropPosition(isAbove ? 'before' : 'after');
+                                                          }}
+                                                          onDrop={(e) => {
+                                                            if (!draggedPackageVariationId) return;
+                                                            e.preventDefault();
+                                                            if (draggedPackageVariationId && draggedPackageVariationId !== variation.id && packageVariationDropPosition) {
+                                                              handleReorderPackagesWithPosition(categoryVariations, draggedPackageVariationId, variation.id, packageVariationDropPosition);
+                                                            }
+                                                            setDraggedPackageVariationId(null);
+                                                            setDragOverPackageVariationId(null);
+                                                            setPackageVariationDropPosition(null);
+                                                          }}
+                                                        >
+                                                        {/* Product Info Row */}
+                                                        <div className="flex flex-row items-center gap-2">
+                                                            {/* Grip Handle */}
+                                                            <span 
+                                                              className="inline-flex cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 mr-1"
+                                                              title="Drag to reorder package"
+                                                              draggable
+                                                              onDragStart={(e) => {
+                                                                setDraggedPackageVariationId(variation.id);
+                                                                e.dataTransfer.effectAllowed = 'move';
+                                                                e.dataTransfer.setData('text/plain', variation.id);
                                                               }}
-                                                              className="sr-only peer"
-                                                            />
-                                                            <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-green-600"></div>
-                                                          </div>
-                                                          <span className="text-[10px] font-medium text-gray-600 group-hover:text-gray-800 transition-colors">Badge</span>
-                                                        </label>
-
-                                                        {variation.badge_text !== null && variation.badge_text !== undefined && (
-                                                          <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-1 duration-200">
+                                                              onDragEnd={() => {
+                                                                setDraggedPackageVariationId(null);
+                                                                setDragOverPackageVariationId(null);
+                                                                setPackageVariationDropPosition(null);
+                                                              }}
+                                                            >
+                                                              <GripVertical className="h-4.5 w-4.5" />
+                                                            </span>
                                                             <input
                                                               type="text"
-                                                              value={variation.badge_text || ''}
-                                                              onChange={(e) => updateVariation(variation.id, 'badge_text', e.target.value)}
-                                                              className="w-24 px-2 py-1 border border-gray-300 rounded text-[10px] text-black focus:ring-1 focus:ring-green-500 focus:border-transparent"
-                                                              placeholder="Label"
+                                                              value={variation.name || ''}
+                                                              onChange={(e) => updateVariation(variation.id, 'name', e.target.value)}
+                                                              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
+                                                              placeholder="Product name"
                                                             />
-                                                            <div className="flex items-center gap-1.5">
+                                                            <button
+                                                              type="button"
+                                                              onClick={() => removeVariation(variation.id)}
+                                                              className="p-2 text-orange-500 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors duration-200 flex-shrink-0"
+                                                              aria-label="Remove package"
+                                                            >
+                                                              <Trash2 className="h-4 w-4" />
+                                                            </button>
+                                                          </div>
+
+                                                          {/* Pricing Row */}
+                                                          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                                                            <div>
+                                                              <label className="block text-xs font-medium text-gray-700 mb-1">Price</label>
                                                               <input
-                                                                type="color"
-                                                                value={variation.badge_color || '#EC4899'}
-                                                                onChange={(e) => updateVariation(variation.id, 'badge_color', e.target.value)}
-                                                                className="h-5 w-5 border-0 p-0 bg-transparent cursor-pointer rounded-sm overflow-hidden"
+                                                                type="number"
+                                                                value={variation.price !== undefined && variation.price !== null && variation.price !== 0 ? variation.price : ''}
+                                                                onChange={(e) => {
+                                                                  const value = e.target.value === '' ? undefined : Number(e.target.value);
+                                                                  updateVariation(variation.id, 'price', value);
+                                                                }}
+                                                                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
+                                                                placeholder="0"
+                                                                min="0"
+                                                                step="0.01"
                                                               />
-                                                              <span className="text-[9px] text-gray-500 font-mono uppercase">{variation.badge_color || '#EC4899'}</span>
+                                                            </div>
+                                                            <div>
+                                                              <label className="block text-xs font-medium text-gray-700 mb-1">Member</label>
+                                                              <input
+                                                                type="number"
+                                                                value={variation.member_price !== undefined && variation.member_price !== null ? variation.member_price : ''}
+                                                                onChange={(e) => {
+                                                                  const value = e.target.value === '' ? undefined : Number(e.target.value);
+                                                                  updateVariation(variation.id, 'member_price', value);
+                                                                }}
+                                                                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
+                                                                placeholder="0"
+                                                                min="0"
+                                                                step="0.01"
+                                                              />
+                                                            </div>
+                                                            <div>
+                                                              <label className="block text-xs font-medium text-gray-700 mb-1">VIP</label>
+                                                              <input
+                                                                type="number"
+                                                                value={variation.reseller_price !== undefined && variation.reseller_price !== null ? variation.reseller_price : ''}
+                                                                onChange={(e) => {
+                                                                  const value = e.target.value === '' ? undefined : Number(e.target.value);
+                                                                  updateVariation(variation.id, 'reseller_price', value);
+                                                                }}
+                                                                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
+                                                                placeholder="0"
+                                                                min="0"
+                                                                step="0.01"
+                                                              />
                                                             </div>
                                                           </div>
-                                                        )}
-                                                      </div>
-                                                    </div>
-                                                  ))}
+
+                                                          {/* Region Assignment Dropdown */}
+                                                          {formData.regions && formData.regions.length > 0 && (
+                                                            <div className="mb-2">
+                                                              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Region Assignment</label>
+                                                              <select
+                                                                value={variation.region || ''}
+                                                                onChange={(e) => {
+                                                                  const val = e.target.value || null;
+                                                                  updateVariation(variation.id, 'region', val);
+                                                                }}
+                                                                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs text-black"
+                                                              >
+                                                                <option value="">Global / All Regions</option>
+                                                                {formData.regions.map((r) => (
+                                                                  <option key={r.id} value={r.name}>
+                                                                    {r.name}
+                                                                  </option>
+                                                                ))}
+                                                              </select>
+                                                            </div>
+                                                          )}
+
+                                                          {/* Description */}
+                                                          <textarea
+                                                            value={variation.description || ''}
+                                                            onChange={(e) => updateVariation(variation.id, 'description', e.target.value)}
+                                                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs resize-y text-black mb-2"
+                                                            placeholder="Package description (optional)"
+                                                            rows={2}
+                                                          />
+
+                                                          {/* Badge */}
+                                                          <div className="flex flex-wrap items-center gap-4 pt-1">
+                                                            <label className="flex items-center gap-2 cursor-pointer group">
+                                                              <div className="relative flex items-center">
+                                                                <input
+                                                                  type="checkbox"
+                                                                  checked={!!variation.badge_text}
+                                                                  onChange={(e) => {
+                                                                    const isChecked = e.target.checked;
+                                                                    updateVariation(variation.id, 'badge_text', isChecked ? 'PROMO' : null);
+                                                                    if (isChecked && !variation.badge_color) {
+                                                                      updateVariation(variation.id, 'badge_color', '#EC4899');
+                                                                    }
+                                                                  }}
+                                                                  className="sr-only peer"
+                                                                />
+                                                                <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-green-600"></div>
+                                                              </div>
+                                                              <span className="text-[10px] font-medium text-gray-600 group-hover:text-gray-800 transition-colors">Badge</span>
+                                                            </label>
+
+                                                            {variation.badge_text !== null && variation.badge_text !== undefined && (
+                                                              <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-1 duration-200">
+                                                                <input
+                                                                  type="text"
+                                                                  value={variation.badge_text || ''}
+                                                                  onChange={(e) => updateVariation(variation.id, 'badge_text', e.target.value)}
+                                                                  className="w-24 px-2 py-1 border border-gray-300 rounded text-[10px] text-black focus:ring-1 focus:ring-green-500 focus:border-transparent"
+                                                                  placeholder="Label"
+                                                                />
+                                                                <div className="flex items-center gap-1.5">
+                                                                  <input
+                                                                    type="color"
+                                                                    value={variation.badge_color || '#EC4899'}
+                                                                    onChange={(e) => updateVariation(variation.id, 'badge_color', e.target.value)}
+                                                                    className="h-5 w-5 border-0 p-0 bg-transparent cursor-pointer rounded-sm overflow-hidden"
+                                                                  />
+                                                                  <span className="text-[9px] text-gray-500 font-mono uppercase">{variation.badge_color || '#EC4899'}</span>
+                                                                </div>
+                                                              </div>
+                                                            )}
+                                                          </div>
+                                                        </div>
+                                                         {isVarDragTarget && packageVariationDropPosition === 'after' && !isVarDragged && packageSpacer}
+                                                       </React.Fragment>
+                                                     );
+                                                   })}
 
                                                 {/* Add Package to Category Button */}
                                                 <button
@@ -1814,6 +1952,8 @@ const AdminDashboard: React.FC = () => {
                                               </div>
                                             )}
                                           </div>
+                                          {isCategoryDragTarget && categoryDropPosition === 'after' && !isCategoryDragged && categorySpacer}
+                                          </React.Fragment>
                                         );
                                       })}
                                     </div>

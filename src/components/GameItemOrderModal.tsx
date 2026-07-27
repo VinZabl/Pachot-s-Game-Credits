@@ -851,7 +851,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                             <div key={accIdx} className="space-y-3 p-3.5 bg-black/30 border border-gray-900 rounded-lg relative">
                               <div className="flex items-center justify-between mb-2">
                                 <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
-                                  {firstFieldLabel} #{accIdx + 1}
+                                  ACCOUNT #{accIdx + 1}
                                 </span>
                                 {accounts.length > 1 && (
                                   <button
@@ -866,7 +866,10 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
                               <div className="space-y-3">
                                 {item.customFields?.map((field) => (
-                                  <div key={field.key} className="space-y-1">
+                                  <div key={field.key} className="space-y-1 text-left">
+                                    <span className="text-[10px] text-gray-500 font-extrabold uppercase tracking-wider pl-1">
+                                      {field.label}
+                                    </span>
                                     <input
                                       type="text"
                                       placeholder={field.placeholder || `Enter ${field.label}`}
