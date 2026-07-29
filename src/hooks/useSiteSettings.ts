@@ -45,6 +45,10 @@ export const useSiteSettings = () => {
         how_to_order_step_2: data.find(s => s.id === 'how_to_order_step_2')?.value || 'Select Items',
         how_to_order_step_3: data.find(s => s.id === 'how_to_order_step_3')?.value || 'Choose Payment Method',
         how_to_order_step_4: data.find(s => s.id === 'how_to_order_step_4')?.value || 'Submit Order',
+        announcement_active: (data.find(s => s.id === 'announcement_active')?.value || 'false') === 'true',
+        announcement_title: data.find(s => s.id === 'announcement_title')?.value || '',
+        announcement_text: data.find(s => s.id === 'announcement_text')?.value || '',
+        announcement_image: data.find(s => s.id === 'announcement_image')?.value || '',
       };
 
       setSiteSettings(settings);
@@ -60,19 +64,11 @@ export const useSiteSettings = () => {
     try {
       setError(null);
 
-      // Use upsert for store_closed so the row is created if it doesn't exist yet
-      if (id === 'store_closed') {
-        const { error } = await supabase
-          .from('site_settings')
-          .upsert({ id: 'store_closed', value, type: 'text', description: 'When true, customer page is closed (no ordering/browsing)' }, { onConflict: 'id' });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('site_settings')
-          .update({ value })
-          .eq('id', id);
-        if (error) throw error;
-      }
+      // Use upsert so that any key is created automatically if it does not exist yet
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert({ id, value, type: 'text', description: `Site setting for ${id}` }, { onConflict: 'id' });
+      if (error) throw error;
 
       // Refresh the settings
       await fetchSiteSettings();
@@ -90,8 +86,15 @@ export const useSiteSettings = () => {
       const updatePromises = Object.entries(updates).map(([key, value]) =>
         supabase
           .from('site_settings')
-          .update({ value })
-          .eq('id', key)
+          .upsert(
+            { 
+              id: key, 
+              value: typeof value === 'boolean' ? String(value) : (value || ''), 
+              type: 'text', 
+              description: `Site setting for ${key}` 
+            }, 
+            { onConflict: 'id' }
+          )
       );
 
       const results = await Promise.all(updatePromises);

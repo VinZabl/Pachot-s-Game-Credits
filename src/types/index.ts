@@ -135,6 +135,11 @@ export interface SiteSettings {
   how_to_order_step_2?: string;
   how_to_order_step_3?: string;
   how_to_order_step_4?: string;
+  // Announcement Modal
+  announcement_active?: boolean;
+  announcement_title?: string;
+  announcement_text?: string;
+  announcement_image?: string;
 }
 
 // Order Types

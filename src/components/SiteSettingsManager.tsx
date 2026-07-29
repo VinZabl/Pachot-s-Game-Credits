@@ -27,10 +27,16 @@ const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({ onTestNotific
     how_to_order_step_1: '',
     how_to_order_step_2: '',
     how_to_order_step_3: '',
-    how_to_order_step_4: ''
+    how_to_order_step_4: '',
+    announcement_active: false,
+    announcement_title: '',
+    announcement_text: '',
+    announcement_image: ''
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>('');
+  const [announcementFile, setAnnouncementFile] = useState<File | null>(null);
+  const [announcementPreview, setAnnouncementPreview] = useState<string>('');
   
   // Hero images state
   const [heroImages, setHeroImages] = useState<{
@@ -89,9 +95,14 @@ const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({ onTestNotific
         how_to_order_step_1: siteSettings.how_to_order_step_1 || 'Enter user ID',
         how_to_order_step_2: siteSettings.how_to_order_step_2 || 'Select Items',
         how_to_order_step_3: siteSettings.how_to_order_step_3 || 'Choose Payment Method',
-        how_to_order_step_4: siteSettings.how_to_order_step_4 || 'Submit Order'
+        how_to_order_step_4: siteSettings.how_to_order_step_4 || 'Submit Order',
+        announcement_active: siteSettings.announcement_active || false,
+        announcement_title: siteSettings.announcement_title || '',
+        announcement_text: siteSettings.announcement_text || '',
+        announcement_image: siteSettings.announcement_image || ''
       });
       setLogoPreview(siteSettings.site_logo);
+      setAnnouncementPreview(siteSettings.announcement_image || '');
       setHeroImages({
         hero_image_1: siteSettings.hero_image_1 || '',
         hero_image_2: siteSettings.hero_image_2 || '',
@@ -120,6 +131,23 @@ const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({ onTestNotific
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleAnnouncementImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAnnouncementFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setAnnouncementPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveAnnouncementImage = () => {
+    setAnnouncementPreview('');
+    setAnnouncementFile(null);
   };
 
   const handleHeroImageChange = (imageKey: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -158,6 +186,13 @@ const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({ onTestNotific
         }
       }
 
+      // Upload announcement image if selected
+      let announcementImageUrl = announcementPreview;
+      if (announcementFile) {
+        const uploadedUrl = await uploadImage(announcementFile, 'hero-images');
+        announcementImageUrl = uploadedUrl;
+      }
+
       // Update all settings
       await updateSiteSettings({
         site_name: formData.site_name,
@@ -182,9 +217,14 @@ const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({ onTestNotific
         how_to_order_step_2: formData.how_to_order_step_2,
         how_to_order_step_3: formData.how_to_order_step_3,
         how_to_order_step_4: formData.how_to_order_step_4,
+        announcement_active: formData.announcement_active,
+        announcement_title: formData.announcement_title,
+        announcement_text: formData.announcement_text,
+        announcement_image: announcementImageUrl
       });
 
       setLogoFile(null);
+      setAnnouncementFile(null);
       setHeroFiles({
         hero_image_1: null,
         hero_image_2: null,
@@ -215,9 +255,15 @@ const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({ onTestNotific
         how_to_order_step_1: siteSettings.how_to_order_step_1 || 'Enter user ID',
         how_to_order_step_2: siteSettings.how_to_order_step_2 || 'Select Items',
         how_to_order_step_3: siteSettings.how_to_order_step_3 || 'Choose Payment Method',
-        how_to_order_step_4: siteSettings.how_to_order_step_4 || 'Submit Order'
+        how_to_order_step_4: siteSettings.how_to_order_step_4 || 'Submit Order',
+        announcement_active: siteSettings.announcement_active || false,
+        announcement_title: siteSettings.announcement_title || '',
+        announcement_text: siteSettings.announcement_text || '',
+        announcement_image: siteSettings.announcement_image || ''
       });
       setLogoPreview(siteSettings.site_logo);
+      setAnnouncementPreview(siteSettings.announcement_image || '');
+      setAnnouncementFile(null);
       setHeroImages({
         hero_image_1: siteSettings.hero_image_1 || '',
         hero_image_2: siteSettings.hero_image_2 || '',
@@ -677,6 +723,103 @@ const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({ onTestNotific
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black text-sm"
                   placeholder="Submit Order"
                 />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Announcement Modal Settings */}
+        <div className="border-t border-gray-200 pt-6 mt-6">
+          <h3 className="text-lg font-semibold text-black mb-2">Announcement Modal Settings</h3>
+          <p className="text-xs text-gray-600 mb-4">
+            Configure the Announcement Modal that will be displayed to users before the order instructions when they visit the page.
+          </p>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.announcement_active}
+                  onChange={(e) => setFormData(prev => ({ ...prev, announcement_active: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-pink-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-pink-600"></div>
+              </label>
+              <span className="text-xs font-semibold text-gray-700">Enable Announcement Modal</span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">
+                Announcement Title
+              </label>
+              <input
+                type="text"
+                name="announcement_title"
+                value={formData.announcement_title}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-black text-sm"
+                placeholder="ANNOUNCEMENT"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">
+                Announcement Text / Content
+              </label>
+              <textarea
+                name="announcement_text"
+                value={formData.announcement_text}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-black text-sm"
+                placeholder="Enter announcement message here..."
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">
+                Announcement Photo / Image
+              </label>
+              <div className="flex items-start gap-3">
+                <div className="w-24 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center border border-gray-200">
+                  {announcementPreview ? (
+                    <img
+                      src={announcementPreview}
+                      alt="Announcement Preview"
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <span className="text-[10px] text-gray-400 font-bold">No Image</span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <label className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-bold cursor-pointer border border-gray-300 flex items-center gap-1.5 transition-colors">
+                      <Upload className="h-3.5 w-3.5" />
+                      <span>Choose File</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAnnouncementImageChange}
+                        className="hidden"
+                      />
+                    </label>
+                    {announcementPreview && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveAnnouncementImage}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
+                        title="Remove image"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-gray-500">
+                    Recommended ratio: 4:3 or landscape banner. Max size 5MB.
+                  </span>
+                </div>
               </div>
             </div>
           </div>
