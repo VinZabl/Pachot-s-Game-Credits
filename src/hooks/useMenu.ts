@@ -61,7 +61,8 @@ export const useMenu = () => {
             sort: v.sort !== null && v.sort !== undefined ? v.sort : undefined,
             badge_text: v.badge_text || undefined,
             badge_color: v.badge_color || undefined,
-            region: v.region || undefined
+            region: v.region || undefined,
+            is_active: v.is_active !== false
           })) || []).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
           customFields: (item.custom_fields as CustomField[]) || [],
           subtitle: item.subtitle || undefined,
@@ -131,7 +132,8 @@ export const useMenu = () => {
               sort: v.sort !== null && v.sort !== undefined ? v.sort : null,
               badge_text: v.badge_text || null,
               badge_color: v.badge_color || null,
-              region: v.region || null
+              region: v.region || null,
+              is_active: v.is_active !== false
             }))
           );
 
@@ -199,7 +201,8 @@ export const useMenu = () => {
               sort: v.sort !== null && v.sort !== undefined ? v.sort : null,
               badge_text: v.badge_text || null,
               badge_color: v.badge_color || null,
-              region: v.region || null
+              region: v.region || null,
+              is_active: v.is_active !== false
             }))
           );
 
@@ -262,7 +265,9 @@ export const useMenu = () => {
           category: v.category,
           sort: v.sort,
           badge_text: v.badge_text,
-          badge_color: v.badge_color
+          badge_color: v.badge_color,
+          region: v.region,
+          is_active: v.is_active
         })) || [],
         customFields: originalItem.customFields || [],
         subtitle: originalItem.subtitle,

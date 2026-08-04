@@ -69,13 +69,14 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
   const hasCustomFields = item.customFields && item.customFields.length > 0;
   const firstFieldLabel = hasCustomFields ? item.customFields![0].label : 'Account';
 
-  // Filter variations by selected region
+  // Filter variations by active status and selected region
   const filteredVariations = useMemo(() => {
     if (!item.variations) return [];
+    const activeOnly = item.variations.filter((v) => v.is_active !== false);
     if (!item.regions || item.regions.length === 0 || !selectedRegion) {
-      return item.variations;
+      return activeOnly;
     }
-    return item.variations.filter((v) => !v.region || v.region === selectedRegion);
+    return activeOnly.filter((v) => !v.region || v.region === selectedRegion);
   }, [item.variations, item.regions, selectedRegion]);
 
   const categories = useMemo(() => {

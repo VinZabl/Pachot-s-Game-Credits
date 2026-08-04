@@ -12,6 +12,7 @@ export interface Variation {
   badge_text?: string;
   badge_color?: string;
   region?: string;
+  is_active?: boolean;
 }
 
 export interface MenuItemRegion {
