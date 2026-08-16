@@ -176,7 +176,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       Object.entries(vMap).forEach(([vId, qty]) => {
         const v = item.variations?.find((x) => x.id === vId);
         if (v) {
-          const selectedSubName = selectedSubItems[accIdx]?.[v.id];
+          const selectedSubName = selectedSubItems[accIdx]?.[v.id] || (v.sub_items && v.sub_items.length > 0 ? v.sub_items[0].name : undefined);
           const subItem = selectedSubName && v.sub_items ? v.sub_items.find(sub => sub.name === selectedSubName) : undefined;
           const baselinePrice = subItem ? subItem.price : v.price;
           sum += getDiscountedPrice(baselinePrice, v) * qty;
@@ -184,7 +184,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       });
     });
     return sum;
-  }, [selections, accounts, item.variations, currentMember]);
+  }, [selections, accounts, item.variations, currentMember, selectedSubItems]);
 
   // Check if player details form is filled
   const isDetailsValid = useMemo(() => {
