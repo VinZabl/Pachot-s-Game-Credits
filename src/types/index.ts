@@ -13,6 +13,13 @@ export interface Variation {
   badge_color?: string;
   region?: string;
   is_active?: boolean;
+  sub_items?: SubItem[];
+  selectedSubItem?: string;
+}
+
+export interface SubItem {
+  name: string;
+  price: number;
 }
 
 export interface MenuItemRegion {

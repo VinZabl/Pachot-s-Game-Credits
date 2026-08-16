@@ -592,11 +592,11 @@ const AdminDashboard: React.FC = () => {
       } else {
         price = v.price;
       }
-      // Price must be a valid number greater than 0
-      return !price || price <= 0 || isNaN(price);
+      // Price must be a valid number greater than or equal to 0
+      return price < 0 || isNaN(price);
     });
     if (invalidPackages.length > 0) {
-      alert('Please fill in all currency package names and set valid prices (greater than 0)');
+      alert('Please fill in all currency package names and set valid prices (greater than or equal to 0)');
       return;
     }
 
@@ -1930,6 +1930,70 @@ const AdminDashboard: React.FC = () => {
                                                                   <span className="text-[9px] text-gray-500 font-mono uppercase">{variation.badge_color || '#EC4899'}</span>
                                                                 </div>
                                                               </div>
+                                                            )}
+                                                          </div>
+                                                          
+                                                          {/* Sub Options with prices */}
+                                                          <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                                                            <div className="flex items-center justify-between">
+                                                              <label className="block text-[10px] font-bold text-gray-700 uppercase tracking-wider">Sub Items / Options</label>
+                                                              <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                  const currentSubs = variation.sub_items || [];
+                                                                  updateVariation(variation.id, 'sub_items', [...currentSubs, { name: '', price: 0 }]);
+                                                                }}
+                                                                className="text-[10px] text-green-600 hover:text-green-700 font-extrabold flex items-center gap-1 transition-colors uppercase tracking-wider"
+                                                              >
+                                                                <Plus className="h-3 w-3" />
+                                                                <span>Add Option</span>
+                                                              </button>
+                                                            </div>
+                                                            
+                                                            {(variation.sub_items || []).length > 0 ? (
+                                                              <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                                                                {(variation.sub_items || []).map((sub, sIdx) => (
+                                                                  <div key={sIdx} className="flex items-center gap-2 animate-in fade-in duration-200">
+                                                                    <input
+                                                                      type="text"
+                                                                      value={sub.name}
+                                                                      onChange={(e) => {
+                                                                        const updatedSubs = [...(variation.sub_items || [])];
+                                                                        updatedSubs[sIdx] = { ...updatedSubs[sIdx], name: e.target.value };
+                                                                        updateVariation(variation.id, 'sub_items', updatedSubs);
+                                                                      }}
+                                                                      className="flex-1 min-w-0 px-2 py-1 border border-gray-300 rounded text-xs text-black focus:ring-1 focus:ring-green-500 focus:border-transparent"
+                                                                      placeholder="Option Name"
+                                                                    />
+                                                                    <div className="relative flex items-center w-24">
+                                                                      <span className="absolute left-2 text-[10px] text-gray-400">₱</span>
+                                                                      <input
+                                                                        type="number"
+                                                                        value={sub.price || ''}
+                                                                        onChange={(e) => {
+                                                                          const updatedSubs = [...(variation.sub_items || [])];
+                                                                          updatedSubs[sIdx] = { ...updatedSubs[sIdx], price: Number(e.target.value) || 0 };
+                                                                          updateVariation(variation.id, 'sub_items', updatedSubs);
+                                                                        }}
+                                                                        className="w-full pl-5 pr-2 py-1 border border-gray-300 rounded text-xs text-black focus:ring-1 focus:ring-green-500 focus:border-transparent"
+                                                                        placeholder="Price"
+                                                                      />
+                                                                    </div>
+                                                                    <button
+                                                                      type="button"
+                                                                      onClick={() => {
+                                                                        const updatedSubs = (variation.sub_items || []).filter((_, i) => i !== sIdx);
+                                                                        updateVariation(variation.id, 'sub_items', updatedSubs.length > 0 ? updatedSubs : null);
+                                                                      }}
+                                                                      className="p-1 text-red-600 hover:bg-red-50 rounded border border-transparent hover:border-red-200 transition-all flex-shrink-0"
+                                                                    >
+                                                                      <Trash2 className="h-3.5 w-3.5" />
+                                                                    </button>
+                                                                  </div>
+                                                                ))}
+                                                              </div>
+                                                            ) : (
+                                                              <p className="text-[10px] text-gray-400 italic">No sub-items added yet.</p>
                                                             )}
                                                           </div>
                                                         </div>

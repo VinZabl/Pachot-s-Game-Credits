@@ -62,7 +62,8 @@ export const useMenu = () => {
             badge_text: v.badge_text || undefined,
             badge_color: v.badge_color || undefined,
             region: v.region || undefined,
-            is_active: v.is_active !== false
+            is_active: v.is_active !== false,
+            sub_items: Array.isArray(v.sub_items) ? v.sub_items : undefined
           })) || []).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
           customFields: (item.custom_fields as CustomField[]) || [],
           subtitle: item.subtitle || undefined,
@@ -133,7 +134,8 @@ export const useMenu = () => {
               badge_text: v.badge_text || null,
               badge_color: v.badge_color || null,
               region: v.region || null,
-              is_active: v.is_active !== false
+              is_active: v.is_active !== false,
+              sub_items: v.sub_items || null
             }))
           );
 
@@ -202,7 +204,8 @@ export const useMenu = () => {
               badge_text: v.badge_text || null,
               badge_color: v.badge_color || null,
               region: v.region || null,
-              is_active: v.is_active !== false
+              is_active: v.is_active !== false,
+              sub_items: v.sub_items || null
             }))
           );
 
@@ -267,7 +270,8 @@ export const useMenu = () => {
           badge_text: v.badge_text,
           badge_color: v.badge_color,
           region: v.region,
-          is_active: v.is_active
+          is_active: v.is_active,
+          sub_items: v.sub_items
         })) || [],
         customFields: originalItem.customFields || [],
         subtitle: originalItem.subtitle,

@@ -41,6 +41,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
 
   // Selections state: maps account index to Record<variationId, quantity>
   const [selections, setSelections] = useState<Record<number, Record<string, number>>>({ 0: {} });
+  const [selectedSubItems, setSelectedSubItems] = useState<Record<number, Record<string, string>>>({});
 
   const [paymentMethodId, setPaymentMethodId] = useState<string | null>(null);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -175,7 +176,10 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       Object.entries(vMap).forEach(([vId, qty]) => {
         const v = item.variations?.find((x) => x.id === vId);
         if (v) {
-          sum += getDiscountedPrice(v.price, v) * qty;
+          const selectedSubName = selectedSubItems[accIdx]?.[v.id];
+          const subItem = selectedSubName && v.sub_items ? v.sub_items.find(sub => sub.name === selectedSubName) : undefined;
+          const baselinePrice = subItem ? subItem.price : v.price;
+          sum += getDiscountedPrice(baselinePrice, v) * qty;
         }
       });
     });
@@ -365,9 +369,13 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       Object.entries(accSelections).forEach(([vId, qty]) => {
         const v = item.variations?.find((x) => x.id === vId);
         if (v) {
-          const price = getDiscountedPrice(v.price, v);
+          const selectedSub = selectedSubItems[accIdx]?.[vId] || (v.sub_items && v.sub_items.length > 0 ? v.sub_items[0].name : undefined);
+          const subItemObj = selectedSub ? v.sub_items?.find(x => x.name === selectedSub) : undefined;
+          const baselinePrice = subItemObj ? subItemObj.price : v.price;
+          const price = getDiscountedPrice(baselinePrice, v);
+          const displayName = selectedSub ? `${v.name} (${selectedSub})` : v.name;
           userTotal += price * qty;
-          orderNames.push(`${v.name} (₱${price.toFixed(0)}) ${qty}x`);
+          orderNames.push(`${displayName} (₱${price.toFixed(0)}) ${qty}x`);
         }
       });
       grandTotal += userTotal;
@@ -408,11 +416,18 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
       Object.entries(accSelections).forEach(([vId, qty]) => {
         const v = item.variations?.find((x) => x.id === vId);
         if (!v) return;
-        const unitP = getDiscountedPrice(v.price, v);
-        
+
+        const selectedSub = selectedSubItems[accIdx]?.[vId] || (v.sub_items && v.sub_items.length > 0 ? v.sub_items[0].name : undefined);
+        const subItemObj = selectedSub ? v.sub_items?.find(x => x.name === selectedSub) : undefined;
+        const baselinePrice = subItemObj ? subItemObj.price : v.price;
+        const unitP = getDiscountedPrice(baselinePrice, v);
+
+        const packageName = selectedSub ? `${v.name} (${selectedSub})` : v.name;
+        const variationWithSub = selectedSub ? { ...v, name: packageName, selectedSubItem: selectedSub } : v;
+
         multipleAccountsData.push({ 
           game: item.name, 
-          package: v.name, 
+          package: packageName, 
           region: selectedRegion || undefined,
           fields 
         });
@@ -422,7 +437,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
             ...item,
             id: `${item.id}:::CART:::${Date.now()}-${accIdx}-${vId}-${q}-${Math.random().toString(36).slice(2)}`,
             quantity: 1,
-            selectedVariation: v,
+            selectedVariation: variationWithSub,
             totalPrice: unitP,
           });
         }
@@ -519,16 +534,23 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
         Object.entries(accSelections).forEach(([vId, qty]) => {
           const v = item.variations?.find((x) => x.id === vId);
           if (!v) return;
-          const unitP = getDiscountedPrice(v.price, v);
 
-          multipleAccountsData.push({ game: item.name, package: v.name, fields });
+          const selectedSub = selectedSubItems[accIdx]?.[vId] || (v.sub_items && v.sub_items.length > 0 ? v.sub_items[0].name : undefined);
+          const subItemObj = selectedSub ? v.sub_items?.find(x => x.name === selectedSub) : undefined;
+          const baselinePrice = subItemObj ? subItemObj.price : v.price;
+          const unitP = getDiscountedPrice(baselinePrice, v);
+
+          const packageName = selectedSub ? `${v.name} (${selectedSub})` : v.name;
+          const variationWithSub = selectedSub ? { ...v, name: packageName, selectedSubItem: selectedSub } : v;
+
+          multipleAccountsData.push({ game: item.name, package: packageName, fields });
 
           for (let q = 0; q < qty; q++) {
             orderItems.push({
               ...item,
               id: `${item.id}:::CART:::${Date.now()}-${accIdx}-${vId}-${q}-${Math.random().toString(36).slice(2)}`,
               quantity: 1,
-              selectedVariation: v,
+              selectedVariation: variationWithSub,
               totalPrice: unitP,
             });
           }
@@ -888,11 +910,15 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                                   <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Selected Items:</p>
                                   <div className="space-y-1.5">
                                     {selectedVariations.map(({ variation, quantity }) => {
-                                      const price = getDiscountedPrice(variation.price, variation);
+                                      const selectedSub = selectedSubItems[accIdx]?.[variation.id] || (variation.sub_items && variation.sub_items.length > 0 ? variation.sub_items[0].name : undefined);
+                                      const subItemObj = selectedSub ? variation.sub_items?.find(x => x.name === selectedSub) : undefined;
+                                      const baselinePrice = subItemObj ? subItemObj.price : variation.price;
+                                      const price = getDiscountedPrice(baselinePrice, variation);
+                                      const displayName = selectedSub ? `${variation.name} (${selectedSub})` : variation.name;
                                       return (
                                         <div key={variation.id} className="flex items-center justify-between bg-black/40 px-3 py-2 rounded-lg border border-gray-900">
                                           <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-bold text-white truncate">{variation.name}</p>
+                                            <p className="text-xs font-bold text-white truncate">{displayName}</p>
                                             <p className="text-[10px] font-semibold text-[#ff007f]">{quantity}x — ₱{(price * quantity).toFixed(0)}</p>
                                           </div>
                                           <button
@@ -1040,81 +1066,133 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                                   
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     {vars.map((v) => {
-                                      const price = getDiscountedPrice(v.price, v);
                                       const isChecked = !!accSelections[v.id];
                                       const qty = accSelections[v.id] || 0;
+
+                                      // Only apply sub-item price override if the package is selected/checked
+                                      const selectedSubName = isChecked 
+                                        ? (selectedSubItems[accIdx]?.[v.id] || (v.sub_items && v.sub_items.length > 0 ? v.sub_items[0].name : undefined))
+                                        : undefined;
+                                      const subItemObj = selectedSubName ? v.sub_items?.find(x => x.name === selectedSubName) : undefined;
+                                      const baselinePrice = subItemObj ? subItemObj.price : v.price;
+                                      const price = getDiscountedPrice(baselinePrice, v);
 
                                       return (
                                         <div
                                           key={v.id}
                                           onClick={() => handleProductToggle(accIdx, v.id, !isChecked)}
-                                          className={`relative rounded-xl border p-3 flex items-center gap-3 transition-all duration-200 bg-[#0d0d0d] cursor-pointer ${
+                                          className={`relative rounded-xl border p-3 flex flex-col gap-2.5 transition-all duration-200 bg-[#0d0d0d] cursor-pointer ${
                                             isChecked
                                               ? 'border-pink-500 bg-[#2c1524]/20'
                                               : 'border-gray-800/80 hover:border-pink-500/50'
                                           }`}
                                         >
-                                          {/* Checkbox wrapper */}
-                                          <div className="flex items-center justify-center w-5 h-5 rounded border border-gray-800 bg-transparent relative flex-shrink-0">
+                                          <div className="flex items-center gap-3 w-full">
+                                            {/* Checkbox wrapper */}
+                                            <div className="flex items-center justify-center w-5 h-5 rounded border border-gray-800 bg-transparent relative flex-shrink-0">
+                                              {isChecked && (
+                                                <div className="absolute inset-0 bg-[#ff007f] rounded flex items-center justify-center">
+                                                  <Check className="w-3.5 h-3.5 text-white stroke-[3px]" />
+                                                </div>
+                                              )}
+                                            </div>
+
+                                            {/* Product info */}
+                                            <div className="flex-1 min-w-0">
+                                              <p className="font-semibold text-xs sm:text-sm md:text-xs text-white truncate">
+                                                {v.name}
+                                              </p>
+                                              {v.description && (
+                                                <p className="text-[10px] text-gray-400 mt-0.5 leading-relaxed whitespace-pre-line">
+                                                  {v.description}
+                                                </p>
+                                              )}
+                                              {price > 0 && (
+                                                <p className="text-red-500 font-bold text-xs sm:text-sm mt-0.5">
+                                                  ₱{price.toFixed(0)}
+                                                </p>
+                                              )}
+                                            </div>
+
+                                            {/* Variation Badge */}
+                                            {v.badge_text && !isChecked && (
+                                              <div
+                                                className="px-2 py-0.5 rounded border text-[7px] font-black uppercase tracking-widest flex-shrink-0"
+                                                style={{
+                                                  borderColor: v.badge_color || '#ff007f',
+                                                  color: v.badge_color || '#ff007f',
+                                                  backgroundColor: 'rgba(255, 0, 127, 0.05)'
+                                                }}
+                                              >
+                                                {v.badge_text}
+                                              </div>
+                                            )}
+
+                                            {/* Quantity adjusters */}
                                             {isChecked && (
-                                              <div className="absolute inset-0 bg-[#ff007f] rounded flex items-center justify-center">
-                                                <Check className="w-3.5 h-3.5 text-white stroke-[3px]" />
+                                              <div 
+                                                className="flex items-center gap-0 rounded-lg overflow-hidden border border-gray-800 bg-[#161922]/50 flex-shrink-0"
+                                                onClick={(e) => e.stopPropagation()}
+                                              >
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleQuantityChange(accIdx, v.id, -1)}
+                                                  className="w-7 h-7 flex items-center justify-center bg-gray-900/60 hover:bg-pink-500/10 text-gray-400 hover:text-pink-500 font-bold text-sm border-r border-gray-800 transition-colors"
+                                                >
+                                                  −
+                                                </button>
+                                                <span className="w-7 text-center text-xs font-black text-white">
+                                                  {qty}
+                                                </span>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleQuantityChange(accIdx, v.id, 1)}
+                                                  className="w-7 h-7 flex items-center justify-center bg-gray-900/60 hover:bg-pink-500/10 text-gray-400 hover:text-pink-500 font-bold text-sm border-l border-gray-800 transition-colors"
+                                                >
+                                                  +
+                                                </button>
                                               </div>
                                             )}
                                           </div>
 
-                                          {/* Product info */}
-                                          <div className="flex-1 min-w-0">
-                                            <p className="font-semibold text-xs sm:text-sm md:text-xs text-white truncate">
-                                              {v.name}
-                                            </p>
-                                            {v.description && (
-                                              <p className="text-[10px] text-gray-400 mt-0.5 leading-relaxed whitespace-pre-line">
-                                                {v.description}
-                                              </p>
-                                            )}
-                                            <p className="text-red-500 font-bold text-xs sm:text-sm mt-0.5">
-                                              ₱{price.toFixed(0)}
-                                            </p>
-                                          </div>
-
-                                          {/* Variation Badge */}
-                                          {v.badge_text && !isChecked && (
-                                            <div
-                                              className="px-2 py-0.5 rounded border text-[7px] font-black uppercase tracking-widest flex-shrink-0"
-                                              style={{
-                                                borderColor: v.badge_color || '#ff007f',
-                                                color: v.badge_color || '#ff007f',
-                                                backgroundColor: 'rgba(255, 0, 127, 0.05)'
-                                              }}
-                                            >
-                                              {v.badge_text}
-                                            </div>
-                                          )}
-
-                                          {/* Quantity adjusters */}
-                                          {isChecked && (
+                                          {/* Dropdown select box for sub-items */}
+                                          {v.sub_items && v.sub_items.length > 0 && (
                                             <div 
-                                              className="flex items-center gap-0 rounded-lg overflow-hidden border border-gray-800 bg-[#161922]/50 flex-shrink-0"
+                                              className="w-full mt-2.5 relative z-10"
                                               onClick={(e) => e.stopPropagation()}
                                             >
-                                              <button
-                                                type="button"
-                                                onClick={() => handleQuantityChange(accIdx, v.id, -1)}
-                                                className="w-7 h-7 flex items-center justify-center bg-gray-900/60 hover:bg-pink-500/10 text-gray-400 hover:text-pink-500 font-bold text-sm border-r border-gray-800 transition-colors"
+                                              <select
+                                                value={selectedSubItems[accIdx]?.[v.id] || v.sub_items[0].name}
+                                                onFocus={() => {
+                                                  if (!isChecked) {
+                                                    handleProductToggle(accIdx, v.id, true);
+                                                  }
+                                                }}
+                                                onChange={(e) => {
+                                                  const val = e.target.value;
+                                                  setSelectedSubItems(prev => ({
+                                                    ...prev,
+                                                    [accIdx]: {
+                                                      ...(prev[accIdx] || {}),
+                                                      [v.id]: val
+                                                    }
+                                                  }));
+                                                  // Auto-select variation if not already checked
+                                                  if (!isChecked) {
+                                                    handleProductToggle(accIdx, v.id, true);
+                                                  }
+                                                }}
+                                                className="w-full px-3 py-2.5 bg-[#121212] border border-gray-800 rounded-lg text-xs font-semibold text-gray-200 focus:outline-none focus:border-pink-500 transition-colors cursor-pointer tracking-wider"
                                               >
-                                                −
-                                              </button>
-                                              <span className="w-7 text-center text-xs font-black text-white">
-                                                {qty}
-                                              </span>
-                                              <button
-                                                type="button"
-                                                onClick={() => handleQuantityChange(accIdx, v.id, 1)}
-                                                className="w-7 h-7 flex items-center justify-center bg-gray-900/60 hover:bg-pink-500/10 text-gray-400 hover:text-pink-500 font-bold text-sm border-l border-gray-800 transition-colors"
-                                              >
-                                                +
-                                              </button>
+                                                {v.sub_items.map((sub, sIdx) => {
+                                                  const subPrice = getDiscountedPrice(sub.price, v);
+                                                  return (
+                                                    <option key={sIdx} value={sub.name} className="py-2">
+                                                      {sub.name}{'\u00A0'}{'\u00A0'}{'\u00A0'}{'\u00A0'}{'\u00A0'}{'\u00A0'}{'\u00A0'}{'\u00A0'}{'\u00A0'}{'\u00A0'}₱{subPrice.toFixed(0)}
+                                                    </option>
+                                                  );
+                                                })}
+                                              </select>
                                             </div>
                                           )}
                                         </div>
@@ -1152,8 +1230,12 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                           .map(([vId, qty]) => {
                             const v = item.variations?.find((x) => x.id === vId);
                             if (!v) return null;
-                            const price = getDiscountedPrice(v.price, v);
-                            return { name: v.name, qty, price };
+                            const selectedSub = selectedSubItems[accIdx]?.[vId] || (v.sub_items && v.sub_items.length > 0 ? v.sub_items[0].name : undefined);
+                            const subItemObj = selectedSub ? v.sub_items?.find(x => x.name === selectedSub) : undefined;
+                            const baselinePrice = subItemObj ? subItemObj.price : v.price;
+                            const price = getDiscountedPrice(baselinePrice, v);
+                            const name = selectedSub ? `${v.name} (${selectedSub})` : v.name;
+                            return { name, qty, price };
                           })
                           .filter(Boolean) as Array<{ name: string; qty: number; price: number }>;
 
@@ -1434,7 +1516,10 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                       const selectedVariationsList = Object.entries(accSelections)
                         .map(([vId, qty]) => {
                           const v = item.variations?.find((x) => x.id === vId);
-                          return v ? { name: v.name, qty } : null;
+                          if (!v) return null;
+                          const selectedSub = selectedSubItems[accIdx]?.[vId] || (v.sub_items && v.sub_items.length > 0 ? v.sub_items[0].name : undefined);
+                          const name = selectedSub ? `${v.name} (${selectedSub})` : v.name;
+                          return { name, qty };
                         })
                         .filter(Boolean);
 
@@ -1481,7 +1566,11 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                           {(() => {
                             const userSubtotal = Object.entries(accSelections).reduce((sum, [vId, qty]) => {
                               const v = item.variations?.find((x) => x.id === vId);
-                              return v ? sum + getDiscountedPrice(v.price, v) * qty : sum;
+                              if (!v) return sum;
+                              const selectedSub = selectedSubItems[accIdx]?.[vId] || (v.sub_items && v.sub_items.length > 0 ? v.sub_items[0].name : undefined);
+                              const subItemObj = selectedSub ? v.sub_items?.find(x => x.name === selectedSub) : undefined;
+                              const baselinePrice = subItemObj ? subItemObj.price : v.price;
+                              return sum + getDiscountedPrice(baselinePrice, v) * qty;
                             }, 0);
                             return (
                               <div className="grid grid-cols-3 gap-2">
