@@ -1911,6 +1911,21 @@ const AdminDashboard: React.FC = () => {
                                                               <span className="text-[10px] font-medium text-gray-600 group-hover:text-gray-800 transition-colors">Badge</span>
                                                             </label>
 
+                                                            <label className="flex items-center gap-2 cursor-pointer group">
+                                                              <div className="relative flex items-center">
+                                                                <input
+                                                                  type="checkbox"
+                                                                  checked={!!variation.disable_quantity}
+                                                                  onChange={(e) => {
+                                                                    updateVariation(variation.id, 'disable_quantity', e.target.checked);
+                                                                  }}
+                                                                  className="sr-only peer"
+                                                                />
+                                                                <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-green-600"></div>
+                                                              </div>
+                                                              <span className="text-[10px] font-medium text-gray-600 group-hover:text-gray-800 transition-colors">Turn off quantity</span>
+                                                            </label>
+
                                                             {variation.badge_text !== null && variation.badge_text !== undefined && (
                                                               <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-1 duration-200">
                                                                 <input
@@ -1979,6 +1994,19 @@ const AdminDashboard: React.FC = () => {
                                                                         placeholder="Price"
                                                                       />
                                                                     </div>
+                                                                    <label className="flex items-center gap-1 cursor-pointer flex-shrink-0 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">
+                                                                      <input
+                                                                        type="checkbox"
+                                                                        checked={!!sub.disable_quantity}
+                                                                        onChange={(e) => {
+                                                                          const updatedSubs = [...(variation.sub_items || [])];
+                                                                          updatedSubs[sIdx] = { ...updatedSubs[sIdx], disable_quantity: e.target.checked };
+                                                                          updateVariation(variation.id, 'sub_items', updatedSubs);
+                                                                        }}
+                                                                        className="h-3 w-3 rounded text-green-600 border-gray-300 focus:ring-green-500 cursor-pointer"
+                                                                      />
+                                                                      <span className="text-[9px] text-gray-500 font-bold select-none cursor-pointer uppercase tracking-wide">No Qty</span>
+                                                                    </label>
                                                                     <button
                                                                       type="button"
                                                                       onClick={() => {

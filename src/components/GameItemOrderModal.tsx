@@ -1069,10 +1069,12 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                                       const isChecked = !!accSelections[v.id];
                                       const qty = accSelections[v.id] || 0;
 
+                                      const activeSubName = selectedSubItems[accIdx]?.[v.id] || (v.sub_items && v.sub_items.length > 0 ? v.sub_items[0].name : undefined);
+                                      const activeSubObj = activeSubName ? v.sub_items?.find(x => x.name === activeSubName) : undefined;
+                                      const isQtyDisabled = activeSubObj ? !!activeSubObj.disable_quantity : !!v.disable_quantity;
+
                                       // Only apply sub-item price override if the package is selected/checked
-                                      const selectedSubName = isChecked 
-                                        ? (selectedSubItems[accIdx]?.[v.id] || (v.sub_items && v.sub_items.length > 0 ? v.sub_items[0].name : undefined))
-                                        : undefined;
+                                      const selectedSubName = isChecked ? activeSubName : undefined;
                                       const subItemObj = selectedSubName ? v.sub_items?.find(x => x.name === selectedSubName) : undefined;
                                       const baselinePrice = subItemObj ? subItemObj.price : v.price;
                                       const price = getDiscountedPrice(baselinePrice, v);
@@ -1114,7 +1116,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                                               )}
                                             </div>
 
-                                            {/* Variation Badge */}
+                                          {/* Variation Badge */}
                                             {v.badge_text && !isChecked && (
                                               <div
                                                 className="px-2 py-0.5 rounded border text-[7px] font-black uppercase tracking-widest flex-shrink-0"
@@ -1129,7 +1131,7 @@ const GameItemOrderModal: React.FC<GameItemOrderModalProps> = ({
                                             )}
 
                                             {/* Quantity adjusters */}
-                                            {isChecked && (
+                                            {isChecked && !isQtyDisabled && (
                                               <div 
                                                 className="flex items-center gap-0 rounded-lg overflow-hidden border border-gray-800 bg-[#161922]/50 flex-shrink-0"
                                                 onClick={(e) => e.stopPropagation()}

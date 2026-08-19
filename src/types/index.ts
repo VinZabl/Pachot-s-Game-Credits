@@ -15,11 +15,13 @@ export interface Variation {
   is_active?: boolean;
   sub_items?: SubItem[];
   selectedSubItem?: string;
+  disable_quantity?: boolean;
 }
 
 export interface SubItem {
   name: string;
   price: number;
+  disable_quantity?: boolean;
 }
 
 export interface MenuItemRegion {

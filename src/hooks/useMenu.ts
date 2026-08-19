@@ -63,7 +63,8 @@ export const useMenu = () => {
             badge_color: v.badge_color || undefined,
             region: v.region || undefined,
             is_active: v.is_active !== false,
-            sub_items: Array.isArray(v.sub_items) ? v.sub_items : undefined
+            sub_items: Array.isArray(v.sub_items) ? v.sub_items : undefined,
+            disable_quantity: !!v.disable_quantity
           })) || []).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
           customFields: (item.custom_fields as CustomField[]) || [],
           subtitle: item.subtitle || undefined,
@@ -135,7 +136,8 @@ export const useMenu = () => {
               badge_color: v.badge_color || null,
               region: v.region || null,
               is_active: v.is_active !== false,
-              sub_items: v.sub_items || null
+              sub_items: v.sub_items || null,
+              disable_quantity: !!v.disable_quantity
             }))
           );
 
@@ -205,7 +207,8 @@ export const useMenu = () => {
               badge_color: v.badge_color || null,
               region: v.region || null,
               is_active: v.is_active !== false,
-              sub_items: v.sub_items || null
+              sub_items: v.sub_items || null,
+              disable_quantity: !!v.disable_quantity
             }))
           );
 
@@ -271,7 +274,8 @@ export const useMenu = () => {
           badge_color: v.badge_color,
           region: v.region,
           is_active: v.is_active,
-          sub_items: v.sub_items
+          sub_items: v.sub_items,
+          disable_quantity: v.disable_quantity
         })) || [],
         customFields: originalItem.customFields || [],
         subtitle: originalItem.subtitle,
